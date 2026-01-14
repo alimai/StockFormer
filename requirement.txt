@@ -13,4 +13,5 @@ wrds==3.1.6
 xlrd==2.0.1
 yfinance==0.1.67
 int-date==0.1.8
-matplotlib
+matplotlib==3.7.5
+tensorboard==2.14.0
