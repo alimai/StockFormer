@@ -613,7 +613,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                     action_noise.reset()
 
                 # # Log training infos
-                self.logger.record(key="train/collect_reward", value=episode_reward[0])
                 # if log_interval is not None and self._episode_num % log_interval == 0:
                 self._dump_logs()
 
