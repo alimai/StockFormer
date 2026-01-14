@@ -577,6 +577,12 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 self.num_timesteps += 1
                 episode_timesteps += 1
                 num_collected_steps += 1
+                episode_reward += reward
+
+                if done:
+                    # Log training infos
+                    self.logger.record(key="train/collect_reward", value=episode_reward[0])
+                    self._dump_logs()#输出各种loss信息(同时将self.logger信息写入文件)
 
                 # Give access to local variables
                 callback.update_locals(locals())
@@ -584,7 +590,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 if callback.on_step() is False:
                     return RolloutReturn(0.0, num_collected_steps, num_collected_episodes, continue_training=False)
 
-                episode_reward += reward
 
                 # Retrieve reward and episode length if using Monitor wrapper
                 self._update_info_buffer(infos, done)

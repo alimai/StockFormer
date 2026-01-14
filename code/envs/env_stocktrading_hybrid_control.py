@@ -345,7 +345,7 @@ class StockTradingEnv(gym.Env):
     def reset(self):
 
         if self.mode == 'train':
-            self.time_windows_point += 1
+            #self.time_windows_point += 1
             self.start_day = self.time_window_start[self.time_windows_point]
         else:
             self.start_day = self.time_window_start[0]
