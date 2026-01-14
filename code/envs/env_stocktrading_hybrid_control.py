@@ -245,6 +245,7 @@ class StockTradingEnv(gym.Env):
             df_rewards["date"] = self.date_memory[:-1]
 
             if self.episode % self.print_verbosity == 0:
+                print(self.mode)
                 print(f"day: {self.day}, episode: {self.episode}")
                 print(f"begin_total_asset: {self.asset_memory[0]:0.2f}")
                 print(f"end_total_asset: {self.end_total_asset:0.2f}")
@@ -371,6 +372,9 @@ class StockTradingEnv(gym.Env):
         self.date_memory = [self._get_date()]
 
         self.episode += 1
+        print("=================================")
+        print(self.mode, f"day: {self.day}, episode: {self.episode}")
+        print("=================================")
 
         return self.state
 
