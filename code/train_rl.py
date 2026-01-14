@@ -107,6 +107,13 @@ print(f"Stock Dimension: {stock_dimension}, State Space: {state_space}")
 
 tensorboard_log_dir = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac')
 
+# 检测GPU可用性并决定使用GPU还是CPU
+if torch.cuda.is_available():
+    device = 'cuda:0'
+    print(f'使用GPU: {device}')
+else:
+    device = 'cpu'
+    print('GPU不可用,使用CPU')
 
 env_kwargs = {
     "hmax": 100, 
@@ -130,6 +137,7 @@ env_kwargs = {
     "model_name":model_name[:-1],
     "short_prediction_model_path": short_prediction_model_path,
     "long_prediction_model_path": long_prediction_model_path,
+    "device": device,
 }
 
 env_kwargs_test = {
@@ -154,7 +162,7 @@ env_kwargs_test = {
     "model_name":model_name[:-1],
     "short_prediction_model_path":short_prediction_model_path,
     "long_prediction_model_path":long_prediction_model_path,
-
+    "device": device,
 }
 
 
@@ -199,7 +207,7 @@ MAESAC_PARAMS = {
     "d_layers":1,
     "dropout":0.05,
     "transformer_path":mae_model_path,
-
+    "transformer_device": device,
 }
 
 model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)

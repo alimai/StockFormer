@@ -117,7 +117,7 @@ class SAC(OffPolicyAlgorithm):
         d_layers=1,
         d_ff=256,
         dropout=0.05,
-        transformer_device = 'cuda:0',
+        transformer_device = None,
         transformer_path = None,
         critic_alpha=1,
         actor_alpha=0,
@@ -162,6 +162,13 @@ class SAC(OffPolicyAlgorithm):
         if _init_setup_model:
             self._setup_model()
 
+        # 检测GPU可用性并决定使用GPU还是CPU
+        if transformer_device is None:
+            if th.cuda.is_available():
+                transformer_device = 'cuda:0'
+            else:
+                transformer_device = 'cpu'
+
         self.state_transformer = Transformer(enc_in=enc_in, dec_in=dec_in, c_out=c_out_construction, 
                                              n_heads=n_heads, e_layers=e_layers, d_layers=d_layers,
                                              d_model=d_model, d_ff=d_ff, dropout=dropout).to(transformer_device)
@@ -185,8 +192,8 @@ class SAC(OffPolicyAlgorithm):
         self.actor_alpha = actor_alpha
 
 
-        self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate).to(transformer_device)
-        self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate).to(transformer_device)
+        self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device).to(transformer_device)
+        self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device).to(transformer_device)
         
         
         self.in_feat = enc_in

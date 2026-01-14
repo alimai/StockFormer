@@ -52,7 +52,7 @@ class StockTradingEnv(gym.Env):
         initial=True,
         model_name="",
         iteration="",
-        device='cuda:0',
+        device=None,
         print_additional_flag=0,
     ):
         # start time
@@ -100,7 +100,12 @@ class StockTradingEnv(gym.Env):
         self.mode = mode
         self.iteration = iteration
 
-        # load model
+        # load model - 检测GPU可用性并决定使用GPU还是CPU
+        if device is None:
+            if torch.cuda.is_available():
+                device = 'cuda:0'
+            else:
+                device = 'cpu'
         self.device = device
         self.short_prediction_model = self.load_model(short_prediction_model_path).to(self.device)
         self.long_prediction_model = self.load_model(long_prediction_model_path).to(self.device)
@@ -505,7 +510,7 @@ class StockTradingEnv(gym.Env):
         model = PredictionModel(enc_in=enc_in, dec_in=dec_in, c_out=c_out)
 
         if path is not None:
-            state_dict = torch.load(path, map_location='cuda:0')
+            state_dict = torch.load(path, map_location=self.device)
             new_state_dict = OrderedDict()
             for k, v in state_dict.items(): 
                 name = k[7:] 
