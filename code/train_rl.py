@@ -219,7 +219,7 @@ print("Training time: %.3f"%(end-start))
 
 
 
-model_path = os.path.join('trained_models/', version, model_name, 'model30000.zip')
+model_path = os.path.join('trained_models/', version, model_name, 'best_model.zip')
 start = time.time()
 results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',environment=test_trade_gym, cwd=model_path)
 end = time.time()

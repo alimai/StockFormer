@@ -6,3 +6,7 @@ code/.DS_Store
 code/*/*/.DS_Store
 code/*/*/*/.DS_Store
 .DS_Store
+venv/
+.venv/
+.vs/
+code/results2/
