@@ -110,10 +110,8 @@ tensorboard_log_dir = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac')
 # 检测GPU可用性并决定使用GPU还是CPU
 if torch.cuda.is_available():
     device = 'cuda:0'
-    print(f'使用GPU: {device}')
 else:
     device = 'cpu'
-    print('GPU不可用,使用CPU')
 
 env_kwargs = {
     "hmax": 100, 
@@ -131,7 +129,7 @@ env_kwargs = {
     "csv_path": 'results/csv/'+version+model_name,
     "mode":'train',
     "time_window_start":config.time_window_start,
-    "step_len": 1000,
+    "step_len": 500,
     "temporal_len": 60,
     "hidden_channel":128,     
     "model_name":model_name[:-1],
@@ -156,7 +154,7 @@ env_kwargs_test = {
     "csv_path": 'results/csv/'+version+model_name,
     "mode":'test',
     "time_window_start":config.time_window_start,
-    "step_len": 1000,
+    "step_len": 500,
     "temporal_len": 60,
     "hidden_channel":128,     
     "model_name":model_name[:-1],
@@ -182,9 +180,9 @@ test_trade_gym = Env(df = eval, **env_kwargs_test)
 env_test, _ = test_trade_gym.get_sb_env()
 test_eval_sac = VecMonitor(env_test, log_dir+'_test')
 
-test_trade_gym2 = Env(df = train, **env_kwargs_test)
-env_test2, _ = test_trade_gym2.get_sb_env()
-test_eval_sac2 = VecMonitor(env_test2, log_dir+'_test2')
+#test_trade_gym2 = Env(df = train, **env_kwargs_test)
+#env_test2, _ = test_trade_gym2.get_sb_env()
+#test_eval_sac2 = VecMonitor(env_test2, log_dir+'_test2')
 
 e_train_gym = Env(df = train, **env_kwargs)
 env_train, _ = e_train_gym.get_sb_env()
@@ -193,7 +191,7 @@ agent = DRLAgent(env = env_train_sac)
 
 MAESAC_PARAMS = {
     "batch_size": 32,
-    "buffer_size": 50000,
+    "buffer_size": 100000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
@@ -217,7 +215,7 @@ print('Start training...')
 start = time.time()
 trained_sac = agent.train_model(model=model_sac, 
                              tb_log_name=model_name,
-                             check_freq=1000,
+                             check_freq=5000,
                              log_dir=log_dir,
                              ck_dir=ck_dir,
                              eval_env=env_eval_sac,
