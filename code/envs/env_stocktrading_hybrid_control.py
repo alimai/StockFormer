@@ -204,6 +204,26 @@ class StockTradingEnv(gym.Env):
         plt.savefig(self.figure_path+self.mode+"_account_value_trade_{}.png".format(self.episode))
         plt.close()
 
+    def _get_future_price(self, days_ahead=5):
+        """
+        获取未来第N天的价格（用于计算 end_total_asset）
+        
+        :param days_ahead: 向前看的天数，默认5天
+        :return: 未来第N天的价格列表，如果超出数据范围则返回最后一天的价格
+        """
+        max_day = len(self.df.index.unique()) - 1
+        future_day = self.day + days_ahead
+        
+        # 如果未来第N天超出数据范围，使用最后一天的价格
+        if future_day > max_day:
+            future_day = max_day
+        
+        # 获取未来第N天的价格数据
+        future_data = self.df.loc[future_day, :]
+        future_prices = future_data.price.values.tolist()
+        
+        return future_prices
+
     def step(self, actions):
         if self.mode == 'train':
             self.terminal = (self.day - self.start_day) >= self.step_len + 1
@@ -234,7 +254,7 @@ class StockTradingEnv(gym.Env):
                     / df_total_value["daily_return"].std()
                 )
 
-            self.reward = self.reward + self.reward_scaling * ((self.end_total_asset - self.initial_amount)/(self.initial_amount * 1.0))
+            self.reward = self.reward_scaling * ((self.end_total_asset - self.initial_amount)/(self.initial_amount * 1.0))
 
             f1 = open(self.log_name, 'a')
             f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t' + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t' + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
@@ -302,6 +322,14 @@ class StockTradingEnv(gym.Env):
                 np.array(self.info[1 : (self.stock_dim + 1)])
                 * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
             )
+            
+            first_day_prices = np.array(self._get_future_price(days_ahead=1))
+            fifth_day_prices = np.array(self._get_future_price(days_ahead=5))            
+            avg_prices = (first_day_prices + fifth_day_prices) / 2.0
+            asset_for_reward_orig = self.info[0] + sum(
+                avg_prices
+                * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+            )
             # print("begin_total_asset:{}".format(begin_total_asset))
 
             argsort_actions = np.argsort(actions)
@@ -322,23 +350,30 @@ class StockTradingEnv(gym.Env):
 
             self.actions_memory.append(actions)
 
-            # state: s -> s+1
+            # state: s -> s+1 #更新日期和价格信息
             self.day += 1
-            self.data = self.df.loc[self.day, :]
-            self.info = self._update_info()
+            self.data = self.df.loc[self.day, :]#更新日期
+            self.info = self._update_info()#更新价格信息
+            
             self.end_total_asset = self.info[0] + sum(
-                np.array(self.info[1 : (self.stock_dim + 1)])
-                * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+                np.array(self.info[1: (self.stock_dim + 1)])#等于first_day_prices
+                * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
+
+            # 使用第一天和第五天价格的平均值计算 reward
+            asset_for_reward_new = self.info[0] + sum(
+                avg_prices
+                * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
+            )
+            self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))
+            # self.reward = self.reward * self.reward_scaling
 
             self.state = self._update_state()
 
             self.asset_memory.append(self.end_total_asset)
             self.date_memory.append(self._get_date())
-            self.reward = ((self.end_total_asset - begin_total_asset)/(begin_total_asset*1.0))
             self.rewards_memory.append(self.reward)
             self.amount_memory.append(self.info[-self.stock_dim:])
-            # self.reward = self.reward * self.reward_scaling
 
         return self.state, self.reward, self.terminal, {}
 

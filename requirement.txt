@@ -5,9 +5,9 @@ scikit-learn==1.0.1
 statsmodels==0.13.2
 stockstats==0.3.2
 tensorboardX==2.5
-torch==1.9.1
-torchvision==0.10.1
-tqdm==4.19.9
+torch==1.9.0
+torchvision==0.10.0
+tqdm==4.64.0
 wrapt==1.14.1
 wrds==3.1.6
 xlrd==2.0.1

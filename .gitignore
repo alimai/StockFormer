@@ -10,3 +10,5 @@ venv/
 .venv/
 .vs/
 code/results2/
+code/tensorboard_log/
+stockformer_env/

@@ -579,11 +579,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 num_collected_steps += 1
                 episode_reward += reward
 
-                if done:
-                    # Log training infos
-                    self.logger.record(key="train/collect_reward", value=episode_reward[0])
-                    self._dump_logs()#输出各种loss信息(同时将self.logger信息写入文件)
-
                 # Give access to local variables
                 callback.update_locals(locals())
                 # Only stop training if return value is False, not when it is None.
@@ -618,8 +613,9 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                     action_noise.reset()
 
                 # # Log training infos
+                self.logger.record(key="train/collect_reward", value=episode_reward[0])
                 # if log_interval is not None and self._episode_num % log_interval == 0:
-                #     self._dump_logs()
+                self._dump_logs()
 
         mean_reward = np.mean(episode_rewards) if num_collected_episodes > 0 else 0.0
 
