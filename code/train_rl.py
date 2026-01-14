@@ -193,7 +193,7 @@ agent = DRLAgent(env = env_train_sac)
 
 MAESAC_PARAMS = {
     "batch_size": 32,
-    "buffer_size": 100000,
+    "buffer_size": 50000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
