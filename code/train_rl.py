@@ -173,21 +173,26 @@ os.makedirs(log_dir, exist_ok=True)
 os.makedirs(ck_dir, exist_ok=True)
 
 print("Initial Env...")
-eval_trade_gym = Env(df = eval, **env_kwargs_test)
+env_name = "train"
+env_kwargs["mode"] = env_name
+train_trade_gym = Env(df = train, **env_kwargs)
+env_train, _ = train_trade_gym.get_sb_env()
+env_train_vm = VecMonitor(env_train, log_dir+'_train')
+
+env_name = "eval"
+env_kwargs["mode"] = env_name
+env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
+eval_trade_gym = Env(df = eval, **env_kwargs)
 env_eval, _ = eval_trade_gym.get_sb_env()
-env_eval_sac = VecMonitor(env_eval, log_dir+'_eval')
+env_eval_vm = VecMonitor(env_eval, log_dir+'_eval')
 
-test_trade_gym = Env(df = eval, **env_kwargs_test)
-env_test, _ = test_trade_gym.get_sb_env()
-test_eval_sac = VecMonitor(env_test, log_dir+'_test')
+env_name = "test"
+env_kwargs["mode"] = env_name
+env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
+test_trade_gym = Env(df = test, **env_kwargs)
+#env_test, _ = test_trade_gym.get_sb_env()
+#env_test_vm = VecMonitor(env_test, log_dir+'_test')
 
-#test_trade_gym2 = Env(df = train, **env_kwargs_test)
-#env_test2, _ = test_trade_gym2.get_sb_env()
-#test_eval_sac2 = VecMonitor(env_test2, log_dir+'_test2')
-
-e_train_gym = Env(df = train, **env_kwargs)
-env_train, _ = e_train_gym.get_sb_env()
-env_train_sac = VecMonitor(env_train, log_dir+'_train')
 
 MAESAC_PARAMS = {
     "batch_size": 32,
@@ -210,12 +215,12 @@ MAESAC_PARAMS = {
 
 train_mode = True
 if train_mode:
-    agent = DRLAgent(env = env_train_sac)
+    agent = DRLAgent(env = env_train_vm)
     # 检查是否存在已训练的模型，如果存在则加载继续训练
     final_model_path = os.path.join('trained_models/', version+model_name, 'model2000.zip')
     if os.path.exists(final_model_path):
         print(f"load: {final_model_path}...")
-        model_sac = SAC_MAE.load(final_model_path, env=env_train_sac, tensorboard_log=tensorboard_log_dir)
+        model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)
     else:
         model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
 
@@ -229,7 +234,7 @@ if train_mode:
                                 check_freq=5000,
                                 log_dir=log_dir,
                                 ck_dir=ck_dir,
-                                eval_env=env_eval_sac,
+                                eval_env=env_eval_vm,
                                 total_timesteps=30000)
     end = time.time()
     print("Training time: %.3f"%(end-start))
