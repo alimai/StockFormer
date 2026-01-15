@@ -88,12 +88,24 @@ class TensorboardCallback(BaseCallback):
             self.logger.record(key="train/reward", value=self.locals["rewards"][0])
         except BaseException:
             self.logger.record(key="train/reward", value=self.locals["reward"][0])
+        
+        # 检测episode结束：兼容done和dones两种格式
+        # SAC等off-policy算法使用done，PPO等on-policy算法使用dones
+        done_flag = self.locals.get("done") if self.locals.get("done") is not None else self.locals.get("dones")        
+        # 当episode结束且verbose>=1（会输出到命令行）时保存模型
+        if done_flag is not None:
+            # 处理单个环境或多个环境的情况
+            if isinstance(done_flag, (list, np.ndarray)):
+                episode_ended = any(done_flag) if len(done_flag) > 0 else False
+            else:
+                episode_ended = bool(done_flag)
             
-        # # 无条件保存 tmp_model.zip
-        # if self.n_calls % self.check_freq == 0:
-        #     self.model.save(self.save_path+"/tmp_model.zip")
-        #     if self.verbose >= 1:
-        #         print(f"Saving tmp model to {self.save_path}")
+            # 在输出图表到命令行时（verbose>=1）保存模型
+            if episode_ended and self.verbose >= 1:
+                self.model.save(self.save_path + "/tmp_model.zip")
+                if self.verbose >= 1:
+                    print(f"Saving tmp model to {self.save_path}")
+        
         return True
 
 
