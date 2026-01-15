@@ -367,7 +367,7 @@ class StockTradingEnv(gym.Env):
                 avg_prices
                 * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
-            self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))
+            self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))#asset_for_reward_orig,begin_total_asset
             # self.reward = self.reward * self.reward_scaling
 
             self.state = self._update_state()
@@ -382,7 +382,7 @@ class StockTradingEnv(gym.Env):
     def reset(self):
 
         if self.mode == 'train':            
-            #self.time_windows_point += 1#remove for test
+            #self.time_windows_point += 1
             self.start_day = self.time_window_start[self.time_windows_point]
         else:
             self.start_day = self.time_window_start[0]
