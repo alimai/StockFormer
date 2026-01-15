@@ -407,12 +407,24 @@ class SAC(OffPolicyAlgorithm):
         return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
+        # 保存基础 SAC 组件
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
+        
+        # 保存 entropy coefficient 相关
         if self.ent_coef_optimizer is not None:
             saved_pytorch_variables = ["log_ent_coef"]
             state_dicts.append("ent_coef_optimizer")
         else:
             saved_pytorch_variables = ["ent_coef_tensor"]
+        
+        # 保存 SAC_MAE 特有的 Transformer 组件
+        # state_transformer: Transformer 模型及其优化器
+        state_dicts.extend(["state_transformer", "transformer_optim"])
+        
+        # actor_transformer 和 critic_transformer: 每个都有内部的 optimizer
+        state_dicts.extend(["actor_transformer", "actor_transformer.optimizer"])
+        state_dicts.extend(["critic_transformer", "critic_transformer.optimizer"])
+        
         return state_dicts, saved_pytorch_variables
     
     def _state_transfer_predict(self, x):
