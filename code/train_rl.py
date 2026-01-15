@@ -1,7 +1,15 @@
+
+import os
+import sys
+
+import time
+import datetime
+import random
+import torch
+
 import pandas as pd
 import numpy as np
 import matplotlib
-import matplotlib.pyplot as plt
 import pickle as pkl
 matplotlib.use('Agg')
 import datetime
@@ -16,14 +24,6 @@ import pdb
 import stable_baselines3.common.utils as utils 
 from sklearn.preprocessing import StandardScaler
 
-import time
-import random
-import torch
-import numpy as np
-
-import os
-
-import sys
 
 fix_seed = 1999
 version = 'CSI/'
@@ -208,27 +208,31 @@ MAESAC_PARAMS = {
     "transformer_device": device,
 }
 
-agent = DRLAgent(env = env_train_sac)
-# 检查是否存在已训练的模型，如果存在则加载继续训练
-final_model_path = os.path.join('trained_models/', version+model_name, 'model3000.zip')
-if os.path.exists(final_model_path):
-    print(f"load: {final_model_path}...")
-    model_sac = SAC_MAE.load(final_model_path, env=env_train_sac, tensorboard_log=tensorboard_log_dir)
-else:
-    model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
+train_mode = True
+if train_mode:
+    agent = DRLAgent(env = env_train_sac)
+    # 检查是否存在已训练的模型，如果存在则加载继续训练
+    final_model_path = os.path.join('trained_models/', version+model_name, 'model2000.zip')
+    if os.path.exists(final_model_path):
+        print(f"load: {final_model_path}...")
+        model_sac = SAC_MAE.load(final_model_path, env=env_train_sac, tensorboard_log=tensorboard_log_dir)
+    else:
+        model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
 
-print('Start training...')
-start = time.time()
-trained_sac = agent.train_model(model=model_sac, 
-                             tb_log_name=model_name,
-                             check_freq=5000,
-                             log_dir=log_dir,
-                             ck_dir=ck_dir,
-                             eval_env=env_eval_sac,
-                             total_timesteps=30000)
-end = time.time()
-print("Training time: %.3f"%(end-start))
+    timestamp = datetime.datetime.now().strftime("%H%M%S")
+    tb_log_name_with_timestamp = model_name[:-1] + '_' + timestamp + '/'
 
+    print('Start training...')
+    start = time.time()
+    trained_sac = agent.train_model(model=model_sac, 
+                                tb_log_name=tb_log_name_with_timestamp,
+                                check_freq=5000,
+                                log_dir=log_dir,
+                                ck_dir=ck_dir,
+                                eval_env=env_eval_sac,
+                                total_timesteps=30000)
+    end = time.time()
+    print("Training time: %.3f"%(end-start))
 
 
 model_path = os.path.join('trained_models/', version, model_name, 'best_model.zip')
