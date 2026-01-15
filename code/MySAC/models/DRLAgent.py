@@ -79,12 +79,21 @@ class TensorboardCallback(BaseCallback):
 
     def __init__(self, verbose=0):
         super(TensorboardCallback, self).__init__(verbose)
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
 
     def _on_step(self) -> bool:
         try:
             self.logger.record(key="train/reward", value=self.locals["rewards"][0])
         except BaseException:
             self.logger.record(key="train/reward", value=self.locals["reward"][0])
+            
+        # 无条件保存 tmp_model.zip
+        if self.save_path is not None:
+            tmp_model_path = os.path.join(self.save_path, "tmp_model")
+            self.model.save(tmp_model_path)
+            if self.verbose >= 1:
+                print(f"Saving tmp model to {tmp_model_path}.zip")
         return True
 
 

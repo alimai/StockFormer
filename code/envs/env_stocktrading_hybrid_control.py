@@ -229,7 +229,7 @@ class StockTradingEnv(gym.Env):
         if self.mode == 'train':
             self.terminal = (self.day - self.start_day) >= self.step_len + 1
         if not self.terminal:
-            self.terminal = self.day >= len(self.df.index.unique()) - 1
+            self.terminal = self.day >= self.df.index.unique().max()#len(self.df.index.unique()) - 1
             
         if self.terminal:
             # print(f"Episode: {self.episode}")
@@ -381,8 +381,8 @@ class StockTradingEnv(gym.Env):
 
     def reset(self):
 
-        if self.mode == 'train':
-            #self.time_windows_point += 1
+        if self.mode == 'train':            
+            #self.time_windows_point += 1#remove for test
             self.start_day = self.time_window_start[self.time_windows_point]
         else:
             self.start_day = self.time_window_start[0]

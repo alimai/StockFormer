@@ -1,3 +1,5 @@
+
+import os
 import random
 
 version_name = 'CSI'#'N100'#
@@ -75,6 +77,7 @@ USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
 CSI_date = ['20110117', '20180801', '20180508', '20201231',  '20210104', '20220426']
+#CSI_date = ['2011-01-17','2018-12-28', '2019-01-02', '2021-12-31','2018-10-09', '2022-04-16']
 
 date_dict = {'CSI': CSI_date, 'TEST': CSI_date}
 
