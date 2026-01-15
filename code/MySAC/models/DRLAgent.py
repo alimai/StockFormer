@@ -89,10 +89,11 @@ class TensorboardCallback(BaseCallback):
         except BaseException:
             self.logger.record(key="train/reward", value=self.locals["reward"][0])
             
-        # 无条件保存 tmp_model.zip
-        self.model.save(self.save_path+"/tmp_model.zip")
-        if self.verbose >= 1:
-            print(f"Saving tmp model to {self.save_path}")
+        # # 无条件保存 tmp_model.zip
+        # if self.n_calls % self.check_freq == 0:
+        #     self.model.save(self.save_path+"/tmp_model.zip")
+        #     if self.verbose >= 1:
+        #         print(f"Saving tmp model to {self.save_path}")
         return True
 
 
