@@ -302,7 +302,9 @@ class SAC(OffPolicyAlgorithm):
 
             # Get current Q-values estimates for each critic network
             # using action from the replay buffer
-            current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks), replay_data.actions)
+            # 使用 state.detach() 防止 state_transformer 的梯度流回到 critic_loss
+            # 这样可以避免状态表示突然变化导致的 critic_loss 峰值
+            current_q_values = self.critic(self.critic_transformer(state.detach(), temporal_feature_short, temporal_feature_long, holding_stocks), replay_data.actions)
 
             # Compute critic loss
             # pdb.set_trace() # get critic loss item value
@@ -310,15 +312,13 @@ class SAC(OffPolicyAlgorithm):
             critic_losses.append(critic_loss.item())
 
             # pdb.set_trace()
-            # Optimize the critic
+            # Optimize the critic (不更新 state_transformer，避免状态表示突然变化)
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
-            self.transformer_optim.zero_grad()
             critic_loss.backward()
 
             self.critic.optimizer.step()
             self.critic_transformer.optimizer.step()
-            self.transformer_optim.step()
 
             # Compute actor loss
             # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
@@ -340,6 +340,12 @@ class SAC(OffPolicyAlgorithm):
 
             transformerloss = (loss_s + loss_ns)/2
             transformer_losses.append(transformerloss.item())
+            
+            # 单独更新 state_transformer，使用 MAE reconstruction loss
+            # 这样可以避免 state_transformer 的更新影响 critic 的训练稳定性
+            self.transformer_optim.zero_grad()
+            transformerloss.backward()
+            self.transformer_optim.step()
 
             # Update target networks
             if gradient_step % self.target_update_interval == 0:
