@@ -4,7 +4,6 @@ import sys
 
 import time
 import datetime
-import random
 import torch
 
 import pandas as pd
@@ -138,32 +137,6 @@ env_kwargs = {
     "long_prediction_model_path": long_prediction_model_path,
     "device": device,
 }
-
-env_kwargs_test = {
-    "hmax": 100, 
-    "initial_amount": 100000,  
-    "transaction_cost_pct": 0,
-    "state_space": state_space, 
-    "stock_dim": stock_dimension, 
-    "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST, 
-    "temporal_feature_list": config.TEMPORAL_FEATURE,
-    "additional_list": config.ADDITIONAL_FEATURE,
-    "action_space": stock_dimension, 
-    "reward_scaling": 10,
-    "figure_path":'results/figures/'+version+model_name,
-    "logs_path": 'results/logs/'+version+model_name,
-    "csv_path": 'results/csv/'+version+model_name,
-    "mode":'test',
-    "time_window_start":config.time_window_start,
-    "step_len": 500,
-    "temporal_len": 60,
-    "hidden_channel":128,     
-    "model_name":model_name[:-1],
-    "short_prediction_model_path":short_prediction_model_path,
-    "long_prediction_model_path":long_prediction_model_path,
-    "device": device,
-}
-
 
 # evaluation environment
 ck_dir = os.path.join(config.TRAINED_MODEL_DIR, version[:-1], model_name[:-1])
