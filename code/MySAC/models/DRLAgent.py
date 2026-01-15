@@ -82,6 +82,7 @@ class TensorboardCallback(BaseCallback):
         self.save_path = model_save_path
         if self.save_path is not None:
             os.makedirs(self.save_path, exist_ok=True)
+        self.best_ep_rew_mean = -np.inf  # 跟踪最高的ep_rew_mean
 
     def _on_step(self) -> bool:
         try:
@@ -101,10 +102,19 @@ class TensorboardCallback(BaseCallback):
                 episode_ended = bool(done_flag)
             
             # 在输出图表到命令行时（verbose>=1）保存模型
-            if episode_ended and self.verbose >= 1:
-                self.model.save(self.save_path + "/tmp_model.zip")
-                if self.verbose >= 1:
-                    print(f"Saving tmp model to {self.save_path}")
+            if episode_ended and self.verbose >= 1:                
+                # 检查ep_rew_mean是否创新高
+                ep_rew_mean = self.logger.name_to_value.get("rollout/ep_rew_mean")
+                if ep_rew_mean is not None and ep_rew_mean > self.best_ep_rew_mean:
+                    self.best_ep_rew_mean = ep_rew_mean
+                    self.model.save(self.save_path + "/best_train_model.zip")
+                    if self.verbose >= 1:
+                        print(f"New best ep_rew_mean: {ep_rew_mean:.2f}. Saving best_train_model.zip to {self.save_path}")
+                else:
+                    self.model.save(self.save_path + "/tmp_model.zip")
+                    if self.verbose >= 1:
+                        print(f"Saving tmp model to {self.save_path}")
+
         
         return True
 
