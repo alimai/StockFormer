@@ -67,7 +67,7 @@ class oursTrainingRewardCallback(BaseCallback):
                   # Example for saving best model
                   if self.verbose > 0:
                     print(f"Saving new best model to {self.save_path}")
-                  self.model.save(self.save_path+'model.zip')
+                  self.model.save(self.save_path+'/model.zip')
 
         return True      
 
@@ -77,8 +77,9 @@ class TensorboardCallback(BaseCallback):
     Custom callback for plotting additional values in tensorboard.
     """
 
-    def __init__(self, verbose=0):
+    def __init__(self, verbose=0, model_save_path=""):
         super(TensorboardCallback, self).__init__(verbose)
+        self.save_path = model_save_path
         if self.save_path is not None:
             os.makedirs(self.save_path, exist_ok=True)
 
@@ -89,11 +90,9 @@ class TensorboardCallback(BaseCallback):
             self.logger.record(key="train/reward", value=self.locals["reward"][0])
             
         # 无条件保存 tmp_model.zip
-        if self.save_path is not None:
-            tmp_model_path = os.path.join(self.save_path, "tmp_model")
-            self.model.save(tmp_model_path)
-            if self.verbose >= 1:
-                print(f"Saving tmp model to {tmp_model_path}.zip")
+        self.model.save(self.save_path+"/tmp_model.zip")
+        if self.verbose >= 1:
+            print(f"Saving tmp model to {self.save_path}")
         return True
 
 
@@ -154,7 +153,7 @@ class DRLAgent:
 
     def train_model(self, model, tb_log_name, check_freq, ck_dir, log_dir, eval_env, total_timesteps=5000, verbose=1, deterministic=True):
         eval_callback = EvalCallback(eval_env, best_model_save_path=ck_dir, log_path=log_dir, eval_freq=check_freq, n_eval_episodes=1, deterministic=deterministic, render=False)
-        tb_callback=TensorboardCallback(verbose=verbose)
+        tb_callback=TensorboardCallback(verbose=verbose, model_save_path=ck_dir)
         callback = CallbackList([eval_callback, tb_callback])
 
         model = model.learn(

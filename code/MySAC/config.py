@@ -18,7 +18,7 @@ MAESAC_PARAMS = {
     "buffer_size": 100000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
-    "ent_coef": 0.0,#"auto_0.1",
+    "ent_coef": "auto_0.1",
     "enc_in":108,
     "dec_in":108,
     "c_out_prediction":1,
