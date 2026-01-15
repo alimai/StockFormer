@@ -9,6 +9,7 @@ import datetime
 from MySAC import config
 from MySAC.preprocessors import FeatureEngineer, data_split
 from MySAC.models.DRLAgent import DRLAgent
+from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 from stable_baselines3.common.vec_env import VecMonitor
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 import pdb
@@ -187,14 +188,13 @@ test_eval_sac = VecMonitor(env_test, log_dir+'_test')
 e_train_gym = Env(df = train, **env_kwargs)
 env_train, _ = e_train_gym.get_sb_env()
 env_train_sac = VecMonitor(env_train, log_dir+'_train')
-agent = DRLAgent(env = env_train_sac)
 
 MAESAC_PARAMS = {
     "batch_size": 32,
     "buffer_size": 100000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
-    "ent_coef": "auto_0.1",
+    "ent_coef": 0.0,#"auto_0.1",
     "enc_in": 96,
     "dec_in": 96,
     "c_out_construction": 96,
@@ -208,10 +208,16 @@ MAESAC_PARAMS = {
     "transformer_device": device,
 }
 
-model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
+agent = DRLAgent(env = env_train_sac)
+# 检查是否存在已训练的模型，如果存在则加载继续训练
+final_model_path = os.path.join('trained_models/', version+model_name, 'model3000.zip')
+if os.path.exists(final_model_path):
+    print(f"load: {final_model_path}...")
+    model_sac = SAC_MAE.load(final_model_path, env=env_train_sac, tensorboard_log=tensorboard_log_dir)
+else:
+    model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
+
 print('Start training...')
-
-
 start = time.time()
 trained_sac = agent.train_model(model=model_sac, 
                              tb_log_name=model_name,
