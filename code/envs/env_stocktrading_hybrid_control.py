@@ -225,10 +225,12 @@ class StockTradingEnv(gym.Env):
         return future_prices
 
     def step(self, actions):
+        self.terminal = False
         if self.mode == 'train':
             self.terminal = (self.day - self.start_day) >= self.step_len + 1
-        else:
+        if not self.terminal:
             self.terminal = self.day >= len(self.df.index.unique()) - 1
+            
         if self.terminal:
             # print(f"Episode: {self.episode}")
             if self.make_plots:
