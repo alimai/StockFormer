@@ -261,8 +261,13 @@ class SAC(OffPolicyAlgorithm):
 
             # Action by the current actor for the sampled state
             # pdb.set_trace()
-            state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(replay_data.observations) # [bs, num_nodes, cov_list\technial\temporal_feature(60day)\label\holding]
-            actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state.detach(), temporal_feature_short, temporal_feature_long, holding_stocks))
+            # 计算 state 时立即 detach，确保状态表示稳定
+            # 这样可以避免 state_transformer 更新导致的状态表示突然变化
+            # 使用 gradient_step 作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
+            # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值
+            state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(replay_data.observations, seed=gradient_step) # [bs, num_nodes, cov_list\technial\temporal_feature(60day)\label\holding]
+            state = state.detach()  # 立即 detach，确保状态表示稳定
+            actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks))
             log_prob = log_prob.reshape(-1, 1)
 
             ent_coef_loss = None
@@ -286,7 +291,13 @@ class SAC(OffPolicyAlgorithm):
                 self.ent_coef_optimizer.step()
 
             # pdb.set_trace()
-            next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks, loss_ns = self._state_transfer(replay_data.next_observations)
+            # 计算 next_state 时使用 detach，确保状态表示稳定
+            # 这样可以避免 state_transformer 更新导致的状态表示突然变化影响 target_q_values
+            # 使用相同的 gradient_step 作为种子，确保 state 和 next_state 使用相同的 mask 模式
+            # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值
+            next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks, loss_ns = self._state_transfer(replay_data.next_observations, seed=gradient_step)
+            # 使用 detach 确保状态表示稳定，避免 state_transformer 更新影响 target 计算
+            next_state = next_state.detach()
             with th.no_grad():
                 # Select action according to policy
                 next_actions, next_log_prob = self.actor.action_log_prob(self.actor_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks))
@@ -302,9 +313,8 @@ class SAC(OffPolicyAlgorithm):
 
             # Get current Q-values estimates for each critic network
             # using action from the replay buffer
-            # 使用 state.detach() 防止 state_transformer 的梯度流回到 critic_loss
-            # 这样可以避免状态表示突然变化导致的 critic_loss 峰值
-            current_q_values = self.critic(self.critic_transformer(state.detach(), temporal_feature_short, temporal_feature_long, holding_stocks), replay_data.actions)
+            # state 已经在前面 detach 了，这里直接使用
+            current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks), replay_data.actions)
 
             # Compute critic loss
             # pdb.set_trace() # get critic loss item value
@@ -324,7 +334,8 @@ class SAC(OffPolicyAlgorithm):
             # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
             # Mean over all critic networks
             alpha = 0
-            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks).detach(), actions_pi), dim=1)
+            # state 已经在前面 detach 了，这里直接使用
+            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks), actions_pi), dim=1)
             
             min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
             actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
@@ -398,16 +409,24 @@ class SAC(OffPolicyAlgorithm):
             test_obs = np.expand_dims(test_obs, axis=0)
             flag = 1
         
+        # 保存当前训练模式，确保评估后恢复
+        # 这是防御性编程，确保 predict 调用不会影响后续的训练
+        was_training = self.state_transformer.training
         self.state_transformer.eval()
-        with th.no_grad():
-            obs = th.FloatTensor(test_obs).to(self.transformer_device)
-            obs_tensor, temporal_short, temporal_long, holding = self._state_transfer_predict(obs)
-            state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long, holding)
-            obs_array = state_tensor.detach().cpu().numpy()
+        try:
+            with th.no_grad():
+                obs = th.FloatTensor(test_obs).to(self.transformer_device)
+                obs_tensor, temporal_short, temporal_long, holding = self._state_transfer_predict(obs)
+                state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long, holding)
+                obs_array = state_tensor.detach().cpu().numpy()
 
-        if flag:
-            obs_array = obs_array.squeeze(0)
-        return super(SAC, self).predict(observation=obs_array, deterministic=deterministic)
+            if flag:
+                obs_array = obs_array.squeeze(0)
+            return super(SAC, self).predict(observation=obs_array, deterministic=deterministic)
+        finally:
+            # 确保恢复之前的训练模式
+            if was_training:
+                self.state_transformer.train()
 
     def _excluded_save_params(self) -> List[str]:
         return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
@@ -450,12 +469,30 @@ class SAC(OffPolicyAlgorithm):
         return enc_out, temporal_feature_short, temporal_feature_long, holding
 
 
-    def _state_transfer(self, x):
+    def _state_transfer(self, x, seed=None):
+        """
+        状态转换方法，使用 MAE Transformer 进行状态编码
+        
+        :param x: 输入状态 [bs, stock_num, features]
+        :param seed: 可选的随机种子，用于生成 mask。如果提供，确保相同的 seed 生成相同的 mask
+        :return: 编码后的状态、时间特征、持仓信息、重建损失
+        """
         bs, stock_num = x.shape[0], x.shape[1]
 
         batch_enc1 = x[:, :, :self.in_feat] # [cov+technical_list]
         mask = th.ones_like(batch_enc1)
-        rand_indices = th.rand(bs, stock_num).argsort(dim=-1)
+        
+        # 如果提供了 seed，使用固定种子生成 mask，确保一致性
+        # 这样可以确保同一个 gradient_step 中的 state 和 next_state 使用相同的 mask 模式
+        if seed is not None:
+            # 使用 fork_rng 确保不影响全局随机数生成器
+            with th.random.fork_rng():
+                th.random.manual_seed(seed)
+                rand_indices = th.rand(bs, stock_num).argsort(dim=-1)
+        else:
+            # 如果没有提供 seed，使用随机 mask（保持原有行为）
+            rand_indices = th.rand(bs, stock_num).argsort(dim=-1)
+        
         mask_indices = rand_indices[:, :int(stock_num/2)]
         batch_range = th.arange(bs)[:, None]
         mask[batch_range, mask_indices, stock_num:] = 0
