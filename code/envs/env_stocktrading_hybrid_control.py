@@ -256,7 +256,7 @@ class StockTradingEnv(gym.Env):
                     / df_total_value["daily_return"].std()
                 )
 
-            self.reward = self.reward_scaling * ((self.end_total_asset - self.initial_amount)/(self.initial_amount * 1.0))
+            self.reward = (self.end_total_asset - self.initial_amount)/(self.initial_amount * 1.0)
 
             f1 = open(self.log_name, 'a')
             f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t' + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t' + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
@@ -368,7 +368,6 @@ class StockTradingEnv(gym.Env):
                 * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
             self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))#asset_for_reward_orig,begin_total_asset
-            # self.reward = self.reward * self.reward_scaling
 
             self.state = self._update_state()
 

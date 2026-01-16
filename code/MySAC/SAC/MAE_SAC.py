@@ -309,19 +309,8 @@ class SAC(OffPolicyAlgorithm):
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                 # add entropy term
                 next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
-
-                # 处理 reward scale 不一致问题
-                # 终端 reward (done=True) 比普通 reward 大100-1000倍，导致 TD error 异常
-                rewards_processed = replay_data.rewards.clone()
-
-                # 对终端 transition 的 reward 进行缩放，使其与普通 transition 的数值范围一致
-                # 普通 reward ~0.001-0.01，终端 reward ~1-10，我们将终端 reward 除以 reward_scaling (10)
-                terminal_mask = replay_data.dones.bool()  # done=True 的位置
-                if terminal_mask.any():
-                    rewards_processed[terminal_mask] = rewards_processed[terminal_mask] / 10.0  # reward_scaling = 10
-
                 # td error + entropy term
-                target_q_values = rewards_processed + (1 - replay_data.dones) * self.gamma * next_q_values
+                target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
 
             # Get current Q-values estimates for each critic network
             # using action from the replay buffer
