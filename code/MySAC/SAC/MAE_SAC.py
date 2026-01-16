@@ -333,7 +333,7 @@ class SAC(OffPolicyAlgorithm):
                     print("  CRITICAL: NaN or Inf detected in critic_loss!")
                     print()
                 # 裁剪 critic_loss 值以防止发散
-                critic_loss = [th.clamp(q, min=-50.0, max=50.0) for q in critic_loss]
+                critic_loss = th.clamp(critic_loss, min=-50.0, max=50.0)
             critic_losses.append(critic_loss.item())
 
             # 检查 replay_data.rewards 最大值是否大于50
