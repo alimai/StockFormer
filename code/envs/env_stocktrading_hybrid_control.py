@@ -311,7 +311,7 @@ class StockTradingEnv(gym.Env):
                 )
                 plt.close()
 
-            return self.state, self.reward, self.terminal, {'sharpe':sharpe,}
+            return self.state, self.reward, self.terminal, {'reward':self.reward,'sharpe':sharpe,}
 
         else:
 

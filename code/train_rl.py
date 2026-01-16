@@ -161,8 +161,8 @@ env_name = "test"
 env_kwargs["mode"] = env_name
 env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
 test_trade_gym = Env(df = test, **env_kwargs)
-#env_test, _ = test_trade_gym.get_sb_env()
-#env_test_vm = VecMonitor(env_test, log_dir+'_test')
+env_test, _ = test_trade_gym.get_sb_env()
+env_test_vm = VecMonitor(env_test, log_dir+'_test')
 
 
 MAESAC_PARAMS = {
@@ -188,7 +188,7 @@ train_mode = True
 if train_mode:
     agent = DRLAgent(env = env_train_vm)
     # 检查是否存在已训练的模型，如果存在则加载继续训练
-    final_model_path = os.path.join('trained_models/', version+model_name, 'best_train_model.zip')
+    final_model_path = os.path.join('trained_models/', version, model_name, 'best_train_model.zip')
     if os.path.exists(final_model_path):
         print(f"load: {final_model_path}...")
         model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)

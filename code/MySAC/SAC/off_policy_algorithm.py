@@ -334,6 +334,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         tb_log_name: str = "run",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
+        save_path: Optional[str] = None,
     ) -> "OffPolicyAlgorithm":
 
         total_timesteps, callback = self._setup_learn(
@@ -346,6 +347,9 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             reset_num_timesteps,
             tb_log_name,
         )
+
+        # Set save path for model saving during training
+        self.save_path = save_path
 
         callback.on_training_start(locals(), globals())
 
@@ -620,21 +624,22 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
                 # # Log training infos
                 # if log_interval is not None and self._episode_num % log_interval == 0:
-                self.logger.record(key="rollout/real_reward", value=reward)
-                self.logger.record(key="rollout/sharpe", value=infos['sharpe'])
+                self.logger.record(key="rollout/real_reward", value=infos[0]['reward'])
+                self.logger.record(key="rollout/sharpe", value=infos[0]['sharpe'])
                 self._dump_logs()                
             
                 # 检查ep_rew_mean是否创新高
-                ep_rew_mean = self.logger.name_to_value.get("rollout/ep_rew_mean")
-                if ep_rew_mean is not None and ep_rew_mean > self.best_ep_rew_mean:
-                    self.best_ep_rew_mean = ep_rew_mean
-                    self.model.save(self.save_path + "/best_train_model.zip")
-                    if self.verbose >= 1:
-                        print(f"New best ep_rew_mean: {ep_rew_mean:.2f}. Saving best_train_model.zip to {self.save_path}")
-                else:
-                    self.model.save(self.save_path + "/tmp_model.zip")
-                    if self.verbose >= 1:
-                        print(f"Saving tmp model to {self.save_path}")
+                if self.save_path is not None:
+                    ep_rew_mean = self.logger.name_to_value.get("rollout/ep_rew_mean")
+                    if ep_rew_mean is not None and ep_rew_mean > self.best_ep_rew_mean:
+                        self.best_ep_rew_mean = ep_rew_mean
+                        self.save(self.save_path + "/best_train_model.zip")
+                        if self.verbose >= 1:
+                            print(f"New best ep_rew_mean: {ep_rew_mean:.2f}. Saving best_train_model.zip to {self.save_path}")
+                    else:
+                            self.save(self.save_path + "/tmp_model.zip")
+                            if self.verbose >= 1:
+                                print(f"Saving tmp model to {self.save_path}")
 
 
         mean_reward = np.mean(episode_rewards) if num_collected_episodes > 0 else 0.0
