@@ -543,7 +543,12 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         """
         # Switch to eval mode (this affects batch norm / dropout)
         self.policy.set_training_mode(False)
-        # self.state_transformer.eval()
+        # 确保 state_transformer 在数据收集时处于 eval 模式
+        # 这样可以避免 BatchNorm 的 running statistics 在数据收集过程中被更新
+        # 如果 state_transformer 在 collect_rollouts 时处于 train 模式，BatchNorm 会更新 running statistics
+        # 然后在 train() 方法中，state_transformer 被设置为 train() 模式，可能导致状态表示异常
+        if hasattr(self, 'state_transformer'):
+            self.state_transformer.eval()
 
         episode_rewards, total_timesteps = [], []
         num_collected_steps, num_collected_episodes = 0, 0

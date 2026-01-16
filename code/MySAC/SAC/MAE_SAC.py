@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
+import random
 
 import gym
 import numpy as np
@@ -263,9 +264,9 @@ class SAC(OffPolicyAlgorithm):
             # pdb.set_trace()
             # 计算 state 时立即 detach，确保状态表示稳定
             # 这样可以避免 state_transformer 更新导致的状态表示突然变化
-            # 使用 gradient_step 作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
-            # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值
-            state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(replay_data.observations, seed=gradient_step) # [bs, num_nodes, cov_list\technial\temporal_feature(60day)\label\holding]
+            # 使用随机数作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
+            seed = random.randint(0, 2**31 - 1)
+            state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(replay_data.observations, seed=seed) # [bs, num_nodes, cov_list\technial\temporal_feature(60day)\label\holding]
             state = state.detach()  # 立即 detach，确保状态表示稳定
             actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks))
             log_prob = log_prob.reshape(-1, 1)
@@ -293,9 +294,9 @@ class SAC(OffPolicyAlgorithm):
             # pdb.set_trace()
             # 计算 next_state 时使用 detach，确保状态表示稳定
             # 这样可以避免 state_transformer 更新导致的状态表示突然变化影响 target_q_values
-            # 使用相同的 gradient_step 作为种子，确保 state 和 next_state 使用相同的 mask 模式
+            # 使用相同的随机 seed，确保 state 和 next_state 使用相同的 mask 模式
             # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值
-            next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks, loss_ns = self._state_transfer(replay_data.next_observations, seed=gradient_step)
+            next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks, loss_ns = self._state_transfer(replay_data.next_observations, seed=seed)
             # 使用 detach 确保状态表示稳定，避免 state_transformer 更新影响 target 计算
             next_state = next_state.detach()
             with th.no_grad():
