@@ -239,11 +239,10 @@ class StockTradingEnv(gym.Env):
                 np.array(self.info[1 : (self.stock_dim + 1)])
                 * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
             )
+            tot_reward = (self.end_total_asset - self.initial_amount)
+            tot_reward_ratio = tot_reward/(self.initial_amount*1.0)
+            
             df_total_value = pd.DataFrame(self.asset_memory)
-            tot_reward = (
-                self.end_total_asset
-                - self.initial_amount
-            )
             df_total_value.columns = ["account_value"]
             df_total_value["date"] = self.date_memory
             df_total_value["daily_return"] = df_total_value["account_value"].pct_change(
@@ -257,10 +256,6 @@ class StockTradingEnv(gym.Env):
                 )
 
             self.reward = 0.0#(self.end_total_asset - self.initial_amount)/(self.initial_amount * 1.0)
-
-            f1 = open(self.log_name, 'a')
-            f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t' + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t' + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
-            f1.close()
 
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
@@ -277,6 +272,12 @@ class StockTradingEnv(gym.Env):
                 if df_total_value["daily_return"].std() != 0:
                     print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
+                
+            f1 = open(self.log_name, 'a')
+            f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t' 
+                + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t' 
+                + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
+            f1.close()
 
             if (self.model_name != "") and (self.mode != ""):
                 df_actions = self.save_action_memory()
@@ -311,7 +312,7 @@ class StockTradingEnv(gym.Env):
                 )
                 plt.close()
 
-            return self.state, self.reward, self.terminal, {'tot_reward':tot_reward,'sharpe':sharpe,}
+            return self.state, self.reward, self.terminal, {'tot_reward':tot_reward_ratio,'sharpe':sharpe,}
 
         else:
 
