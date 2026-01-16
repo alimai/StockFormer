@@ -82,7 +82,6 @@ class TensorboardCallback(BaseCallback):
         self.save_path = model_save_path
         if self.save_path is not None:
             os.makedirs(self.save_path, exist_ok=True)
-        self.best_ep_rew_mean = -np.inf  # 跟踪最高的ep_rew_mean
 
     def _on_step(self) -> bool:        
         return True
