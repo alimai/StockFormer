@@ -302,15 +302,26 @@ class SAC(OffPolicyAlgorithm):
             with th.no_grad():
                 # Select action according to policy
                 next_actions, next_log_prob = self.actor.action_log_prob(self.actor_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks))
-                
+
                 # next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute the next Q values: min over all critics targets
                 next_q_values = th.cat(self.critic_target(self.critic_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks), next_actions), dim=1)
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                 # add entropy term
                 next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
+
+                # 处理 reward scale 不一致问题
+                # 终端 reward (done=True) 比普通 reward 大100-1000倍，导致 TD error 异常
+                rewards_processed = replay_data.rewards.clone()
+
+                # 对终端 transition 的 reward 进行缩放，使其与普通 transition 的数值范围一致
+                # 普通 reward ~0.001-0.01，终端 reward ~1-10，我们将终端 reward 除以 reward_scaling (10)
+                terminal_mask = replay_data.dones.bool()  # done=True 的位置
+                if terminal_mask.any():
+                    rewards_processed[terminal_mask] = rewards_processed[terminal_mask] / 10.0  # reward_scaling = 10
+
                 # td error + entropy term
-                target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
+                target_q_values = rewards_processed + (1 - replay_data.dones) * self.gamma * next_q_values
 
             # Get current Q-values estimates for each critic network
             # using action from the replay buffer
