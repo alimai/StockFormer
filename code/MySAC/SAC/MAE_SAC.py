@@ -309,6 +309,19 @@ class SAC(OffPolicyAlgorithm):
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                 # add entropy term
                 next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
+
+                # 裁剪 Q 值以防止发散 (限制在合理范围内)
+                next_q_values = th.clamp(next_q_values, min=-50.0, max=50.0)
+
+                # # 调试：检查异常大的Q值
+                # if next_q_values.max().item() > 10.0:  # Q值过高的阈值
+                #     print(f"WARNING: Large next_q_values at step {self.num_timesteps}")
+                #     print(f"  next_q_values range: {next_q_values.min().item():.4f} to {next_q_values.max().item():.4f}")
+                #     print(f"  next_actions range: {next_actions.min().item():.4f} to {next_actions.max().item():.4f}")
+                #     print(f"  next_log_prob range: {next_log_prob.min().item():.4f} to {next_log_prob.max().item():.4f}")
+                #     print(f"  ent_coef: {ent_coef.item():.6f}")
+                #     print()
+
                 # td error + entropy term
                 target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
 
@@ -317,10 +330,33 @@ class SAC(OffPolicyAlgorithm):
             # state 已经在前面 detach 了，这里直接使用
             current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks), replay_data.actions)
 
+            # 裁剪 current Q 值以防止发散
+            current_q_values = [th.clamp(q, min=-50.0, max=50.0) for q in current_q_values]
+
             # Compute critic loss
             # pdb.set_trace() # get critic loss item value
             critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
             critic_losses.append(critic_loss.item())
+
+            # 调试：记录异常大的critic_loss
+            if critic_loss.item() > 50.0:  # 阈值设为50
+                # print(f"WARNING: Large critic_loss at step {self.num_timesteps}: {critic_loss.item():.4f}")
+                # print(f"  replay_data.rewards range: {replay_data.rewards.min().item():.4f} to {replay_data.rewards.max().item():.4f}")
+                # print(f"  target_q_values range: {target_q_values.min().item():.4f} to {target_q_values.max().item():.4f}")
+                # print(f"  current_q_values range: {current_q_values[0].min().item():.4f} to {current_q_values[0].max().item():.4f}")
+                # print(f"  done ratio: {replay_data.dones.float().mean().item():.3f}")
+                # 检查是否有NaN或Inf
+                if th.isnan(critic_loss) or th.isinf(critic_loss):
+                    print("  CRITICAL: NaN or Inf detected in critic_loss!")
+                print()
+
+            # 检查 replay_data.rewards 最大值是否大于50
+            if replay_data.rewards.max().item() > 50.0:
+                print(f"WARNING: Large reward detected at step {self.num_timesteps}")
+                print(f"  replay_data.rewards max: {replay_data.rewards.max().item():.4f}")
+                print(f"  replay_data.rewards range: {replay_data.rewards.min().item():.4f} to {replay_data.rewards.max().item():.4f}")
+                print(f"  done ratio: {replay_data.dones.float().mean().item():.3f}")
+                print()
 
             # pdb.set_trace()
             # Optimize the critic (不更新 state_transformer，避免状态表示突然变化)
@@ -346,7 +382,7 @@ class SAC(OffPolicyAlgorithm):
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
             actor_loss.backward()
-            
+
             self.actor.optimizer.step()
             self.actor_transformer.optimizer.step()
 
