@@ -638,7 +638,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
                 # # Log training infos
                 # if log_interval is not None and self._episode_num % log_interval == 0:
-                self.logger.record(key="rollout/real_reward", value=infos[0]['reward'])
+                self.logger.record(key="rollout/tot_reward", value=infos[0]['tot_reward'])
                 self.logger.record(key="rollout/sharpe", value=infos[0]['sharpe'])
                 self._dump_logs() 
 

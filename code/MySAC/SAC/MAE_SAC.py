@@ -322,7 +322,8 @@ class SAC(OffPolicyAlgorithm):
             # pdb.set_trace() # get critic loss item value
             critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
             # 调试：记录异常大的critic_loss
-            if critic_loss.item() > 100.0:  # 阈值设为50
+            loss_gate = 100000.0*np.mean(ent_coefs)+1000
+            if critic_loss.item() > loss_gate:  # 阈值设为50
                 print(f"WARNING: Large critic_loss at step {self.num_timesteps}: {critic_loss.item():.4f}")
                 print(f"  current_q_values range: {current_q_values[0].min().item():.4f} to {current_q_values[0].max().item():.4f}")
                 print(f"  next_q_values range: {next_q_values.min().item():.4f} to {next_q_values.max().item():.4f}")
@@ -334,7 +335,7 @@ class SAC(OffPolicyAlgorithm):
                     print("  CRITICAL: NaN or Inf detected in critic_loss!")
                     print()
                 # 裁剪 critic_loss 值以防止发散
-                critic_loss = th.clamp(critic_loss, min=-100.0, max=100.0)
+                critic_loss = th.clamp(critic_loss, min=-loss_gate, max=loss_gate)
             critic_losses.append(critic_loss.item())
 
             # 检查 replay_data.rewards 最大值是否大于50
