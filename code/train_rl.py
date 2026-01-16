@@ -137,11 +137,11 @@ env_kwargs = {
 }
 
 # evaluation environment
-ck_dir = os.path.join(config.TRAINED_MODEL_DIR, version[:-1], model_name[:-1])
+model_dir = os.path.join(config.TRAINED_MODEL_DIR, version[:-1], model_name[:-1])
 log_dir = os.path.join(config.RESULTS_DIR, version[:-1], model_name[:-1])
 
 os.makedirs(log_dir, exist_ok=True)
-os.makedirs(ck_dir, exist_ok=True)
+os.makedirs(model_dir, exist_ok=True)
 
 print("Initial Env...")
 env_name = "train"
@@ -204,7 +204,7 @@ if train_mode:
                                 tb_log_name=tb_log_name_with_timestamp,
                                 check_freq=50000,
                                 log_dir=log_dir,
-                                ck_dir=ck_dir,
+                                model_dir=model_dir,
                                 eval_env=env_eval_vm,
                                 total_timesteps=30000)
     end = time.time()
