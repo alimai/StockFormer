@@ -15,7 +15,7 @@ from MySAC import config
 from MySAC.preprocessors import FeatureEngineer, data_split
 from MySAC.models.DRLAgent import DRLAgent
 from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
-from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
+from stable_baselines3.common.vec_env import VecMonitor
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 import pdb
 import stable_baselines3.common.utils as utils 
@@ -148,18 +148,14 @@ env_name = "train"
 env_kwargs["mode"] = env_name
 train_trade_gym = Env(df = train, **env_kwargs)
 env_train, _ = train_trade_gym.get_sb_env()
-# 使用 VecNormalize 对 reward 进行标准化，避免终端 reward 和普通 reward 数值差异过大
-env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=False)
-env_train_vm = VecMonitor(env_train_vn, log_dir+'_train')
+env_train_vm = VecMonitor(env_train, log_dir+'_train')
 
 env_name = "eval"
 env_kwargs["mode"] = env_name
 env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
 eval_trade_gym = Env(df = eval, **env_kwargs)
 env_eval, _ = eval_trade_gym.get_sb_env()
-# 使用 VecNormalize 对 reward 进行标准化
-env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=False)
-env_eval_vm = VecMonitor(env_eval_vn, log_dir+'_eval')
+env_eval_vm = VecMonitor(env_eval, log_dir+'_eval')
 
 env_name = "test"
 env_kwargs["mode"] = env_name
@@ -193,14 +189,9 @@ if train_mode:
     agent = DRLAgent(env = env_train_vm)
     # 检查是否存在已训练的模型，如果存在则加载继续训练
     final_model_path = os.path.join('trained_models/', version+model_name, 'best_train_model.zip')
-    vn_path = os.path.join('trained_models/', version+model_name, 'vec_normalize.pkl')
     if os.path.exists(final_model_path):
         print(f"load: {final_model_path}...")
         model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)
-        # 恢复 VecNormalize 的统计信息
-        if os.path.exists(vn_path):
-            env_train_vn.load(vn_path)
-            print(f"Loaded VecNormalize stats from {vn_path}")
     else:
         model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
 
@@ -209,18 +200,15 @@ if train_mode:
 
     print('Start training...')
     start = time.time()
-    trained_sac = agent.train_model(model=model_sac,
+    trained_sac = agent.train_model(model=model_sac, 
                                 tb_log_name=tb_log_name_with_timestamp,
-                                check_freq=50000,
+                                check_freq=5000,
                                 log_dir=log_dir,
                                 ck_dir=ck_dir,
                                 eval_env=env_eval_vm,
                                 total_timesteps=30000)
     end = time.time()
     print("Training time: %.3f"%(end-start))
-
-    # 保存 VecNormalize 的统计信息
-    env_train_vn.save(os.path.join(ck_dir, 'vec_normalize.pkl'))
 
 
 model_path = os.path.join('trained_models/', version, model_name, 'best_train_model.zip')
