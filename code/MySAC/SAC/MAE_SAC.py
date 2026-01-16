@@ -321,21 +321,21 @@ class SAC(OffPolicyAlgorithm):
             # Compute critic loss
             # pdb.set_trace() # get critic loss item value
             critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
-            # 调试：记录异常大的critic_loss
-            loss_gate = 100000.0*np.mean(ent_coefs)+1000
-            if critic_loss.item() > loss_gate:  # 阈值设为50
-                print(f"WARNING: Large critic_loss at step {self.num_timesteps}: {critic_loss.item():.4f}")
-                print(f"  current_q_values range: {current_q_values[0].min().item():.4f} to {current_q_values[0].max().item():.4f}")
-                print(f"  next_q_values range: {next_q_values.min().item():.4f} to {next_q_values.max().item():.4f}")
-                print(f"  replay_data.rewards range: {replay_data.rewards.min().item():.4f} to {replay_data.rewards.max().item():.4f}")
-                print(f"  target_q_values range: {target_q_values.min().item():.4f} to {target_q_values.max().item():.4f}")
-                print(f"  done ratio: {replay_data.dones.float().mean().item():.3f}")
-                # 检查是否有NaN或Inf
-                if th.isnan(critic_loss) or th.isinf(critic_loss):
-                    print("  CRITICAL: NaN or Inf detected in critic_loss!")
-                    print()
-                # 裁剪 critic_loss 值以防止发散
-                critic_loss = th.clamp(critic_loss, min=-loss_gate, max=loss_gate)
+            # 调试：处理异常大的critic_loss
+            # loss_gate = 100000.0*np.mean(ent_coefs)+1000
+            # if critic_loss.item() > loss_gate:  # 阈值设为50
+            #     print(f"WARNING: Large critic_loss at step {self.num_timesteps}: {critic_loss.item():.4f}")
+            #     print(f"  current_q_values range: {current_q_values[0].min().item():.4f} to {current_q_values[0].max().item():.4f}")
+            #     print(f"  next_q_values range: {next_q_values.min().item():.4f} to {next_q_values.max().item():.4f}")
+            #     print(f"  replay_data.rewards range: {replay_data.rewards.min().item():.4f} to {replay_data.rewards.max().item():.4f}")
+            #     print(f"  target_q_values range: {target_q_values.min().item():.4f} to {target_q_values.max().item():.4f}")
+            #     print(f"  done ratio: {replay_data.dones.float().mean().item():.3f}")
+            #     # 检查是否有NaN或Inf
+            #     if th.isnan(critic_loss) or th.isinf(critic_loss):
+            #         print("  CRITICAL: NaN or Inf detected in critic_loss!")
+            #         print()
+            #     # 裁剪 critic_loss 值以防止发散
+            #     critic_loss = th.clamp(critic_loss, min=-loss_gate, max=loss_gate)
             critic_losses.append(critic_loss.item())
 
             # 检查 replay_data.rewards 最大值是否大于50
