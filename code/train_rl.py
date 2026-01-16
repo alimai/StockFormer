@@ -202,7 +202,7 @@ if train_mode:
     start = time.time()
     trained_sac = agent.train_model(model=model_sac, 
                                 tb_log_name=tb_log_name_with_timestamp,
-                                check_freq=5000,
+                                check_freq=50000,
                                 log_dir=log_dir,
                                 ck_dir=ck_dir,
                                 eval_env=env_eval_vm,

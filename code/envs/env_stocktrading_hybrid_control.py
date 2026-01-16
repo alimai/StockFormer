@@ -311,7 +311,7 @@ class StockTradingEnv(gym.Env):
                 )
                 plt.close()
 
-            return self.state, self.reward, self.terminal, {}
+            return self.state, self.reward, self.terminal, {'sharpe':sharpe,}
 
         else:
 
@@ -382,7 +382,7 @@ class StockTradingEnv(gym.Env):
     def reset(self):
 
         if self.mode == 'train':            
-            #self.time_windows_point += 1
+            #self.time_windows_point += 1#remove for test
             self.start_day = self.time_window_start[self.time_windows_point]
         else:
             self.start_day = self.time_window_start[0]

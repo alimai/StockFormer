@@ -84,38 +84,7 @@ class TensorboardCallback(BaseCallback):
             os.makedirs(self.save_path, exist_ok=True)
         self.best_ep_rew_mean = -np.inf  # 跟踪最高的ep_rew_mean
 
-    def _on_step(self) -> bool:
-        try:
-            self.logger.record(key="train/reward", value=self.locals["rewards"][0])
-        except BaseException:
-            self.logger.record(key="train/reward", value=self.locals["reward"][0])
-        
-        # 检测episode结束：兼容done和dones两种格式
-        # SAC等off-policy算法使用done，PPO等on-policy算法使用dones
-        done_flag = self.locals.get("done") if self.locals.get("done") is not None else self.locals.get("dones")        
-        # 当episode结束且verbose>=1（会输出到命令行）时保存模型
-        if done_flag is not None:
-            # 处理单个环境或多个环境的情况
-            if isinstance(done_flag, (list, np.ndarray)):
-                episode_ended = any(done_flag) if len(done_flag) > 0 else False
-            else:
-                episode_ended = bool(done_flag)
-            
-            # 在输出图表到命令行时（verbose>=1）保存模型
-            if episode_ended and self.verbose >= 1:                
-                # 检查ep_rew_mean是否创新高
-                ep_rew_mean = self.logger.name_to_value.get("rollout/ep_rew_mean")
-                if ep_rew_mean is not None and ep_rew_mean > self.best_ep_rew_mean:
-                    self.best_ep_rew_mean = ep_rew_mean
-                    self.model.save(self.save_path + "/best_train_model.zip")
-                    if self.verbose >= 1:
-                        print(f"New best ep_rew_mean: {ep_rew_mean:.2f}. Saving best_train_model.zip to {self.save_path}")
-                else:
-                    self.model.save(self.save_path + "/tmp_model.zip")
-                    if self.verbose >= 1:
-                        print(f"Saving tmp model to {self.save_path}")
-
-        
+    def _on_step(self) -> bool:        
         return True
 
 
