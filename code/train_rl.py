@@ -191,8 +191,8 @@ train_mode = True
 if train_mode:
     agent = DRLAgent(env = env_train_vm)
     # 检查是否存在已训练的模型，如果存在则加载继续训练
-    final_model_path = os.path.join('trained_models/', version+model_name, 'best_train_model.zip')
-    vn_path = os.path.join('trained_models/', version+model_name, 'vec_normalize.pkl')
+    final_model_path = os.path.join('trained_models/', version, model_name, 'best_train_model000.zip')
+    vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
     if os.path.exists(final_model_path):
         print(f"load: {final_model_path}...")
         model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)
