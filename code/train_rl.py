@@ -170,7 +170,7 @@ env_test_vm = VecMonitor(env_test, log_dir+'_test')
 
 MAESAC_PARAMS = {
     "batch_size": 32,
-    "buffer_size": 50000,  # 减小经验池大小，从100000降到50000，减少采样开销
+    "buffer_size": 100000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",

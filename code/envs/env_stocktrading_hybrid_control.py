@@ -463,36 +463,22 @@ class StockTradingEnv(gym.Env):
         covs = np.array(self.data['cov_list'].values[0]) # (stock_dim, stock_dim)
         technical_indicators = np.array(self.data[self.tech_indicator_list].values.tolist()) # (stock_dim, len(technical_list))
 
-        # 优化1: 只在需要时才进行Transformer前向传播
-        # 由于SAC是off-policy算法，我们可以选择性地更新预测特征
-        should_update_prediction = (self.day % 5 == 0)  # 每5步更新一次预测特征
+        temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
+        temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
 
-        if should_update_prediction or len(self.short_hidden_feature) == 0:
-            temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
-            temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
+        enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
+        dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
 
-            enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
-            dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
+        _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
+        _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
 
-            _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
-            _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
 
-            hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
-            hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
+        hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
+        hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
 
-            # 优化2: 限制hidden feature列表的最大长度，避免内存累积
-            max_hidden_length = 20  # 最多保存最近20个时间步的特征
-            if len(self.short_hidden_feature) >= max_hidden_length:
-                self.short_hidden_feature.pop(0)
-                self.long_hidden_feature.pop(0)
-
-            self.short_hidden_feature.append(hidden_np1)
-            self.long_hidden_feature.append(hidden_np2)
-        else:
-            # 使用最近的预测特征
-            hidden_np1 = self.short_hidden_feature[-1]
-            hidden_np2 = self.long_hidden_feature[-1]
-
+        self.short_hidden_feature.append(hidden_np1)
+        self.long_hidden_feature.append(hidden_np2)
+        
         holding_amount = np.array(self.info[-self.stock_dim : ]) # (stock_dim, 1)
         holding_amount_norm = ((holding_amount * np.array(self.info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
 
