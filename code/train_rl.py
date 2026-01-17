@@ -148,7 +148,7 @@ env_kwargs["mode"] = env_name
 train_trade_gym = Env(df = train, **env_kwargs)
 env_train, _ = train_trade_gym.get_sb_env()
 # 使用 VecNormalize 对 reward 进行标准化，避免终端 reward 和普通 reward 数值差异过大
-env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=False)
+env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=True)
 env_train_vm = VecMonitor(env_train_vn, log_dir+'_train')
 
 env_name = "eval"
@@ -157,7 +157,7 @@ env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
 eval_trade_gym = Env(df = eval, **env_kwargs)
 env_eval, _ = eval_trade_gym.get_sb_env()
 # 使用 VecNormalize 对 reward 进行标准化
-env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=False)
+env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=True)
 env_eval_vm = VecMonitor(env_eval_vn, log_dir+'_eval')
 
 env_name = "test"
