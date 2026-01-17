@@ -43,7 +43,6 @@ class StockTradingEnv(gym.Env):
         step_len=1000,
         temporal_len=60,
         figure_path='results/',
-        logs_path='results/',
         csv_path = 'results/',
         mode="train",
         hidden_channel=4,
@@ -63,10 +62,8 @@ class StockTradingEnv(gym.Env):
         self.step_len = step_len
 
         # help file
-        self.log_name = logs_path+mode+'.txt'
         self.figure_path = figure_path
         self.csv_path = csv_path
-        os.makedirs(logs_path, exist_ok=True)
         os.makedirs(figure_path, exist_ok=True)
         os.makedirs(csv_path, exist_ok=True)
     
@@ -245,9 +242,7 @@ class StockTradingEnv(gym.Env):
             df_total_value = pd.DataFrame(self.asset_memory)
             df_total_value.columns = ["account_value"]
             df_total_value["date"] = self.date_memory
-            df_total_value["daily_return"] = df_total_value["account_value"].pct_change(
-                1
-            )
+            df_total_value["daily_return"] = df_total_value["account_value"].pct_change(1)
             if df_total_value["daily_return"].std() != 0:
                 sharpe = (
                     (252 ** 0.5)
@@ -256,7 +251,6 @@ class StockTradingEnv(gym.Env):
                 )
 
             self.reward = 0.0#(self.end_total_asset - self.initial_amount)/(self.initial_amount * 1.0)
-
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
@@ -272,12 +266,12 @@ class StockTradingEnv(gym.Env):
                 if df_total_value["daily_return"].std() != 0:
                     print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
-                
-            f1 = open(self.log_name, 'a')
-            f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t' 
-                + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t' 
-                + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
-            f1.close()
+
+                # f1 = open(self.log_name, 'a')
+                # f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t' 
+                #     + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t' 
+                #     + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
+                # f1.close()
 
             if (self.model_name != "") and (self.mode != ""):
                 df_actions = self.save_action_memory()
@@ -369,6 +363,7 @@ class StockTradingEnv(gym.Env):
                 * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
             self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))#asset_for_reward_orig,begin_total_asset
+            self.reward = self.reward * self.reward_scaling
 
             self.state = self._update_state()
 

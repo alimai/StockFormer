@@ -123,7 +123,6 @@ env_kwargs = {
     "action_space": stock_dimension,
     "reward_scaling": 10,
     "figure_path":'results/figures/'+version+model_name,
-    "logs_path": 'results/logs/'+version+model_name,
     "csv_path": 'results/csv/'+version+model_name,
     "mode":'train',
     "time_window_start":config.time_window_start,
