@@ -476,11 +476,11 @@ class StockTradingEnv(gym.Env):
         hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
         hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
 
-        # 优化：限制hidden feature列表的最大长度，避免内存累积
-        max_hidden_length = 50  # 最多保存最近50个时间步的特征
-        if len(self.short_hidden_feature) >= max_hidden_length:
-            self.short_hidden_feature.pop(0)
-            self.long_hidden_feature.pop(0)
+        # # 优化：限制hidden feature列表的最大长度，避免内存累积
+        # max_hidden_length = 50  # 最多保存最近50个时间步的特征
+        # if len(self.short_hidden_feature) >= max_hidden_length:
+        #     self.short_hidden_feature.pop(0)
+        #     self.long_hidden_feature.pop(0)
 
         self.short_hidden_feature.append(hidden_np1)
         self.long_hidden_feature.append(hidden_np2)
