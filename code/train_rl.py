@@ -219,7 +219,7 @@ if train_mode:
     print("Training time: %.3f"%(end-start))
 
     # 保存 VecNormalize 的统计信息
-    env_train_vn.save(os.path.join(ck_dir, 'vec_normalize.pkl'))
+    env_train_vn.save(os.path.join(model_dir, 'vec_normalize.pkl'))
 
 
 model_path = os.path.join('trained_models/', version, model_name, 'best_train_model.zip')
