@@ -430,7 +430,7 @@ class EvalCallback(EventCallback):
             self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
             self.logger.dump(self.num_timesteps)
 
-            self.model.save(os.path.join(self.best_model_save_path, "model"+str(self.model_index*1000)))
+            #self.model.save(os.path.join(self.best_model_save_path, "model"+str(self.model_index*1000)))
             self.model_index +=1
 
             if mean_reward > self.best_mean_reward:
