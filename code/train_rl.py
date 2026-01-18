@@ -126,7 +126,7 @@ env_kwargs = {
     "csv_path": 'results/csv/'+version+model_name,
     "mode":'train',
     "time_window_start":config.time_window_start,
-    "step_len": 500,
+    "step_len": 1000,
     "temporal_len": 60,
     "hidden_channel":128,     
     "model_name":model_name[:-1],
@@ -170,7 +170,7 @@ env_test_vm = VecMonitor(env_test, log_dir+'_test')
 
 MAESAC_PARAMS = {
     "batch_size": 32,
-    "buffer_size": 50000,  # 优化：减少经验池大小，从100000降到50000，减少采样开销
+    "buffer_size": 100000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
