@@ -139,7 +139,7 @@ env_kwargs = {
     "csv_path": 'results/csv/'+version+model_name,
     "mode":'train',
     "time_window_start":config.time_window_start,
-    "step_len": 500,
+    "step_len": 1000,
     "temporal_len": 60,
     "hidden_channel":128,     
     "model_name":model_name[:-1],
@@ -264,11 +264,11 @@ results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=en
 end = time.time()
 print("Test time: %.3f"%(end-start))
 
-df_root = 'results/df_print/'+version+model_name
+df_root = 'results/test/'+version+model_name
 os.makedirs(df_root, exist_ok=True)
-assets_his, df_actions = results[1], results[2]
-df_actions.to_csv(df_root+'df_actions_test.csv')
-assets_his.to_csv(df_root+'df_assets_his_test.csv')
+assets_test, actions_test = results[1], results[2]
+actions_test.to_csv(df_root+'df_actions_test.csv')
+assets_test.to_csv(df_root+'df_assets_test.csv')
 
 
 
