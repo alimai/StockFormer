@@ -2,6 +2,7 @@
 import os
 import time
 import datetime
+from matplotlib.font_manager import OSXFontDirectories
 import torch
 
 import pandas as pd
@@ -170,9 +171,15 @@ if train_mode:
             print(f"Loaded VecNormalize stats from {vn_path}")
         else:
             print(f"Can not loaded VecNormalize stats!!!")
+            os.exit(0)
     else:
         env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=True)
         env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=True)
+    
+    # 评估环境冻结统计信息，避免评估时更新均值/方差
+    env_eval_vn.training = False
+    env_eval_vn.norm_reward = False
+    
     env_train_vm = VecMonitor(env_train_vn, log_dir+'_train')
     env_eval_vm = VecMonitor(env_eval_vn, log_dir+'_test')
 
@@ -235,7 +242,10 @@ if os.path.exists(vn_path):
     print(f"Loaded VecNormalize from {vn_path}")
 else:
     env_test_vn = VecNormalize(env_test, norm_reward=True, norm_obs=True)
-#env_test_vm = VecMonitor(env_test_vn, log_dir+'_test')
+
+# 测试时冻结 VecNormalize 统计信息，避免测试数据污染训练时的统计
+env_test_vn.training = False  # 停止更新均值/方差统计
+env_test_vn.norm_reward = False  # 测试时不需要归一化奖励
 
 start = time.time()
 results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test_vn, cwd=model_path)
