@@ -71,10 +71,21 @@ class Stock_Data():
         # look back is one year
         print("generate convariate matrix...")
         lookback=252
-        for i in range(lookback,len(df.index.unique())):
-            data_lookback = df.loc[i-lookback:i,:]
-            price_lookback=data_lookback.pivot_table(index = 'date',columns = 'tic', values = 'close') 
-            return_lookback = price_lookback.pct_change().dropna()
+        
+        # 参照 preprocess.py 的方式：先 pivot 整个数据，再使用日期索引筛选
+        price_pivot = df.pivot_table(index='date', columns='tic', values='close')
+        return_pivot = price_pivot.pct_change().dropna()
+        
+        unique_date = df.date.unique()
+        for i in range(lookback, len(unique_date)):
+            # 使用日期索引筛选，排除当天数据（只使用历史数据计算协方差）
+            # 注意：由于 pct_change().dropna() 删除了第一行，return_pivot.index 的第一个日期是 unique_date[1]
+            # 所以窗口起始日期需要调整为 unique_date[i-lookback+1] 以匹配 dropna() 后的索引
+            # 窗口范围：[unique_date[i-lookback+1], unique_date[i-1]]，共 252 个数据点
+            return_lookback = return_pivot[
+                (return_pivot.index < unique_date[i])
+                & (return_pivot.index >= unique_date[i - lookback + 1])  # +1 以匹配 dropna() 后的索引
+            ]
             return_list.append(return_lookback)
     
             covs = return_lookback.cov().values 
