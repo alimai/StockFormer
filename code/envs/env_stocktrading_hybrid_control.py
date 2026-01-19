@@ -507,6 +507,12 @@ class StockTradingEnv(gym.Env):
         )
         return df_account_value
 
+    def get_end_total_asset(self):
+        return self.end_total_asset
+
+    def get_initial_amount(self):
+        return self.initial_amount
+
     def save_additional_info(self):
         temp_dict = {"short_hidden_feature":self.short_hidden_feature, "long_hidden_feature": self.long_hidden_feature}
         return temp_dict

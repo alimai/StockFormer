@@ -138,68 +138,67 @@ env_kwargs = {
 # evaluation environment
 model_dir = os.path.join(config.TRAINED_MODEL_DIR, version[:-1], model_name[:-1])
 log_dir = os.path.join(config.RESULTS_DIR, version[:-1], model_name[:-1])
-
 os.makedirs(log_dir, exist_ok=True)
 os.makedirs(model_dir, exist_ok=True)
 
 print("Initial Env...")
-env_name = "train"
-env_kwargs["mode"] = env_name
-train_trade_gym = Env(df = train, **env_kwargs)
-env_train, _ = train_trade_gym.get_sb_env()
-# 使用 VecNormalize 对 reward 进行标准化，避免终端 reward 和普通 reward 数值差异过大
-env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=True)
-env_train_vm = VecMonitor(env_train_vn, log_dir+'_train')
-
-env_name = "eval"
-env_kwargs["mode"] = env_name
-env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
-eval_trade_gym = Env(df = eval, **env_kwargs)
-env_eval, _ = eval_trade_gym.get_sb_env()
-# 使用 VecNormalize 对 reward 进行标准化
-env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=True)
-env_eval_vm = VecMonitor(env_eval_vn, log_dir+'_eval')
-
-env_name = "test"
-env_kwargs["mode"] = env_name
-env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
-test_trade_gym = Env(df = test, **env_kwargs)
-env_test, _ = test_trade_gym.get_sb_env()
-env_test_vm = VecMonitor(env_test, log_dir+'_test')
-
-
-MAESAC_PARAMS = {
-    "batch_size": 32,
-    "buffer_size": 100000,
-    "learning_rate": 0.0001,
-    "learning_starts": 100,
-    "ent_coef": "auto_0.1",
-    "enc_in": 96,
-    "dec_in": 96,
-    "c_out_construction": 96,
-    "d_model":128,
-    "d_ff":256,
-    "n_heads":4,
-    "e_layers":2,
-    "d_layers":1,
-    "dropout":0.05,
-    "transformer_path":mae_model_path,
-    "transformer_device": device,
-}
-
-train_mode = True
+train_mode = False#True
 if train_mode:
-    agent = DRLAgent(env = env_train_vm)
+    env_name = "train"
+    env_kwargs["mode"] = env_name
+    train_trade_gym = Env(df = train, **env_kwargs)
+    env_train, _ = train_trade_gym.get_sb_env()
+
+    env_name = "eval"
+    env_kwargs["mode"] = env_name
+    env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
+    eval_trade_gym = Env(df = eval, **env_kwargs)
+    env_eval, _ = eval_trade_gym.get_sb_env()
+
     # 检查是否存在已训练的模型，如果存在则加载继续训练
+    load_pretrain = False
     final_model_path = os.path.join('trained_models/', version, model_name, 'best_train_model000.zip')
-    vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
     if os.path.exists(final_model_path):
+        load_pretrain = True
+        
+    # 使用 VecNormalize 对 reward 进行标准化，避免终端 reward 和普通 reward 数值差异过大
+    vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
+    if load_pretrain:#
+        if os.path.exists(vn_path):# 恢复 VecNormalize 的统计信息
+            env_train_vn = VecNormalize.load(vn_path, env_train)
+            env_eval_vn = VecNormalize.load(vn_path, env_eval)
+            print(f"Loaded VecNormalize stats from {vn_path}")
+        else:
+            print(f"Can not loaded VecNormalize stats!!!")
+    else:
+        env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=True)
+        env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=True)
+    env_train_vm = VecMonitor(env_train_vn, log_dir+'_train')
+    env_eval_vm = VecMonitor(env_eval_vn, log_dir+'_test')
+
+    MAESAC_PARAMS = {
+        "batch_size": 32,
+        "buffer_size": 100000,
+        "learning_rate": 0.0001,
+        "learning_starts": 100,
+        "ent_coef": "auto_0.1",
+        "enc_in": 96,
+        "dec_in": 96,
+        "c_out_construction": 96,
+        "d_model":128,
+        "d_ff":256,
+        "n_heads":4,
+        "e_layers":2,
+        "d_layers":1,
+        "dropout":0.05,
+        "transformer_path":mae_model_path,
+        "transformer_device": device,
+    }
+
+    agent = DRLAgent(env = env_train_vm)
+    if load_pretrain:
         print(f"load: {final_model_path}...")
         model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)
-        # 恢复 VecNormalize 的统计信息
-        if os.path.exists(vn_path):
-            env_train_vn.load(vn_path)
-            print(f"Loaded VecNormalize stats from {vn_path}")
     else:
         model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
 
@@ -223,8 +222,23 @@ if train_mode:
 
 
 model_path = os.path.join('trained_models/', version, model_name, 'best_train_model.zip')
+vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
+
+env_name = "test"
+env_kwargs["mode"] = env_name
+env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
+test_trade_gym = Env(df = test, **env_kwargs)
+env_test, _ = test_trade_gym.get_sb_env()
+# 如果存在 VecNormalize 统计文件，则加载它
+if os.path.exists(vn_path):
+    env_test_vn = VecNormalize.load(vn_path, env_test)
+    print(f"Loaded VecNormalize from {vn_path}")
+else:
+    env_test_vn = VecNormalize(env_test, norm_reward=True, norm_obs=True)
+#env_test_vm = VecMonitor(env_test_vn, log_dir+'_test')
+
 start = time.time()
-results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',environment=test_trade_gym, cwd=model_path)
+results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test_vn, cwd=model_path)
 end = time.time()
 print("Test time: %.3f"%(end-start))
 

@@ -176,8 +176,8 @@ class DRLAgent:
         return account_memory[0], actions_memory[0]#, universal_results[0]
 
     @staticmethod
-    def DRL_prediction_load_from_file(model_name, environment, cwd, deterministic=True):
-        test_env, test_obs = environment.get_sb_env()
+    def DRL_prediction_load_from_file(model_name, test_env, cwd, deterministic=True):
+
         if model_name not in MODELS:
             raise NotImplementedError("NotImplementedError")
         try:
@@ -188,19 +188,22 @@ class DRLAgent:
             raise ValueError("Fail to load agent!")
 
         # test on the testing env
-        state = environment.reset()
+        state = test_env.reset()
         episode_returns = list()  # the cumulative_return / initial_account
         episode_total_assets = list()
-        episode_total_assets.append(environment.initial_amount)
+        initial_amount = test_env.env_method(method_name="get_initial_amount")[0]
+        episode_total_assets.append(initial_amount)
         done = False
         while not done:
-            action = model.predict(state, deterministic=deterministic)[0]
-            state, reward, done, _ = environment.step(action)
+            # 正确解包 predict 返回的元组 (action, states)
+            action, _states = model.predict(state, deterministic=deterministic)
+            state, reward, done, info = test_env.step(action)
 
-            total_asset = environment.end_total_asset
+            # 通过 env_method 获取原始环境的资产信息
+            total_asset = test_env.env_method(method_name="get_end_total_asset")[0]
 
             episode_total_assets.append(total_asset)
-            episode_return = total_asset / environment.initial_amount
+            episode_return = total_asset / initial_amount
             episode_returns.append(episode_return)
 
         print("episode_return", episode_return)
