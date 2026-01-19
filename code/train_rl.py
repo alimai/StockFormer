@@ -89,16 +89,27 @@ df = df.merge(df_cov, on='date')
 df = df.sort_values(['date','tic']).reset_index(drop=True)
          
 
-scaler = StandardScaler()
-df_data = df[config.TECHNICAL_INDICATORS_LIST]
-df_data = df_data.replace([np.inf], config.INF)
-df_data = df_data.replace([-np.inf], config.INF*(-1))
-data = scaler.fit_transform(df_data.values)
-df[config.TECHNICAL_INDICATORS_LIST] = data
+# 定义数据集时间范围
+TRAIN_START, TRAIN_END = '2011-01-17', '2018-12-28'
+EVAL_START, EVAL_END = '2019-01-02', '2021-12-31'
+TEST_START, TEST_END = '2018-10-09', '2022-04-16'
 
-train = data_split(df, '2011-01-17','2018-12-28')
-eval = data_split(df, '2019-01-02', '2021-12-31')
-test = data_split(df,'2018-10-09', '2022-04-16')
+# 处理技术指标中的无穷值
+df[config.TECHNICAL_INDICATORS_LIST] = df[config.TECHNICAL_INDICATORS_LIST].replace([np.inf], config.INF)
+df[config.TECHNICAL_INDICATORS_LIST] = df[config.TECHNICAL_INDICATORS_LIST].replace([-np.inf], config.INF*(-1))
+
+# StandardScaler 只在训练数据上 fit，避免测试集信息泄露
+scaler = StandardScaler()
+train_mask = (df['date'] >= TRAIN_START) & (df['date'] < TRAIN_END)
+train_data_for_scaler = df.loc[train_mask, config.TECHNICAL_INDICATORS_LIST]
+scaler.fit(train_data_for_scaler.values)  # 只在训练数据上 fit
+
+# 对所有数据进行 transform
+df[config.TECHNICAL_INDICATORS_LIST] = scaler.transform(df[config.TECHNICAL_INDICATORS_LIST].values)
+
+train = data_split(df, TRAIN_START, TRAIN_END)
+eval = data_split(df, EVAL_START, EVAL_END)
+test = data_split(df, TEST_START, TEST_END)
 
 stock_dimension = len(train.tic.unique())
 state_space = stock_dimension
