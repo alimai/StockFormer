@@ -19,7 +19,7 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy, plot_r
 
 
 MODELS = {"maesac": SAC_MAE}
-
+#此处导入config中的MAESAC_PARAMS作为默认值备用(注意有参数"c_out_prediction":1)
 MODEL_KWARGS = {x: config.__dict__[f"{x.upper()}_PARAMS"] for x in MODELS.keys()}
 
 NOISE = {
