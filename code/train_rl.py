@@ -142,7 +142,7 @@ os.makedirs(log_dir, exist_ok=True)
 os.makedirs(model_dir, exist_ok=True)
 
 print("Initial Env...")
-train_mode = False#True
+train_mode = True#False#
 if train_mode:
     env_name = "train"
     env_kwargs["mode"] = env_name
