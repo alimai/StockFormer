@@ -194,6 +194,7 @@ class DRLAgent:
         initial_amount = test_env.env_method(method_name="get_initial_amount")[0]
         episode_total_assets.append(initial_amount)
         done = False
+        final_info = None
         while not done:
             # 正确解包 predict 返回的元组 (action, states)
             action, _states = model.predict(state, deterministic=deterministic)
@@ -205,11 +206,16 @@ class DRLAgent:
             episode_total_assets.append(total_asset)
             episode_return = total_asset / initial_amount
             episode_returns.append(episode_return)
+            
+            # done 时保存 info（此时包含 memory 数据，reset 前获取）
+            if done:
+                final_info = info[0]
 
         print("episode_return", episode_return)
         print("Test Finished!")
 
-        account_memory = test_env.env_method(method_name="save_asset_memory")
-        actions_memory = test_env.env_method(method_name="save_action_memory")
+        # 从 terminal 时的 info 获取数据（避免被 DummyVecEnv 自动 reset 清空）
+        account_memory = final_info.get('account_memory')
+        actions_memory = final_info.get('actions_memory')
 
-        return episode_total_assets, account_memory[0], actions_memory[0]
+        return episode_total_assets, account_memory, actions_memory
