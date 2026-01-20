@@ -521,7 +521,9 @@ class SAC(OffPolicyAlgorithm):
             # 如果没有提供 seed，使用随机 mask（保持原有行为）
             rand_indices = th.rand(bs, stock_num).argsort(dim=-1)
         
-        mask_indices = rand_indices[:, :int(stock_num/2)]
+        # mask 10% 的特征，但至少mask 1个特征，避免空tensor导致错误
+        num_mask = max(1, int(stock_num * 0.01))
+        mask_indices = rand_indices[:, :num_mask]
         batch_range = th.arange(bs)[:, None]
         mask[batch_range, mask_indices, stock_num:] = 0
         enc_inp = mask * batch_enc1
