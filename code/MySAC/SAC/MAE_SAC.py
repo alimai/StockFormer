@@ -185,8 +185,15 @@ class SAC(OffPolicyAlgorithm):
         else:
             print("Successfully initialize transformer model...")
         
+        # 冻结MAE模块，符合论文两阶段训练设计（第一阶段预训练，第二阶段冻结使用）
+        for param in self.state_transformer.parameters():
+            param.requires_grad = False
+        self.state_transformer.eval()
+        print("MAE module frozen (requires_grad=False)")
+        
         self.transformer_device = transformer_device
-        self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=learning_rate)
+        # transformer_optim 已移除，因为 MAE 模块已冻结
+        # self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=learning_rate)
         self.transformer_criteria = th.nn.MSELoss()
         
         self.critic_alpha = critic_alpha
@@ -239,9 +246,10 @@ class SAC(OffPolicyAlgorithm):
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
-        self.state_transformer.train()
-        # Update optimizers learning rate
-        optimizers = [self.actor.optimizer, self.critic.optimizer, self.actor_transformer.optimizer, self.critic_transformer.optimizer, self.transformer_optim] 
+        # MAE模块保持eval模式（已冻结），不参与训练
+        self.state_transformer.eval()
+        # Update optimizers learning rate（移除了 transformer_optim，因为 MAE 已冻结）
+        optimizers = [self.actor.optimizer, self.critic.optimizer, self.actor_transformer.optimizer, self.critic_transformer.optimizer] 
         if self.ent_coef_optimizer is not None:
             optimizers += [self.ent_coef_optimizer]
 
@@ -374,14 +382,9 @@ class SAC(OffPolicyAlgorithm):
             self.actor.optimizer.step()
             self.actor_transformer.optimizer.step()
 
+            # MAE模块已冻结，仅记录loss用于监控，不进行反向传播更新
             transformerloss = (loss_s + loss_ns)/2
             transformer_losses.append(transformerloss.item())
-            
-            # 单独更新 state_transformer，使用 MAE reconstruction loss
-            # 这样可以避免 state_transformer 的更新影响 critic 的训练稳定性
-            self.transformer_optim.zero_grad()
-            transformerloss.backward()
-            self.transformer_optim.step()
 
             # Update target networks
             if gradient_step % self.target_update_interval == 0:
