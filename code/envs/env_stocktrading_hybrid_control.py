@@ -252,7 +252,7 @@ class StockTradingEnv(gym.Env):
 
             # 使用平均单步收益作为终止状态的reward，与普通步骤保持尺度一致
             avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
-            self.reward = tot_reward_ratio#avg_step_reward * self.reward_scaling
+            self.reward = tot_reward_ratio * self.reward_scaling#avg_step_reward
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
@@ -370,7 +370,7 @@ class StockTradingEnv(gym.Env):
                 avg_prices
                 * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
-            self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))#asset_for_reward_orig,begin_total_asset
+            self.reward = (( asset_for_reward_new - begin_total_asset)/(begin_total_asset*1.0))#asset_for_reward_orig,begin_total_asset
             self.reward = self.reward * self.reward_scaling
 
             self.state = self._update_state()

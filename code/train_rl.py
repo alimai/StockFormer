@@ -183,7 +183,7 @@ if train_mode:
             print(f"Loaded VecNormalize stats from {vn_path}")
         else:
             print(f"Can not loaded VecNormalize stats!!!")
-            os.exit(0)
+            exit(0)
     else:
         env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=True)
         env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=True)
