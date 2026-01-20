@@ -174,26 +174,28 @@ if train_mode:
     if os.path.exists(final_model_path):
         load_pretrain = True
         
+    # 【修复】调整包装顺序：先 VecMonitor 再 VecNormalize
+    # 这样 VecMonitor 记录的是原始奖励，ep_rew_mean 才能正确反映训练效果
+    env_train_vm = VecMonitor(env_train, log_dir+'_train')  # 先包装 Monitor
+    env_eval_vm = VecMonitor(env_eval, log_dir+'_test')
+    
     # 使用 VecNormalize 对 reward 进行标准化，避免终端 reward 和普通 reward 数值差异过大
     vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
     if load_pretrain:#
         if os.path.exists(vn_path):# 恢复 VecNormalize 的统计信息
-            env_train_vn = VecNormalize.load(vn_path, env_train)
-            env_eval_vn = VecNormalize.load(vn_path, env_eval)
+            env_train_vn = VecNormalize.load(vn_path, env_train_vm)  # 注意改为包装 vm
+            env_eval_vn = VecNormalize.load(vn_path, env_eval_vm)
             print(f"Loaded VecNormalize stats from {vn_path}")
         else:
             print(f"Can not loaded VecNormalize stats!!!")
             exit(0)
     else:
-        env_train_vn = VecNormalize(env_train, norm_reward=True, norm_obs=True)
-        env_eval_vn = VecNormalize(env_eval, norm_reward=True, norm_obs=True)
+        env_train_vn = VecNormalize(env_train_vm, norm_reward=True, norm_obs=True)  # 再包装 Normalize
+        env_eval_vn = VecNormalize(env_eval_vm, norm_reward=True, norm_obs=True)
     
     # 评估环境冻结统计信息，避免评估时更新均值/方差
     env_eval_vn.training = False
     env_eval_vn.norm_reward = False
-    
-    env_train_vm = VecMonitor(env_train_vn, log_dir+'_train')
-    env_eval_vm = VecMonitor(env_eval_vn, log_dir+'_test')
 
     MAESAC_PARAMS = {
         "batch_size": 32,
@@ -214,10 +216,11 @@ if train_mode:
         "transformer_device": device,
     }
 
-    agent = DRLAgent(env = env_train_vm)
+    # 【修复】使用 VecNormalize 包装后的环境（最外层）
+    agent = DRLAgent(env = env_train_vn)
     if load_pretrain:
         print(f"load: {final_model_path}...")
-        model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)
+        model_sac = SAC_MAE.load(final_model_path, env=env_train_vn, tensorboard_log=tensorboard_log_dir)
     else:
         model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
 
@@ -231,7 +234,7 @@ if train_mode:
                                 check_freq=50000,
                                 log_dir=log_dir,
                                 model_dir=model_dir,
-                                eval_env=env_eval_vm,
+                                eval_env=env_eval_vn,  # 同样使用 VecNormalize 包装后的评估环境
                                 total_timesteps=30000)
     end = time.time()
     print("Training time: %.3f"%(end-start))
