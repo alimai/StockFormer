@@ -262,13 +262,15 @@ class SAC(OffPolicyAlgorithm):
 
             # Action by the current actor for the sampled state
             # pdb.set_trace()
-            # 计算 state 时立即 detach，确保状态表示稳定
-            # 这样可以避免 state_transformer 更新导致的状态表示突然变化
+            # 【论文一致性修复】根据论文 Table 7 消融实验：
+            # - Critic 梯度需要传播到 relation inference module（state_transformer）
+            # - Actor 梯度不需要传播到 relation inference module
             # 使用随机数作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
             seed = random.randint(0, 2**31 - 1)
             state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(replay_data.observations, seed=seed) # [bs, num_nodes, cov_list\technial\temporal_feature(60day)\label\holding]
-            state = state.detach()  # 立即 detach，确保状态表示稳定
-            actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks))
+            # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
+            state_for_actor = state.detach()
+            actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, holding_stocks))
             log_prob = log_prob.reshape(-1, 1)
 
             ent_coef_loss = None
@@ -315,7 +317,7 @@ class SAC(OffPolicyAlgorithm):
 
             # Get current Q-values estimates for each critic network
             # using action from the replay buffer
-            # state 已经在前面 detach 了，这里直接使用
+            # 【论文一致性】Critic 使用原始 state（不 detach），允许梯度传播到 state_transformer
             current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks), replay_data.actions)
 
             # Compute critic loss
@@ -347,20 +349,23 @@ class SAC(OffPolicyAlgorithm):
                 print()
 
             # pdb.set_trace()
-            # Optimize the critic (不更新 state_transformer，避免状态表示突然变化)
+            # 【论文一致性】Optimize the critic，同时更新 state_transformer（relation inference module）
+            # 根据论文："propagates the analytic gradients of state values back into the relation inference module"
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
+            self.transformer_optim.zero_grad()  # 【论文一致性】包含 state_transformer
             critic_loss.backward()
 
             self.critic.optimizer.step()
             self.critic_transformer.optimizer.step()
+            self.transformer_optim.step()  # 【论文一致性】Critic 梯度更新 state_transformer
 
             # Compute actor loss
             # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
             # Mean over all critic networks
             alpha = 0
-            # state 已经在前面 detach 了，这里直接使用
-            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, holding_stocks), actions_pi), dim=1)
+            # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
+            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, holding_stocks), actions_pi), dim=1)
             
             min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
             actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
@@ -374,14 +379,10 @@ class SAC(OffPolicyAlgorithm):
             self.actor.optimizer.step()
             self.actor_transformer.optimizer.step()
 
+            # 【论文一致性】MAE reconstruction loss 仅用于监控，不再单独更新 state_transformer
+            # 因为 state_transformer 已经通过 Critic 梯度进行联合训练（论文 Section 4.2）
             transformerloss = (loss_s + loss_ns)/2
             transformer_losses.append(transformerloss.item())
-            
-            # 单独更新 state_transformer，使用 MAE reconstruction loss
-            # 这样可以避免 state_transformer 的更新影响 critic 的训练稳定性
-            self.transformer_optim.zero_grad()
-            transformerloss.backward()
-            self.transformer_optim.step()
 
             # Update target networks
             if gradient_step % self.target_update_interval == 0:
