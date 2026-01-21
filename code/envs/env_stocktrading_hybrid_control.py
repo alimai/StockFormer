@@ -377,7 +377,7 @@ class StockTradingEnv(gym.Env):
                 avg_prices
                 * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
-            self.reward = (( asset_for_reward_new - begin_total_asset)/(begin_total_asset*1.0))#asset_for_reward_orig,begin_total_asset
+            self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))#asset_for_reward_orig,begin_total_asset
             self.reward = self.reward * self.reward_scaling
 
             self.state = self._update_state()
