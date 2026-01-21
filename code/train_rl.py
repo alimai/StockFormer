@@ -201,7 +201,7 @@ if train_mode:
         "buffer_size": 50000,
         "learning_rate": 0.00001,
         "learning_starts": 100,
-        "ent_coef": "auto_0.1",
+        "ent_coef": "auto_0.001",
         "enc_in": 96,
         "dec_in": 96,
         "c_out_construction": 96,
@@ -213,7 +213,7 @@ if train_mode:
         "dropout":0.05,
         "transformer_path":mae_model_path,
         "transformer_device": device,
-        "gradient_steps": 2,  # 增加gradient_steps比例，加强critic网络训练
+        "gradient_steps": 1,  # 增加gradient_steps比例，加强critic网络训练
     }
 
     # 【修复】使用 VecNormalize 包装后的环境（最外层）
