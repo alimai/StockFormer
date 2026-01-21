@@ -245,7 +245,7 @@ class StockTradingEnv(gym.Env):
             current_day_prices = self.data.price.values     # 当前day所有股票价格
             start_market_value = np.sum(start_day_prices)   # 持仓数为1的起始市值
             current_market_value = np.sum(current_day_prices)  # 持仓数为1的当前市值
-            market_value_growth_ratio = current_market_value / start_market_value  # 市值增长系数
+            market_value_growth_ratio = current_market_value / start_market_value - 1.0  # 市值增长系数
             
             df_total_value = pd.DataFrame(self.asset_memory)
             df_total_value.columns = ["account_value"]
