@@ -19,15 +19,15 @@ from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 import pdb
-import stable_baselines3.common.utils as utils 
+import stable_baselines3.common.utils as utils
 from sklearn.preprocessing import StandardScaler
 
 
 version = 'CSI/'
 model_name='StockFormer/'
-short_prediction_model_path = 'Transformer/pretrained/csi/Short/checkpoint.pth' 
+short_prediction_model_path = 'Transformer/pretrained/csi/Short/checkpoint.pth'
 long_prediction_model_path =  'Transformer/pretrained/csi/Long/checkpoint.pth'
-mae_model_path = 'Transformer/pretrained/csi/mae/checkpoint.pth' 
+mae_model_path = 'Transformer/pretrained/csi/mae/checkpoint.pth'
 full_stock_dir = '../data/CSI/'
 ticker_list = config.use_ticker_dict['CSI']
 prediction_len = [1,5]
@@ -54,7 +54,7 @@ for ticker in ticker_list:
     df = pd.concat((df, temp_df))
 
 df = df.sort_values(by=['date','tic'])
-    
+
 fe = FeatureEngineer(
                     use_technical_indicator=True,
                     tech_indicator_list=config.TECHNICAL_INDICATORS_LIST,
@@ -76,18 +76,18 @@ lookback=252
 for i in range(lookback,len(df.index.unique())):
     # 使用 i-1 排除当天数据，避免数据泄露（只使用历史数据计算协方差）
     data_lookback = df.loc[i-lookback:i-1,:]
-    price_lookback=data_lookback.pivot_table(index = 'date',columns = 'tic', values = 'close') 
+    price_lookback=data_lookback.pivot_table(index = 'date',columns = 'tic', values = 'close')
     return_lookback = price_lookback.pct_change().dropna()
     return_list.append(return_lookback)
-    
-    covs = return_lookback.cov().values 
+
+    covs = return_lookback.cov().values
     cov_list.append(covs)
 
 
 df_cov = pd.DataFrame({'date':df.date.unique()[lookback:],'cov_list':cov_list,'return_list':return_list})
 df = df.merge(df_cov, on='date')
 df = df.sort_values(['date','tic']).reset_index(drop=True)
-         
+
 
 # 定义数据集时间范围（使用config中的CSI_date）
 TRAIN_START, TRAIN_END = config.CSI_date[0], config.CSI_date[1]
@@ -124,12 +124,12 @@ else:
     device = 'cpu'
 
 env_kwargs = {
-    "hmax": 100, 
-    "initial_amount": 100000,  
+    "hmax": 100,
+    "initial_amount": 100000,
     "transaction_cost_pct": 0,
-    "state_space": state_space, 
-    "stock_dim": stock_dimension, 
-    "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST, 
+    "state_space": state_space,
+    "stock_dim": stock_dimension,
+    "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST,
     "temporal_feature_list": config.TEMPORAL_FEATURE,
     "additional_list": config.ADDITIONAL_FEATURE,
     "action_space": stock_dimension,
@@ -140,7 +140,7 @@ env_kwargs = {
     "time_window_start":config.time_window_start,
     "step_len": 1000,
     "temporal_len": 60,
-    "hidden_channel":128,     
+    "hidden_channel":128,
     "model_name":model_name[:-1],
     "short_prediction_model_path": short_prediction_model_path,
     "long_prediction_model_path": long_prediction_model_path,
@@ -172,12 +172,12 @@ if train_mode:
     final_model_path = os.path.join('trained_models/', version, model_name, 'best_train_model000.zip')
     if os.path.exists(final_model_path):
         load_pretrain = True
-        
+
     # 【修复】调整包装顺序：先 VecMonitor 再 VecNormalize
     # 这样 VecMonitor 记录的是原始奖励，ep_rew_mean 才能正确反映训练效果
     env_train_vm = VecMonitor(env_train, log_dir+'_train')  # 先包装 Monitor
     env_eval_vm = VecMonitor(env_eval, log_dir+'_test')
-    
+
     # 使用 VecNormalize 对 reward 进行标准化，避免终端 reward 和普通 reward 数值差异过大
     vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
     if load_pretrain:#
@@ -191,15 +191,15 @@ if train_mode:
     else:
         env_train_vn = VecNormalize(env_train_vm, norm_reward=True, norm_obs=True)  # 再包装 Normalize
         env_eval_vn = VecNormalize(env_eval_vm, norm_reward=True, norm_obs=True)
-    
+
     # 评估环境冻结统计信息，避免评估时更新均值/方差
     env_eval_vn.training = False
     env_eval_vn.norm_reward = False
 
     MAESAC_PARAMS = {
-        "batch_size": 32,
-        "buffer_size": 100000,
-        "learning_rate": 0.0001,
+        "batch_size": 64,
+        "buffer_size": 50000,
+        "learning_rate": 0.00001,
         "learning_starts": 100,
         "ent_coef": "auto_0.1",
         "enc_in": 96,
@@ -213,6 +213,7 @@ if train_mode:
         "dropout":0.05,
         "transformer_path":mae_model_path,
         "transformer_device": device,
+        "gradient_steps": 2,  # 增加gradient_steps比例，加强critic网络训练
     }
 
     # 【修复】使用 VecNormalize 包装后的环境（最外层）
