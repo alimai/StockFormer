@@ -525,7 +525,7 @@ class SAC(OffPolicyAlgorithm):
             else:
                 rand_stock_indices = th.rand(bs, stock_num, device=x.device).argsort(dim=-1)
             
-            # mask 10% 的股票，至少 mask 1 个
+            # mask 1% 的股票，至少 mask 1 个
             num_mask = max(1, int(stock_num * 0.1))
             mask_stock_indices = rand_stock_indices[:, :num_mask]  # [bs, num_mask]
             
@@ -555,8 +555,8 @@ class SAC(OffPolicyAlgorithm):
             else:
                 rand_feat_indices = th.rand(bs, feat_dim, device=x.device).argsort(dim=-1)
             
-            # mask 10% 的技术指标（特征），至少 mask 1 个
-            num_mask = max(1, int(feat_dim * 0.1))
+            # mask 1% 的技术指标（特征），至少 mask 1 个
+            num_mask = max(1, int(feat_dim * 0.01))
             mask_feat_indices = rand_feat_indices[:, :num_mask]  # [bs, num_mask]
             
             # 使用向量化操作屏蔽选中的特征（对所有股票生效）
