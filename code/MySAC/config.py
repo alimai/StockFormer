@@ -10,6 +10,7 @@ RESULTS_DIR = "results"
 START_DATE = "2010-01-01"
 END_DATE = "2022-05-07"
 
+fix_seed = 1999
 INF = 1100
 
 ## Model Parameters
@@ -76,13 +77,9 @@ USE_TICKET = os.listdir('../data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
-CSI_date = ['20110117', '20180801', '20180508', '20201231',  '20210104', '20220426']
-#CSI_date = ['2011-01-17','2018-12-28', '2019-01-02', '2021-12-31','2018-10-09', '2022-04-16']
-
-date_dict = {'CSI': CSI_date, 'TEST': CSI_date}
-
+CSI_date = ['2011-01-17','2018-12-28', '2019-01-02', '2021-12-30','2018-10-09', '2022-04-16']
 
 # 使用随机种子动态生成随机窗口起始位置
 # 范围 [60, 940] 对应 temporal_len=60 和 step_len=1000 的约束
-# _rand.seed(1999)  # 注释掉固定种子，使用系统随机种子
+random.seed(fix_seed)
 time_window_start = [60] + [random.randint(60, 940) for _ in range(500)]

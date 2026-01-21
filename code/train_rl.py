@@ -23,7 +23,6 @@ import stable_baselines3.common.utils as utils
 from sklearn.preprocessing import StandardScaler
 
 
-fix_seed = 1999
 version = 'CSI/'
 model_name='StockFormer/'
 short_prediction_model_path = 'Transformer/pretrained/csi/Short/checkpoint.pth' 
@@ -90,10 +89,10 @@ df = df.merge(df_cov, on='date')
 df = df.sort_values(['date','tic']).reset_index(drop=True)
          
 
-# 定义数据集时间范围
-TRAIN_START, TRAIN_END = '2011-01-17', '2018-12-28'
-EVAL_START, EVAL_END = '2019-01-02', '2021-12-31'
-TEST_START, TEST_END = '2018-10-09', '2022-04-16'
+# 定义数据集时间范围（使用config中的CSI_date）
+TRAIN_START, TRAIN_END = config.CSI_date[0], config.CSI_date[1]
+EVAL_START, EVAL_END = config.CSI_date[2], config.CSI_date[3]
+TEST_START, TEST_END = config.CSI_date[4], config.CSI_date[5]
 
 # 处理技术指标中的无穷值
 df[config.TECHNICAL_INDICATORS_LIST] = df[config.TECHNICAL_INDICATORS_LIST].replace([np.inf], config.INF)
@@ -222,7 +221,7 @@ if train_mode:
         print(f"load: {final_model_path}...")
         model_sac = SAC_MAE.load(final_model_path, env=env_train_vn, tensorboard_log=tensorboard_log_dir)
     else:
-        model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)
+        model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)
 
     timestamp = datetime.datetime.now().strftime("%H%M%S")
     tb_log_name_with_timestamp = model_name[:-1] + '_' + timestamp + '/'
