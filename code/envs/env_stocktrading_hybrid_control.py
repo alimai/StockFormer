@@ -239,6 +239,14 @@ class StockTradingEnv(gym.Env):
             tot_reward = (self.end_total_asset - self.initial_amount)
             tot_reward_ratio = tot_reward/(self.initial_amount*1.0)
             
+            # 计算所有股票持仓数为1时，从start_day到当前day的市值增长系数
+            start_day_data = self.df.loc[self.start_day, :]
+            start_day_prices = start_day_data.price.values  # start_day时所有股票价格
+            current_day_prices = self.data.price.values     # 当前day所有股票价格
+            start_market_value = np.sum(start_day_prices)   # 持仓数为1的起始市值
+            current_market_value = np.sum(current_day_prices)  # 持仓数为1的当前市值
+            market_value_growth_ratio = current_market_value / start_market_value  # 市值增长系数
+            
             df_total_value = pd.DataFrame(self.asset_memory)
             df_total_value.columns = ["account_value"]
             df_total_value["date"] = self.date_memory
@@ -250,9 +258,8 @@ class StockTradingEnv(gym.Env):
                     / df_total_value["daily_return"].std()
                 )
 
-            # 使用平均单步收益作为终止状态的reward，与普通步骤保持尺度一致
             avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
-            self.reward = tot_reward_ratio# * self.reward_scaling#avg_step_reward
+            self.reward = (tot_reward_ratio - market_value_growth_ratio) * self.reward_scaling#avg_step_reward
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
