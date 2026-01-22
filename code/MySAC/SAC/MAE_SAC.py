@@ -170,32 +170,32 @@ class SAC(OffPolicyAlgorithm):
             else:
                 transformer_device = 'cpu'
 
-        self.state_transformer = Transformer(enc_in=enc_in, dec_in=dec_in, c_out=c_out_construction, 
+        self.state_transformer = Transformer(enc_in=enc_in, dec_in=dec_in, c_out=c_out_construction,
                                              n_heads=n_heads, e_layers=e_layers, d_layers=d_layers,
                                              d_model=d_model, d_ff=d_ff, dropout=dropout).to(transformer_device)
-        
+
         if transformer_path is not None:
             state_dict = th.load(transformer_path, map_location=transformer_device)
             new_state_dict = OrderedDict()
-            for k, v in state_dict.items(): 
-                name = k[7:] 
+            for k, v in state_dict.items():
+                name = k[7:]
                 new_state_dict[name] = v
             self.state_transformer.load_state_dict(new_state_dict)
             print("Successfully load pretrained model...", transformer_path)
         else:
             print("Successfully initialize transformer model...")
-        
+
         self.transformer_device = transformer_device
         self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=learning_rate)
         self.transformer_criteria = th.nn.MSELoss()
-        
+
         self.critic_alpha = critic_alpha
         self.actor_alpha = actor_alpha
 
 
         self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device).to(transformer_device)
         self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device).to(transformer_device)
-        
+
         self.in_feat = enc_in
 
     def _setup_model(self) -> None:
@@ -240,7 +240,7 @@ class SAC(OffPolicyAlgorithm):
         self.policy.set_training_mode(True)
         self.state_transformer.train()
         # Update optimizers learning rate
-        optimizers = [self.actor.optimizer, self.critic.optimizer, self.actor_transformer.optimizer, self.critic_transformer.optimizer, self.transformer_optim] 
+        optimizers = [self.actor.optimizer, self.critic.optimizer, self.actor_transformer.optimizer, self.critic_transformer.optimizer, self.transformer_optim]
         if self.ent_coef_optimizer is not None:
             optimizers += [self.ent_coef_optimizer]
 
@@ -267,7 +267,8 @@ class SAC(OffPolicyAlgorithm):
             # 使用随机数作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
             seed = random.randint(0, 2**31 - 1)
             # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票，默认) 或 'feature'(屏蔽技术指标)
-            state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(replay_data.observations, seed=seed) # [bs, num_nodes, cov_list\technial\temporal_feature(60day)\label\holding]
+            state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(
+                replay_data.observations, seed=seed)#,mask_mode = 'feature'
             # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
             state_for_actor = state.detach()
             actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, holding_stocks))
@@ -366,7 +367,7 @@ class SAC(OffPolicyAlgorithm):
             alpha = 0
             # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
             q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, holding_stocks), actions_pi), dim=1)
-            
+
             min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
             actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
             actor_losses.append(actor_loss.item())
@@ -436,7 +437,7 @@ class SAC(OffPolicyAlgorithm):
         if len(test_obs.shape) == 2:
             test_obs = np.expand_dims(test_obs, axis=0)
             flag = 1
-        
+
         # 保存当前训练模式，确保评估后恢复
         # 这是防御性编程，确保 predict 调用不会影响后续的训练
         was_training = self.state_transformer.training
@@ -462,24 +463,24 @@ class SAC(OffPolicyAlgorithm):
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         # 保存基础 SAC 组件
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
-        
+
         # 保存 entropy coefficient 相关
         if self.ent_coef_optimizer is not None:
             saved_pytorch_variables = ["log_ent_coef"]
             state_dicts.append("ent_coef_optimizer")
         else:
             saved_pytorch_variables = ["ent_coef_tensor"]
-        
+
         # 保存 SAC_MAE 特有的 Transformer 组件
         # state_transformer: Transformer 模型及其优化器
         state_dicts.extend(["state_transformer", "transformer_optim"])
-        
+
         # actor_transformer 和 critic_transformer: 每个都有内部的 optimizer
         state_dicts.extend(["actor_transformer", "actor_transformer.optimizer"])
         state_dicts.extend(["critic_transformer", "critic_transformer.optimizer"])
-        
+
         return state_dicts, saved_pytorch_variables
-    
+
     def _state_transfer_predict(self, x):
 
         batch_enc1 = x[:, :, :self.in_feat] # [cov+technical_list]
@@ -497,54 +498,55 @@ class SAC(OffPolicyAlgorithm):
         return enc_out, temporal_feature_short, temporal_feature_long, holding
 
 
-    def _state_transfer(self, x, seed=None, mask_mode='stock'):
+    def _state_transfer(self, x, seed=None, mask_mode='mixed'):
         """
         状态转换方法，使用 MAE Transformer 进行状态编码
-        
+
         :param x: 输入状态 [bs, stock_num, features]
         :param seed: 可选的随机种子，用于生成 mask。如果提供，确保相同的 seed 生成相同的 mask
         :param mask_mode: mask 模式，可选值：
             - 'stock': 屏蔽股票（默认），随机选择部分股票，屏蔽其全部特征
             - 'feature': 屏蔽技术指标，随机选择部分特征，对所有股票屏蔽这些特征
+            - 'mixed': 混合模式，同时随机屏蔽部分股票和部分特征
         :return: 编码后的状态、时间特征、持仓信息、重建损失
         """
         bs, stock_num = x.shape[0], x.shape[1]
         feat_dim = self.in_feat  # 特征维度 (96)
 
         batch_enc1 = x[:, :, :feat_dim]  # [bs, stock_num, feat_dim] 包含 cov+technical_list
-        
+
         if mask_mode == 'stock':
             # ==================== 模式1: 屏蔽股票 ====================
             # 随机选择部分股票，屏蔽其全部特征
             mask = th.ones_like(batch_enc1)
-            
+
             if seed is not None:
                 with th.random.fork_rng():
                     th.random.manual_seed(seed)
                     rand_stock_indices = th.rand(bs, stock_num, device=x.device).argsort(dim=-1)
             else:
                 rand_stock_indices = th.rand(bs, stock_num, device=x.device).argsort(dim=-1)
-            
+
             # mask 1% 的股票，至少 mask 1 个
-            num_mask = max(1, int(stock_num * 0.1))
+            num_mask = max(1, int(stock_num * 0.01))
             mask_stock_indices = rand_stock_indices[:, :num_mask]  # [bs, num_mask]
-            
+
             # 使用向量化操作屏蔽选中的股票（所有特征）
             stock_mask = th.ones(bs, stock_num, device=x.device)  # [bs, stock_num]
             stock_mask.scatter_(1, mask_stock_indices, 0)  # 将选中的股票位置置 0
             # 扩展到所有特征: [bs, stock_num] -> [bs, stock_num, feat_dim]
             mask = stock_mask.unsqueeze(2).expand(-1, -1, feat_dim)
-            
+
             enc_inp = mask * batch_enc1
             enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
-            
+
             # 计算被屏蔽股票的重建损失
             # mask_stock_indices: [bs, num_mask] -> 扩展为 [bs, num_mask, feat_dim]
             gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_mask, feat_dim]
-            
+
             pred = th.gather(output, 1, gather_idx)  # [bs, num_mask, feat_dim]
             true = th.gather(batch_enc1, 1, gather_idx)  # [bs, num_mask, feat_dim]
-            
+
         elif mask_mode == 'feature':
             # ==================== 模式2: 屏蔽技术指标 ====================
             # 随机选择部分特征，对所有股票屏蔽这些特征
@@ -554,32 +556,90 @@ class SAC(OffPolicyAlgorithm):
                     rand_feat_indices = th.rand(bs, feat_dim, device=x.device).argsort(dim=-1)
             else:
                 rand_feat_indices = th.rand(bs, feat_dim, device=x.device).argsort(dim=-1)
-            
+
             # mask 1% 的技术指标（特征），至少 mask 1 个
             num_mask = max(1, int(feat_dim * 0.01))
             mask_feat_indices = rand_feat_indices[:, :num_mask]  # [bs, num_mask]
-            
+
             # 使用向量化操作屏蔽选中的特征（对所有股票生效）
             feat_mask = th.ones(bs, feat_dim, device=x.device)  # [bs, feat_dim]
             feat_mask.scatter_(1, mask_feat_indices, 0)  # 将选中的特征位置置 0
             # 扩展到所有股票: [bs, feat_dim] -> [bs, stock_num, feat_dim]
             mask = feat_mask.unsqueeze(1).expand(-1, stock_num, -1)
-            
+
             enc_inp = mask * batch_enc1
             enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
-            
+
             # 计算被屏蔽特征的重建损失
             # mask_feat_indices: [bs, num_mask] -> 扩展为 [bs, stock_num, num_mask]
             gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_mask]
-            
+
             pred = th.gather(output, 2, gather_idx)  # [bs, stock_num, num_mask]
             true = th.gather(batch_enc1, 2, gather_idx)  # [bs, stock_num, num_mask]
-            
-        else:
-            raise ValueError(f"Unknown mask_mode: {mask_mode}, expected 'stock' or 'feature'")
-        
+
+        else:  # if mask_mode == 'mixed':
+            # ==================== 模式3: 混合模式，同时屏蔽股票和特征 ====================
+            # 创建股票mask和特征mask的组合
+            mask = th.ones_like(batch_enc1)
+
+            # 生成股票mask
+            if seed is not None:
+                with th.random.fork_rng():
+                    th.random.manual_seed(seed)
+                    rand_stock_indices = th.rand(bs, stock_num, device=x.device).argsort(dim=-1)
+            else:
+                rand_stock_indices = th.rand(bs, stock_num, device=x.device).argsort(dim=-1)
+
+            # mask 1% 的股票，至少 mask 1 个
+            num_stock_mask = max(1, int(stock_num * 0.01))
+            mask_stock_indices = rand_stock_indices[:, :num_stock_mask]  # [bs, num_stock_mask]
+
+            # 生成特征mask
+            if seed is not None:
+                with th.random.fork_rng():
+                    th.random.manual_seed(seed)
+                    rand_feat_indices = th.rand(bs, feat_dim, device=x.device).argsort(dim=-1)
+            else:
+                rand_feat_indices = th.rand(bs, feat_dim, device=x.device).argsort(dim=-1)
+
+            # mask 1% 的技术指标（特征），至少 mask 1 个
+            num_feat_mask = max(1, int(feat_dim * 0.01))
+            mask_feat_indices = rand_feat_indices[:, :num_feat_mask]  # [bs, num_feat_mask]
+
+            # 创建股票mask: [bs, stock_num] -> [bs, stock_num, feat_dim]
+            stock_mask = th.ones(bs, stock_num, device=x.device)  # [bs, stock_num]
+            stock_mask.scatter_(1, mask_stock_indices, 0)  # 将选中的股票位置置 0
+            stock_mask_expanded = stock_mask.unsqueeze(2).expand(-1, -1, feat_dim)
+
+            # 创建特征mask: [bs, feat_dim] -> [bs, stock_num, feat_dim]
+            feat_mask = th.ones(bs, feat_dim, device=x.device)  # [bs, feat_dim]
+            feat_mask.scatter_(1, mask_feat_indices, 0)  # 将选中的特征位置置 0
+            feat_mask_expanded = feat_mask.unsqueeze(1).expand(-1, stock_num, -1)
+
+            # 组合mask：两个mask相乘（只有未被任一mask屏蔽的位置才保留）
+            mask = stock_mask_expanded * feat_mask_expanded
+
+            enc_inp = mask * batch_enc1
+            enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
+
+            # 计算被屏蔽股票的重建损失
+            # mask_stock_indices: [bs, num_stock_mask] -> 扩展为 [bs, num_stock_mask, feat_dim]
+            stock_gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_stock_mask, feat_dim]
+            stock_pred = th.gather(output, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
+            stock_true = th.gather(batch_enc1, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
+
+            # 计算被屏蔽特征的重建损失
+            # mask_feat_indices: [bs, num_feat_mask] -> 扩展为 [bs, stock_num, num_feat_mask]
+            feat_gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_feat_mask]
+            feat_pred = th.gather(output, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
+            feat_true = th.gather(batch_enc1, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
+
+            # 组合损失：股票mask损失 + 特征mask损失
+            pred = th.cat([stock_pred.reshape(-1), feat_pred.reshape(-1)], dim=0)
+            true = th.cat([stock_true.reshape(-1), feat_true.reshape(-1)], dim=0)
+
         loss = self.transformer_criteria(pred, true)
-        
+
         hidden_channel = enc_out.shape[-1]
         temporal_feature_short = x[:, :, self.in_feat: hidden_channel+self.in_feat]
         temporal_feature_long = x[:, :, hidden_channel+self.in_feat: hidden_channel*2+self.in_feat]
