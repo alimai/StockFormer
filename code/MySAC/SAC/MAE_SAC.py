@@ -266,7 +266,7 @@ class SAC(OffPolicyAlgorithm):
             # - Actor 梯度不需要传播到 relation inference module
             # 使用随机数作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
             seed = random.randint(0, 2**31 - 1)
-            # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票，默认) 或 'feature'(屏蔽技术指标)
+            # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
             state, temporal_feature_short, temporal_feature_long, holding_stocks, loss_s = self._state_transfer(
                 replay_data.observations, seed=seed)#,mask_mode = 'feature'
             # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
@@ -298,8 +298,10 @@ class SAC(OffPolicyAlgorithm):
             # 计算 next_state 时使用 detach，确保状态表示稳定
             # 这样可以避免 state_transformer 更新导致的状态表示突然变化影响 target_q_values
             # 使用相同的随机 seed，确保 state 和 next_state 使用相同的 mask 模式
-            # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值
-            next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks, loss_ns = self._state_transfer(replay_data.next_observations, seed=seed)
+            # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值            
+            # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
+            next_state, next_temporal_feature_short, next_temporal_feature_long, next_holding_stocks, loss_ns = self._state_transfer(
+                replay_data.next_observations, seed=seed)
             # 使用 detach 确保状态表示稳定，避免 state_transformer 更新影响 target 计算
             next_state = next_state.detach()
             with th.no_grad():
@@ -498,7 +500,7 @@ class SAC(OffPolicyAlgorithm):
         return enc_out, temporal_feature_short, temporal_feature_long, holding
 
 
-    def _state_transfer(self, x, seed=None, mask_mode='mixed'):
+    def _state_transfer(self, x, seed=None, mask_mode='nope'):
         """
         状态转换方法，使用 MAE Transformer 进行状态编码
         为每个模式应用其最快速的实现
@@ -509,6 +511,7 @@ class SAC(OffPolicyAlgorithm):
             - 'stock': 屏蔽股票（默认），随机选择部分股票，屏蔽其全部特征
             - 'feature': 屏蔽技术指标，随机选择部分特征，对所有股票屏蔽这些特征
             - 'mixed': 混合模式，同时随机屏蔽部分股票和部分特征
+            - 'nope': 不进行任何屏蔽，保留所有特征和股票
         :return: 编码后的状态、时间特征、持仓信息、重建损失
         """
         bs, stock_num = x.shape[0], x.shape[1]
@@ -572,7 +575,7 @@ class SAC(OffPolicyAlgorithm):
             pred = th.gather(output, 2, gather_idx)  # [bs, stock_num, num_mask]
             true = th.gather(batch_enc1, 2, gather_idx)  # [bs, stock_num, num_mask]
 
-        else:  # if mask_mode == 'mixed':
+        elif mask_mode == 'mixed':
             # ==================== 模式3: 混合模式，同时屏蔽股票和特征  - 优化版 ====================
             # 优化版本：减少重复计算，提高性能
             num_stock_mask = max(1, int(stock_num * 0.01))
@@ -618,6 +621,24 @@ class SAC(OffPolicyAlgorithm):
             # 优化：使用flatten替代reshape以提高性能
             pred = th.cat([stock_pred.flatten(), feat_pred.flatten()], dim=0)
             true = th.cat([stock_true.flatten(), feat_true.flatten()], dim=0)
+
+        else:  # if mask_mode == 'nope':
+            # ==================== 模式4: 不屏蔽任何特征或股票 ====================
+            # 直接使用完整的输入数据，不进行任何掩码操作
+            enc_inp = batch_enc1
+            enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
+
+            # 由于没有进行掩码，无法计算重建损失，返回零损失
+            loss = th.tensor(0.0, device=x.device)
+
+            # 提前返回，跳过其他模式的处理
+            hidden_channel = enc_out.shape[-1]
+            temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
+            temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
+
+            holding = x[:, :, -1:]
+
+            return enc_out, temporal_feature_short, temporal_feature_long, holding, loss
 
         loss = self.transformer_criteria(pred, true)
 
