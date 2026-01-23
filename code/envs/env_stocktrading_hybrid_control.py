@@ -1,4 +1,3 @@
-from distutils.command import config
 import numpy as np
 import pandas as pd
 from gym.utils import seeding
@@ -14,9 +13,6 @@ import torch
 from collections import OrderedDict
 
 import os
-import datetime
-import pdb
-import pickle as pkl
 
 
 class StockTradingEnv(gym.Env):
@@ -251,6 +247,7 @@ class StockTradingEnv(gym.Env):
             df_total_value.columns = ["account_value"]
             df_total_value["date"] = self.date_memory
             df_total_value["daily_return"] = df_total_value["account_value"].pct_change(1)
+            sharpe = 0.0
             if df_total_value["daily_return"].std() != 0:
                 sharpe = (
                     (252 ** 0.5)
@@ -272,8 +269,7 @@ class StockTradingEnv(gym.Env):
                 print(f"total_reward: {tot_reward:0.2f}")
                 print(f"total_cost: {self.cost:0.2f}")
                 print(f"total_trades: {self.trades}")
-                if df_total_value["daily_return"].std() != 0:
-                    print(f"Sharpe: {sharpe:0.3f}")
+                print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
 
                 # f1 = open(self.log_name, 'a')

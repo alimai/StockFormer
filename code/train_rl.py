@@ -2,15 +2,12 @@
 import os
 import time
 import datetime
-from matplotlib.font_manager import OSXFontDirectories
 import torch
 
 import pandas as pd
 import numpy as np
 import matplotlib
-import pickle as pkl
 matplotlib.use('Agg')
-import datetime
 
 from MySAC import config
 from MySAC.preprocessors import FeatureEngineer, data_split
@@ -18,8 +15,6 @@ from MySAC.models.DRLAgent import DRLAgent
 from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
-import pdb
-import stable_baselines3.common.utils as utils
 from sklearn.preprocessing import StandardScaler
 
 
@@ -186,7 +181,7 @@ if train_mode:
             env_eval_vn = VecNormalize.load(vn_path, env_eval_vm)
             print(f"Loaded VecNormalize stats from {vn_path}")
         else:
-            print(f"Can not loaded VecNormalize stats!!!")
+            print("Can not loaded VecNormalize stats!!!")
             exit(0)
     else:
         env_train_vn = VecNormalize(env_train_vm, norm_reward=True, norm_obs=True)  # 再包装 Normalize
