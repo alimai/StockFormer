@@ -197,7 +197,7 @@ if train_mode:
     env_eval_vn.norm_reward = False
 
     MAESAC_PARAMS = {
-        "batch_size": 64,
+        "batch_size": 128,
         "buffer_size": 50000,
         "learning_rate": 0.00001,
         "learning_starts": 100,

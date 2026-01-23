@@ -16,7 +16,7 @@ INF = 1100
 ## Model Parameters
 MAESAC_PARAMS = {
     "batch_size": 128,
-    "buffer_size": 100000,
+    "buffer_size": 50000,
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
