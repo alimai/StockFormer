@@ -82,4 +82,4 @@ CSI_date = ['2011-01-17','2018-12-28', '2019-01-02', '2021-12-30','2018-10-09', 
 # 使用随机种子动态生成随机窗口起始位置
 # 范围 [60, 940] 对应 temporal_len=60 和 step_len=1000 的约束
 random.seed(fix_seed)
-time_window_start = [60] + [random.randint(60, 940) for _ in range(500)]
+time_window_start = [60] + [random.randint(60, 1840) for _ in range(500)]  # 500个随机起始位置

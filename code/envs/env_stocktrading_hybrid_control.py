@@ -255,8 +255,8 @@ class StockTradingEnv(gym.Env):
                     / df_total_value["daily_return"].std()
                 )
 
-            avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
-            self.reward = (tot_reward_ratio - market_value_growth_ratio) * self.reward_scaling#avg_step_reward
+            #avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
+            self.reward = (tot_reward_ratio * 2 - market_value_growth_ratio) * self.reward_scaling
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
@@ -373,7 +373,8 @@ class StockTradingEnv(gym.Env):
                 avg_prices
                 * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
-            self.reward = (( asset_for_reward_new - asset_for_reward_orig)/(asset_for_reward_orig*1.0))#asset_for_reward_orig,begin_total_asset
+            used_asset_orig = (asset_for_reward_orig + begin_total_asset) * 0.5
+            self.reward = (( asset_for_reward_new - used_asset_orig)/(used_asset_orig*1.0))
             self.reward = self.reward * self.reward_scaling
 
             self.state = self._update_state()

@@ -193,7 +193,7 @@ if train_mode:
 
     MAESAC_PARAMS = {
         "batch_size": 128,#important
-        "buffer_size": 50000,
+        "buffer_size": 10000,
         "learning_rate": 0.00001,
         "learning_starts": 100,
         "ent_coef": "auto_0.001",#key
