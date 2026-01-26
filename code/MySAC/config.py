@@ -107,7 +107,10 @@ use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
 CSI_date = ['2011-01-17','2018-12-28', '2019-01-02', '2021-12-30','2018-10-09', '2022-04-16']
 
-# 使用随机种子动态生成随机窗口起始位置
-# 范围 [60, 940] 对应 temporal_len=60 和 step_len=1000 的约束
+# 方案1：使用有序滑动窗口（Sliding Window）生成起始位置，减少环境突变
+# 这种方式在 step_len 较小时能保证训练数据在宏观时间上的连续性
+# 设定步长为 100，确保相邻 Episode 之间有数据重叠或紧密衔接
 random.seed(fix_seed)
-time_window_start = [60] + [random.randint(60, 1540) for _ in range(500)]  # 500个随机起始位置
+rand_start= random.randint(0, 50)
+stride = 100
+time_window_start = [i+rand_start for i in range(60, 1800, stride)]

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import random
 from gym.utils import seeding
 import gym
 from gym import spaces
@@ -391,8 +392,10 @@ class StockTradingEnv(gym.Env):
     def reset(self):
 
         if self.mode == 'train':            
-            self.time_windows_point += 3#remove for test
+            self.time_windows_point += 1#remove for test
             if self.time_windows_point >= len(self.time_window_start):
+                rand_start= random.randint(0, 50)
+                self.time_window_start = [i+rand_start for i in range(60, 1800, 100)]
                 self.time_windows_point = 0
             self.start_day = self.time_window_start[self.time_windows_point]
         else:
