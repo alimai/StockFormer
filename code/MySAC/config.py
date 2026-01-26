@@ -27,7 +27,7 @@ MAESAC_PARAMS = {
     "learning_rate": 0.00001,
     "learning_starts": 100,
     "ent_coef": "auto_0.001",#key
-    "enc_in": 96,
+    "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
     "dec_in": 96,
     "c_out_construction": 96,
     "d_model":128,
@@ -48,7 +48,7 @@ MAESAC_PARAMS_PRED = {
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
-    "enc_in":108,
+    "enc_in":108,#股票数88+技术指标数8+时间特征数12???##股票数100+技术指标数8???
     "dec_in":108,
     "c_out_prediction":1,
     "d_model":128,

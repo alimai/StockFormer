@@ -408,7 +408,8 @@ class StockTradingEnv(gym.Env):
         # 标准初始化
         self.info = self._initiate_info()
         self.state = self._initial_state()
-        self.short_hidden_feature = [] # 重置特征列表
+        # 重置特征列表
+        self.short_hidden_feature = []
         self.long_hidden_feature = []
 
         # --- 方案2：状态预热实现 ---
