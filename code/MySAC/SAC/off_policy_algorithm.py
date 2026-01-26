@@ -366,7 +366,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
             if rollout.continue_training is False:
                 break
-            if self.replay_buffer.size() < self.batch_size:
+            if self.replay_buffer.size() < self.batch_size  / 2:
                 continue
             
             if self.num_timesteps > 0 and self.num_timesteps > self.learning_starts:
