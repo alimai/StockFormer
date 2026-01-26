@@ -2,7 +2,6 @@
 import os
 import time
 import datetime
-import torch
 
 import pandas as pd
 import numpy as np
@@ -112,12 +111,6 @@ print(f"Stock Dimension: {stock_dimension}, State Space: {state_space}")
 
 tensorboard_log_dir = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac')
 
-# 检测GPU可用性并决定使用GPU还是CPU
-if torch.cuda.is_available():
-    device = 'cuda:0'
-else:
-    device = 'cpu'
-
 env_kwargs = {
     "hmax": 100,
     "initial_amount": 100000,
@@ -139,7 +132,7 @@ env_kwargs = {
     "model_name":model_name[:-1],
     "short_prediction_model_path": short_prediction_model_path,
     "long_prediction_model_path": long_prediction_model_path,
-    "device": device,
+    "device": config.device,
 }
 
 # evaluation environment
@@ -191,25 +184,6 @@ if train_mode:
     env_eval_vn.training = False
     env_eval_vn.norm_reward = False
 
-    MAESAC_PARAMS = {
-        "batch_size": 128,#important
-        "buffer_size": 10000,
-        "learning_rate": 0.00001,
-        "learning_starts": 100,
-        "ent_coef": "auto_0.001",#key
-        "enc_in": 96,
-        "dec_in": 96,
-        "c_out_construction": 96,
-        "d_model":128,
-        "d_ff":256,
-        "n_heads":4,
-        "e_layers":2,
-        "d_layers":1,
-        "dropout":0.05,
-        "transformer_path":mae_model_path,
-        "transformer_device": device,
-        "gradient_steps": 1,  # 增加gradient_steps比例，加强critic网络训练#2slow
-    }
 
     # 【修复】使用 VecNormalize 包装后的环境（最外层）
     agent = DRLAgent(env = env_train_vn)
@@ -217,7 +191,8 @@ if train_mode:
         print(f"load: {final_model_path}...")
         model_sac = SAC_MAE.load(final_model_path, env=env_train_vn, tensorboard_log=tensorboard_log_dir)
     else:
-        model_sac = agent.get_model("maesac",model_kwargs = MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)
+        config.MAESAC_PARAMS["transformer_path"] = mae_model_path
+        model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)
 
     timestamp = datetime.datetime.now().strftime("%H%M%S")
     tb_log_name_with_timestamp = model_name[:-1] + '_' + timestamp + '/'
