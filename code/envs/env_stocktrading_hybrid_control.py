@@ -402,29 +402,25 @@ class StockTradingEnv(gym.Env):
             self.start_day = self.time_window_start[0]
 
         self.day = self.start_day
+        self.data = self.df.loc[self.day, :]
+        # self.covs = self.data['cov_list'].values[0]
+        
+        # 标准初始化
+        self.info = self._initiate_info()
+        self.state = self._initial_state()
+        self.short_hidden_feature = [] # 重置特征列表
+        self.long_hidden_feature = []
 
         # --- 方案2：状态预热实现 ---
-        self.short_hidden_feature = []
-        self.long_hidden_feature = []
-        
         # 在正式开始 Episode 前，模拟运行若干步以预热 Transformer 特征
         # 注意：预热期间不进行交易，不计入奖励
         for _ in range(self.warmup_steps):
             if self.day < self.df.index.unique().max() - 1:
-                self.data = self.df.loc[self.day, :]
-                self.info = self._initiate_info()
-                self.state = self._initial_state()
                 self.day += 1
+                self.data = self.df.loc[self.day, :]
+                self.info = self._update_info()
+                self.state = self._update_state()
         # ------------------------
-
-        self.data = self.df.loc[self.day, :]
-        # self.covs = self.data['cov_list'].values[0]
-
-        self.short_hidden_feature = []
-        self.long_hidden_feature = []
-        
-        self.info = self._initiate_info()
-        self.state = self._initial_state()
 
         self.turbulence = 0
         self.cost = 0
