@@ -28,13 +28,13 @@ MAESAC_PARAMS = {
     "learning_starts": 100,
     "ent_coef": "auto_0.001",#key
     "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
-    "dec_in": 96,
-    "c_out_construction": 96,
-    "d_model":128,
-    "d_ff":256,
-    "n_heads":4,
-    "e_layers":2,
-    "d_layers":1,
+    "dec_in": 96,#解码器的输入维度
+    "c_out_construction": 96,#模型的输出维度
+    "d_model":128,#模型的隐藏层维度
+    "d_ff":256,#前馈神经网络的维度
+    "n_heads":4,#多头注意力机制的头数
+    "e_layers":2,#编码器层数
+    "d_layers":1,#解码器层数
     "dropout":0.05,
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
@@ -50,15 +50,15 @@ MAESAC_PARAMS_PRED = {
     "ent_coef": "auto_0.1",
     "enc_in":108,#股票数88+技术指标数8+时间特征数12???##股票数100+技术指标数8???
     "dec_in":108,
-    "c_out_prediction":1,
+    "c_out_prediction":1,#不同于MAESAC_PARAMS
     "d_model":128,
-    "n_heads":8,
-    "e_layers":3,
-    "d_layers":2,
     "d_ff":256,
+    "n_heads":8,#不同于MAESAC_PARAMS
+    "e_layers":3,#不同于MAESAC_PARAMS
+    "d_layers":2,#不同于MAESAC_PARAMS
     "dropout":0.05,
-    "pred_len":1,
-    "seq_len":60,
+    "pred_len":1,#不同于MAESAC_PARAMS
+    "seq_len":60,#不同于MAESAC_PARAMS
 }
 
 ADDITIONAL_FEATURE = [
