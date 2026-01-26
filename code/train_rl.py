@@ -212,7 +212,10 @@ if train_mode:
     # 保存 VecNormalize 的统计信息
     env_train_vn.save(os.path.join(model_dir, 'vec_normalize.pkl'))
 
-
+#强化学习训练后保存的模型（如best_train_model.zip）是一个复合模型，它包含了：
+#   - 更新后的MAE模型（state_transformer）---对应原mae/checkpoint.pth
+#   - SAC策略actor网络和价值critic网络 ---全连接层
+#   - 其他Transformer组件（actor_transformer, critic_transformer）
 model_path = os.path.join('trained_models/', version, model_name, 'best_train_model.zip')
 vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
 

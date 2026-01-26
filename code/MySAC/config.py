@@ -20,7 +20,7 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'
 
-## Model Parameters
+##transformer Model Parameters
 MAESAC_PARAMS = {
     "batch_size": 128,#important
     "buffer_size": 10000,
@@ -39,7 +39,7 @@ MAESAC_PARAMS = {
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
     "train_freq": 5,  # 每5步训练一次
-    "gradient_steps": 5,  # 每次训练进行5个梯度更新
+    "gradient_steps": 10,  # 每次训练进行10个梯度更新
 }
 
 MAESAC_PARAMS_PRED = {
