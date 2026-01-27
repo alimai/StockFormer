@@ -259,7 +259,10 @@ class StockTradingEnv(gym.Env):
                 )
 
             #avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
-            self.reward = (tot_reward_ratio * 2 - market_value_growth_ratio) * self.reward_scaling
+            # 执行优化方案：使用固定的 step_len 进行归一化（注意不是实际长度）
+            # 这样能让短 episode 的终端奖励在量级上远小于长 episode，彻底解决价值泄露问题
+            self.reward = ((tot_reward_ratio * 2 - market_value_growth_ratio) * self.reward_scaling) / self.step_len
+
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
@@ -396,7 +399,7 @@ class StockTradingEnv(gym.Env):
             if self.time_windows_point >= len(self.time_window_start):
                 stride = int(self.step_len/5) # 步长为 step_len 的五分之一
                 rand_start= random.randint(0, stride)
-                self.time_window_start = [i+rand_start for i in range(60, 1800-stride, stride)]
+                self.time_window_start = [i+rand_start for i in range(60, 2000 - stride * 4, stride)]
                 self.time_windows_point = 0
             self.start_day = self.time_window_start[self.time_windows_point]
         else:

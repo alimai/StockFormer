@@ -114,4 +114,4 @@ step_len = 1000  # 每个训练/测试阶段的时间步长度
 random.seed(fix_seed)
 stride = int(step_len/5) #步长为 step_len 的五分之一
 rand_start= random.randint(0, stride)
-time_window_start = [i+rand_start for i in range(60, 1800-stride, stride)]
+time_window_start = [i+rand_start for i in range(60, 2000 - stride * 4, stride)]
