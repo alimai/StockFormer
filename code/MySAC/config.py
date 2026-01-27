@@ -22,7 +22,7 @@ else:
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
-    "batch_size": 128,#important
+    "batch_size": 32,#important
     "buffer_size": 10000,
     "learning_rate": 0.00001,
     "learning_starts": 100,
@@ -35,7 +35,7 @@ MAESAC_PARAMS = {
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "dropout":0.05,
+    "dropout":0.01,
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
     "train_freq": 5,  # 每5步训练一次
