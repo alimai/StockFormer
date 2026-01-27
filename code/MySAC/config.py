@@ -36,6 +36,8 @@ MAESAC_PARAMS = {
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
     "dropout":0.01,
+    "gamma": 0.9999,#折扣因子,越小越重视短期奖励，最大为1
+    # "tau": 0.005,#目标网络软更新系数，越小更新越慢，一般取0.001-0.005
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
     "train_freq": 5,  # 每5步训练一次
