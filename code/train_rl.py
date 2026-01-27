@@ -177,8 +177,8 @@ if train_mode:
             print("Can not loaded VecNormalize stats!!!")
             exit(0)
     else:
-        env_train_vn = VecNormalize(env_train_vm, norm_reward=True, norm_obs=True)  # 再包装 Normalize
-        env_eval_vn = VecNormalize(env_eval_vm, norm_reward=True, norm_obs=True)
+        env_train_vn = VecNormalize(env_train_vm, norm_reward=True, norm_obs=True, gamma=config.MAESAC_PARAMS.get("gamma", 0.99))  # 传入一致的 gamma
+        env_eval_vn = VecNormalize(env_eval_vm, norm_reward=True, norm_obs=True, gamma=config.MAESAC_PARAMS.get("gamma", 0.99))
 
     # 评估环境冻结统计信息，避免评估时更新均值/方差
     env_eval_vn.training = False
@@ -229,7 +229,7 @@ if os.path.exists(vn_path):
     env_test_vn = VecNormalize.load(vn_path, env_test)
     print(f"Loaded VecNormalize from {vn_path}")
 else:
-    env_test_vn = VecNormalize(env_test, norm_reward=True, norm_obs=True)
+    env_test_vn = VecNormalize(env_test, norm_reward=True, norm_obs=True, gamma=config.MAESAC_PARAMS.get("gamma", 0.99))
 
 # 测试时冻结 VecNormalize 统计信息，避免测试数据污染训练时的统计
 env_test_vn.training = False  # 停止更新均值/方差统计
