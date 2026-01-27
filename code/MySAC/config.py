@@ -39,7 +39,7 @@ MAESAC_PARAMS = {
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
     "train_freq": 5,  # 每5步训练一次
-    "gradient_steps": 10,  # 每次训练进行10个梯度更新
+    "gradient_steps": 5,  # 每次训练进行5个梯度更新
 }
 
 MAESAC_PARAMS_PRED = {
@@ -107,10 +107,11 @@ use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
 CSI_date = ['2011-01-17','2018-12-28', '2019-01-02', '2021-12-30','2018-10-09', '2022-04-16']
 
+step_len = 1000  # 每个训练/测试阶段的时间步长度
 # 方案1：使用有序滑动窗口（Sliding Window）生成起始位置，减少环境突变
 # 这种方式在 step_len 较小时能保证训练数据在宏观时间上的连续性
 # 设定步长为 100，确保相邻 Episode 之间有数据重叠或紧密衔接
 random.seed(fix_seed)
-rand_start= random.randint(0, 50)
-stride = 100
-time_window_start = [i+rand_start for i in range(60, 1800, stride)]
+stride = int(step_len/5) #步长为 step_len 的五分之一
+rand_start= random.randint(0, stride)
+time_window_start = [i+rand_start for i in range(60, 1800-stride, stride)]

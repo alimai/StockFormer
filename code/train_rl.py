@@ -126,7 +126,7 @@ env_kwargs = {
     "csv_path": 'results/csv/'+version+model_name,
     "mode":'train',
     "time_window_start":config.time_window_start,
-    "step_len": 250,
+    "step_len": config.step_len,
     "temporal_len": 60,
     "hidden_channel":128,
     "model_name":model_name[:-1],
