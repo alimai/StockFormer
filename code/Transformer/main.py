@@ -25,7 +25,7 @@ parser.add_argument('--project_name', type=str, default='baseline',help='name of
 parser.add_argument('--data_name', type=str, default='CSI', help='')
 parser.add_argument('--data_type', type=str, default='stock', help='stock')
 parser.add_argument('--root_path', type=str, default='data/', help='root path of the data file')
-parser.add_argument('--full_stock_path', type=str, default='processed_data/CSI/', help='root path of the data file')
+parser.add_argument('--full_stock_path', type=str, default='CSI/', help='root path of the data file')
 
 parser.add_argument('--exp_type', type=str, default='pred', help='[mae|pred]')
 
@@ -39,8 +39,7 @@ parser.add_argument('--c_out', type=int, default=96, help='output size')
 
 parser.add_argument('--short_term_len', type=int, default=1, help='short term prediction len')
 parser.add_argument('--long_term_len', type=int, default=5, help='long term prediction len')
-parser.add_argument('--pred_type', type=str, default='long_term_len', help='type of prediction')
-
+parser.add_argument('--pred_type', type=str, default='label_long_term', help='[label_long_term|label_short_term]')
 parser.add_argument('--d_model', type=int, default=128, help='dimension of model')
 parser.add_argument('--n_heads', type=int, default=4, help='num of heads')
 parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
@@ -95,19 +94,20 @@ data =  data_type_dict[args.data_type](
 
 # pdb.set_trace()
 
-for ii in range(args.itr):
-    id = utils.generate_id()
-    setting = '{}_{}_{}_alpha{}_sl{}_pl{}_enc{}_cout{}_dm{}_nh{}_el{}_dl{}_df{}_{}_{}_dt{}_id{}'.format(args.exp_type, args.project_name, args.data_name, str(args.rank_alpha).replace('.','_'),
-                args.seq_len, args.pred_len, args.enc_in, args.c_out,
-                args.d_model, args.n_heads, args.e_layers, args.d_layers, args.d_ff, args.des, ii, args.data_name, id)
+if __name__ == '__main__':
+    for ii in range(args.itr):
+        id = utils.generate_id()
+        setting = '{}_{}_{}_alpha{}_sl{}_pl{}_enc{}_cout{}_dm{}_nh{}_el{}_dl{}_df{}_{}_{}_dt{}_id{}'.format(args.exp_type, args.project_name, args.data_name, str(args.rank_alpha).replace('.','_'),
+                    args.seq_len, args.pred_len, args.enc_in, args.c_out,
+                    args.d_model, args.n_heads, args.e_layers, args.d_layers, args.d_ff, args.des, ii, args.data_name, id)
 
-    exp = Exp(args, data, id)
-    print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-    print('Task id: ',id)
-    start = time.time()
-    exp.train(setting)
-    end = time.time()
-    print("Training Time:",end-start)
-    
-    print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-    exp.test(setting)
+        exp = Exp(args, data, id)
+        print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+        print('Task id: ',id)
+        start = time.time()
+        exp.train(setting)
+        end = time.time()
+        print("Training Time:",end-start)
+
+        print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+        exp.test(setting)
