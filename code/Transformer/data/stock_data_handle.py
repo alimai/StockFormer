@@ -189,7 +189,10 @@ class DatasetStock_PRED(Dataset):
         # Extract the temporal features (last self.feature_len columns) for the sequence length
         seq_x = self.data[position-self.feature_day_len+1:position+1, :, -self.feature_len:]
         # Extract the cov + technical features (first 96 columns) for the sequence length
-        #seq_x = self.data[position-self.feature_day_len+1:position+1, :, :-self.feature_len].transpose(1, 0, 2)
+        #seq_x = self.data[position-self.feature_day_len+1:position+1, :, :-self.feature_len]
+        
+        # Transpose to (Stocks, Time, Feats)
+        seq_x = seq_x.transpose(1, 0, 2)
         seq_x_dec = seq_x[:, -1:, :]  # Take the last time step for decoder input
 
         seq_y = self.label[self.label_type, index, :]
