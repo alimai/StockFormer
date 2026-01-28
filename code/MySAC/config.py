@@ -40,8 +40,8 @@ MAESAC_PARAMS = {
     # "tau": 0.005,#目标网络软更新系数，越小更新越慢，一般取0.001-0.005
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
-    "train_freq": 5,  # 每5步训练一次
-    "gradient_steps": 5,  # 每次训练进行5个梯度更新
+    "train_freq": 99,  # 每5步训练一次
+    "gradient_steps": 99,  # 每次训练进行5个梯度更新
 }
 
 MAESAC_PARAMS_PRED = {
