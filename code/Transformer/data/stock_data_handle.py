@@ -32,14 +32,14 @@ class Stock_Data():
         self.pred_type_map = {'label_short_term':0, 'label_long_term':1}
 
 
-        self.__read_data__() 
+        self.__read_data__()
 
     def __read_data__(self):
         scaler = StandardScaler()
         stock_num = len(self.ticker_list)
 
         full_stock_dir = os.path.join(self.root_path, self.full_stock)
-        
+
         df = pd.DataFrame([], columns=['date','open','close','high','low','volume','dopen','dclose','dhigh','dlow','dvolume', 'price', 'tic'])
         for ticket in self.ticker_list:
             temp_df = pd.read_csv(os.path.join(full_stock_dir,ticket+'.csv'), usecols=['date', 'open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price'])
@@ -71,11 +71,11 @@ class Stock_Data():
         # look back is one year
         print("generate convariate matrix...")
         lookback=252
-        
+
         # 参照 preprocess.py 的方式：先 pivot 整个数据，再使用日期索引筛选
         price_pivot = df.pivot_table(index='date', columns='tic', values='close')
         return_pivot = price_pivot.pct_change().dropna()
-        
+
         unique_date = df.date.unique()
         for i in range(lookback, len(unique_date)):
             # 使用日期索引筛选，排除当天数据（只使用历史数据计算协方差）
@@ -87,8 +87,8 @@ class Stock_Data():
                 & (return_pivot.index >= unique_date[i - lookback + 1])  # +1 以匹配 dropna() 后的索引
             ]
             return_list.append(return_lookback)
-    
-            covs = return_lookback.cov().values 
+
+            covs = return_lookback.cov().values
             cov_list.append(covs)
 
         df_cov = pd.DataFrame({'date':df.date.unique()[lookback:],'cov_list':cov_list,'return_list':return_list})
@@ -99,13 +99,13 @@ class Stock_Data():
 
         dates = df['date_str'].unique().tolist()
         boarder1_ = dates.index(self.border_dates[0])
-        boarder1 = dates.index(self.border_dates[1]) 
+        boarder1 = dates.index(self.border_dates[1])
 
         boarder2_ = dates.index(self.border_dates[2])
-        boarder2 = dates.index(self.border_dates[3]) 
+        boarder2 = dates.index(self.border_dates[3])
 
         boarder3_ = dates.index(self.border_dates[4])
-        boarder3 = dates.index(self.border_dates[5]) 
+        boarder3 = dates.index(self.border_dates[5])
 
         self.boarder_end = [boarder1, boarder2, boarder3]
         self.boarder_start = [boarder1_, boarder2_, boarder3_]
@@ -138,7 +138,7 @@ class Stock_Data():
 
         print("data shape: ",self.data_all.shape)
         print("label shape: ",self.label_all.shape)
-        
+
 
 
 class DatasetStock_MAE(Dataset):
@@ -156,7 +156,7 @@ class DatasetStock_MAE(Dataset):
     def __getitem__(self, index):
         seq_x = self.data[index, :, :-self.feature_len]
         return seq_x
-    
+
     def __len__(self):
         return len(self.data)
 
@@ -178,7 +178,7 @@ class DatasetStock_PRED(Dataset):
         self.feature_day_len = stock.seq_len
         self.data = stock.data_all
         self.label = stock.label_all
-        
+
         self.dates = stock.dates[self.start_pos: self.end_pos]
         self.data_close = stock.data_close[self.start_pos: self.end_pos]
 
@@ -186,17 +186,18 @@ class DatasetStock_PRED(Dataset):
 
     def __getitem__(self, index):
         position = self.start_pos+index
-        seq_x = self.data[position-self.feature_day_len+1:position+1, :, -self.feature_len:].transpose(1,0,2) #[days, num_stocks, feature]-> [num_stocks, days, feature]
-        seq_x_dec = seq_x[:, -1:, :]
+        # Extract the temporal features (last self.feature_len columns) for the sequence length
+        seq_x = self.data[position-self.feature_day_len+1:position+1, :, -self.feature_len:]
+        seq_x_dec = seq_x[:, -1:, :]  # Take the last time step for decoder input
 
         seq_y = self.label[self.label_type, index, :]
         return seq_x, seq_x_dec, seq_y
-    
+
     def __len__(self):
         return self.end_pos-self.start_pos#len(self.data)
 
 
-        
+
 
 class DatasetStock(Dataset):
     def __init__(self, stock: Stock_Data, type='train', feature=config.TEMPORAL_FEATURE):
@@ -219,10 +220,10 @@ class DatasetStock(Dataset):
         position = self.start_pos+index
         data1 = self.data[position, :, :-self.feature_len] #[num_stocks, cov+technical]
         data2 = self.data[position-self.feature_day_len+1:position+1, :, -self.feature_len:].transpose(1,0,2) #[days, num_stocks, feature]-> [num_stocks, days, feature]
-        
+
         label1 = self.label[0, index, :]
         label2 = self.label[1, index, :]
         return data1, data2, label1, label2
-    
+
     def __len__(self):
         return self.end_pos-self.start_pos
