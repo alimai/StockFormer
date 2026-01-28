@@ -26,7 +26,8 @@ if __name__ == '__main__':
     np.random.seed(fix_seed)
 
     # 先用TRANSFORMER_PARAMS_DEFAULT给args赋值默认值，然后用TRANSFORMER_PARAMS_***覆盖相应的值
-    args = Args({**TRANSFORMER_PARAMS_DEFAULT, **TRANSFORMER_PARAMS_PRED_SHORT})
+    #TRANSFORMER_PARAMS_MAE,TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG
+    args = Args({**TRANSFORMER_PARAMS_DEFAULT, **TRANSFORMER_PARAMS_PRED_LONG})
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
     if args.use_gpu and args.use_multi_gpu:
