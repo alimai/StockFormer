@@ -5,12 +5,19 @@ from exp.exp_mae import Exp_mae
 
 from data.stock_data_handle import Stock_Data
 import utils.tools as utils
-import time
+from config import TRANSFORMER_PARAMS_DEFAULT, TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
 
+import time
 import pdb
 import random
 import torch
 import numpy as np
+
+# 创建一个简单的类来模拟 argparse 命名空间
+class Args:
+    def __init__(self, param_dict):
+        for key, value in param_dict.items():
+            setattr(self, key, value)
 
 if __name__ == '__main__':
     fix_seed = 2022
@@ -18,64 +25,12 @@ if __name__ == '__main__':
     torch.manual_seed(fix_seed)
     np.random.seed(fix_seed)
 
-    parser = argparse.ArgumentParser(description='[Transformer] Long Sequences Forecasting')
-
-    parser.add_argument('--model', type=str, default='Transformer',help='model of the experiment')
-    parser.add_argument('--project_name', type=str, default='baseline',help='name of the experiment')
-
-    parser.add_argument('--data_name', type=str, default='CSI', help='')
-    parser.add_argument('--data_type', type=str, default='stock', help='stock')
-    parser.add_argument('--root_path', type=str, default='data/', help='root path of the data file')
-    parser.add_argument('--full_stock_path', type=str, default='CSI/', help='root path of the data file')
-
-    parser.add_argument('--exp_type', type=str, default='pred', help='[mae|pred]')
-
-    parser.add_argument('--seq_len', type=int, default=60, help='input series length')
-    parser.add_argument('--label_len', type=int, default=1, help='help series length')
-    parser.add_argument('--pred_len', type=int, default=1, help='predict series length')
-
-    parser.add_argument('--enc_in', type=int, default=96, help='encoder input size: cov+technical indicators')
-    parser.add_argument('--dec_in', type=int, default=96, help='decoder input size')
-    parser.add_argument('--c_out', type=int, default=96, help='output size[96|1](pred|mae)')
-
-    parser.add_argument('--short_term_len', type=int, default=1, help='short term prediction len')
-    parser.add_argument('--long_term_len', type=int, default=5, help='long term prediction len')
-    parser.add_argument('--pred_type', type=str, default='label_long_term', help='[label_long_term|label_short_term]')
-    parser.add_argument('--d_model', type=int, default=128, help='dimension of model')
-    parser.add_argument('--n_heads', type=int, default=4, help='num of heads')
-    parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
-    parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
-    parser.add_argument('--d_ff', type=int, default=256, help='dimension of fcn')
-
-    parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
-
-    parser.add_argument('--activation', type=str, default='gelu',help='activation')
-    parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
-
-    parser.add_argument('--rank_alpha', type=float, default=0.1, help='weight of rank loss') # adjust
-
-    parser.add_argument('--itr', type=int, default=1, help='each params run iteration')
-    parser.add_argument('--train_epochs', type=int, default=3, help='train epochs')
-    parser.add_argument('--batch_size', type=int, default=32, help='input data batch size')
-    parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
-    parser.add_argument('--adjust_interval', type=int, default=1, help='lr adjust interval')
-    parser.add_argument('--des', type=str, default='pred',help='exp description')
-    parser.add_argument('--loss', type=str, default='mse',help='loss function')
-    parser.add_argument('--lradj', type=str, default='type1',help='adjust learning rate')
-
-    # GPU
-    parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
-    parser.add_argument('--gpu', type=int, default=0, help='gpu')
-    parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
-    parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
-
-
-    args = parser.parse_args()
+    # 先用TRANSFORMER_PARAMS_DEFAULT给args赋值默认值，然后用TRANSFORMER_PARAMS_***覆盖相应的值
+    args = Args({**TRANSFORMER_PARAMS_DEFAULT, **TRANSFORMER_PARAMS_PRED_SHORT})
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
     if args.use_gpu and args.use_multi_gpu:
-        args.dvices = args.devices.replace(' ', '')
+        args.devices = args.devices.replace(' ', '')
         device_ids = args.devices.split(',')
         args.device_ids = [int(id_) for id_ in device_ids]
         args.gpu = args.device_ids[0]
