@@ -1,3 +1,8 @@
+.DS_Store
+venv/
+.venv/
+.vs/
+.vscode/
 code/*/__pycache__
 code/*/*/__pycache__
 code/*/*/*/__pycache__
@@ -5,12 +10,8 @@ code/*/.DS_Store
 code/.DS_Store
 code/*/*/.DS_Store
 code/*/*/*/.DS_Store
-.DS_Store
-venv/
-.venv/
-.vs/
 code/results2/
 code/tensorboard_log/
 stockformer_env/
 code/results/
-.vscode/
+log/

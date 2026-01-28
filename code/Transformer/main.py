@@ -1,4 +1,3 @@
-import this
 import os
 import argparse
 from exp.exp_pred import Exp_pred
@@ -29,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--root_path', type=str, default='data/', help='root path of the data file')
     parser.add_argument('--full_stock_path', type=str, default='CSI/', help='root path of the data file')
 
-    parser.add_argument('--exp_type', type=str, default='pred', help='[mae|pred]')#与script区别?
+    parser.add_argument('--exp_type', type=str, default='pred', help='[mae|pred]')
 
     parser.add_argument('--seq_len', type=int, default=60, help='input series length')
     parser.add_argument('--label_len', type=int, default=1, help='help series length')
@@ -37,7 +36,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--enc_in', type=int, default=96, help='encoder input size: cov+technical indicators')
     parser.add_argument('--dec_in', type=int, default=96, help='decoder input size')
-    parser.add_argument('--c_out', type=int, default=96, help='output size[96|1]')
+    parser.add_argument('--c_out', type=int, default=96, help='output size[96|1](pred|mae)')
 
     parser.add_argument('--short_term_len', type=int, default=1, help='short term prediction len')
     parser.add_argument('--long_term_len', type=int, default=5, help='long term prediction len')
@@ -55,7 +54,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--rank_alpha', type=float, default=0.1, help='weight of rank loss') # adjust
 
-    parser.add_argument('--itr', type=int, default=2, help='each params run iteration')
+    parser.add_argument('--itr', type=int, default=1, help='each params run iteration')
     parser.add_argument('--train_epochs', type=int, default=3, help='train epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='input data batch size')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
@@ -74,9 +73,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
-
-    if args.exp_type == 'pred':
-        args.c_out = 1
 
     if args.use_gpu and args.use_multi_gpu:
         args.dvices = args.devices.replace(' ', '')
