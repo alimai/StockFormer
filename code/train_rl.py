@@ -1,4 +1,4 @@
-
+import this
 import os
 import time
 import datetime

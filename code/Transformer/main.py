@@ -1,5 +1,6 @@
-import argparse
+import this
 import os
+import argparse
 from exp.exp_pred import Exp_pred
 from exp.exp_mae import Exp_mae
 
@@ -36,7 +37,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--enc_in', type=int, default=96, help='encoder input size: cov+technical indicators')
     parser.add_argument('--dec_in', type=int, default=96, help='decoder input size')
-    parser.add_argument('--c_out', type=int, default=96, help='output size')
+    parser.add_argument('--c_out', type=int, default=96, help='output size[96|1]')
 
     parser.add_argument('--short_term_len', type=int, default=1, help='short term prediction len')
     parser.add_argument('--long_term_len', type=int, default=5, help='long term prediction len')
@@ -73,6 +74,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
+
+    if args.exp_type == 'pred':
+        args.c_out = 1
 
     if args.use_gpu and args.use_multi_gpu:
         args.dvices = args.devices.replace(' ', '')
