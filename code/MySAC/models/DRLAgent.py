@@ -36,6 +36,34 @@ class CheckCallback(BaseCallback):
         if self.n_calls % self.check_freq == 0:
             print(self.n_calls)
 
+class FinancialMetricsCallback(BaseCallback):
+    """
+    自定义 Callback：在每个 episode 结束时记录金融指标到 TensorBoard
+    """
+    def __init__(self, verbose: int = 0):
+        super(FinancialMetricsCallback, self).__init__(verbose)
+
+    def _on_step(self) -> bool:
+        # 安全地检测 episode 是否结束
+        # 不同的 SB3 版本或环境包装器可能使用 "done" (bool) 或 "dones" (list/array)
+        done = self.locals.get("done", False)
+        dones = self.locals.get("dones")
+        
+        # 如果 dones 是列表且第一个元素为 True，或者单变量 done 为 True
+        is_episode_finished = done or (dones is not None and dones[0])
+
+        if is_episode_finished:
+            # 获取 infos 列表
+            infos = self.locals.get("infos")
+            if infos is not None and len(infos) > 0:
+                info = infos[0]
+                # 记录到 TensorBoard
+                if "tot_reward" in info:
+                    self.logger.record("finance/total_reward", info["tot_reward"])
+                if "sharpe" in info:
+                    self.logger.record("finance/sharpe_ratio", info["sharpe"])
+        return True
+
 class oursTrainingRewardCallback(BaseCallback):
     def __init__(self, check_freq:int, log_dir: str, verbose: int=1):
         super(oursTrainingRewardCallback, self).__init__(verbose)
@@ -145,7 +173,10 @@ class DRLAgent:
     def train_model(self, model, tb_log_name, check_freq, model_dir, log_dir, eval_env, total_timesteps=5000, verbose=1, deterministic=True):
         eval_callback = EvalCallback(eval_env, best_model_save_path=model_dir, log_path=log_dir, eval_freq=check_freq, n_eval_episodes=1, deterministic=deterministic, render=False)
         tb_callback=TensorboardCallback(verbose=verbose, model_save_path=model_dir)
-        callback = CallbackList([eval_callback, tb_callback])
+        # 【新增】金融指标监控 Callback
+        finance_callback = FinancialMetricsCallback(verbose=verbose)
+        
+        callback = CallbackList([eval_callback, tb_callback, finance_callback])
 
         model = model.learn(
             total_timesteps=total_timesteps,

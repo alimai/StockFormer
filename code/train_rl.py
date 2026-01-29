@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import datetime
+import setuptools
 
 import pandas as pd
 import numpy as np

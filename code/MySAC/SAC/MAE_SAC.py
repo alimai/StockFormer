@@ -459,7 +459,7 @@ class SAC(OffPolicyAlgorithm):
         self,
         total_timesteps: int,
         callback: MaybeCallback = None,
-        log_interval: int = 4,
+        log_interval: int = 1,
         eval_env: Optional[GymEnv] = None,
         eval_freq: int = -1,
         n_eval_episodes: int = 5,
