@@ -8,9 +8,9 @@ from torch.nn import functional as F
 from collections import OrderedDict
 
 
-from stable_baselines3.common.buffers import ReplayBuffer
+from stable_baselines3.common.buffers import ReplayBuffer, DictReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
-from MySAC.SAC.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import polyak_update
 from stable_baselines3.sac.policies import SACPolicy
@@ -148,9 +148,25 @@ class SAC(OffPolicyAlgorithm):
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
             use_sde_at_warmup=use_sde_at_warmup,
-            optimize_memory_usage=optimize_memory_usage,
-            supported_action_spaces=(gym.spaces.Box),
         )
+        
+        # 【关键修改】跨越包装器获取隐藏状态空间
+        # 官方 SB3 包装器不会直接透传自定义属性，需要通过 get_attr 获取
+        self.hidden_state_space = None
+        if hasattr(env, "hidden_state_space"):
+            self.hidden_state_space = env.hidden_state_space
+        elif hasattr(env, "get_attr"):
+            try:
+                self.hidden_state_space = env.get_attr("hidden_state_space")[0]
+            except Exception:
+                pass
+        
+        if self.hidden_state_space is None and hasattr(self, "env") and self.env is not None:
+            if hasattr(self.env, "get_attr"):
+                try:
+                    self.hidden_state_space = self.env.get_attr("hidden_state_space")[0]
+                except Exception:
+                    pass
 
         self.target_entropy = target_entropy
         self.log_ent_coef = None  # type: Optional[th.Tensor]
@@ -199,7 +215,45 @@ class SAC(OffPolicyAlgorithm):
         self.in_feat = enc_in
 
     def _setup_model(self) -> None:
-        super(SAC, self)._setup_model()
+        # 【完全复用标准库】动态切换观察空间以匹配 Transformer 隐藏层维度
+        # 保存原始观察空间（用于初始化 ReplayBuffer）
+        original_obs_space = self.observation_space
+        
+        self._setup_lr_schedule()
+        self.set_random_seed(self.seed)
+
+        if self.replay_buffer_class is None:
+            if isinstance(self.observation_space, gym.spaces.Dict):
+                self.replay_buffer_class = DictReplayBuffer
+            else:
+                self.replay_buffer_class = ReplayBuffer
+
+        if self.replay_buffer is None:
+            self.replay_buffer = self.replay_buffer_class(
+                self.buffer_size,
+                self.observation_space,
+                self.action_space,
+                self.device,
+                optimize_memory_usage=self.optimize_memory_usage,
+                **self.replay_buffer_kwargs,
+            )
+
+        # 核心 Hook：临时切换到隐藏空间，使 Policy 初始化正确的输入维度
+        self.observation_space = self.hidden_state_space
+        
+        self.policy = self.policy_class(  # pytype:disable=not-instantiable
+            self.observation_space,
+            self.action_space,
+            self.lr_schedule,
+            **self.policy_kwargs,  # pytype:disable=not-instantiable
+        )
+        self.policy = self.policy.to(self.device)
+        
+        # 还原原始观察空间，确保后续采样流程正常
+        self.observation_space = original_obs_space
+
+        self._convert_train_freq()
+
         self._create_aliases()
         # Target entropy is used when learning the entropy coefficient
         if self.target_entropy == "auto":
@@ -425,7 +479,6 @@ class SAC(OffPolicyAlgorithm):
             tb_log_name=tb_log_name,
             eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
-            save_path=model_save_path,
         )
 
     def predict(
