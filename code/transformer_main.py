@@ -4,11 +4,11 @@ import argparse
 from Transformer.exp.exp_pred import Exp_pred
 from Transformer.exp.exp_mae import Exp_mae
 
-from Transformer.data.stock_data_handle import Stock_Data
-import utils.tools as utils
+from utils.data.stock_data_handle import Stock_Data
 from utils.config import fix_seed
 from utils.config import TRANSFORMER_PARAMS_DEFAULT
 from utils.config import TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
+import utils.tools as tools
 
 import time
 import pdb
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     # pdb.set_trace()
 
     for ii in range(args.itr):
-        id = utils.generate_id()
+        id = tools.generate_id()
         setting = '{}_{}_{}_alpha{}_sl{}_pl{}_enc{}_cout{}_dm{}_nh{}_el{}_dl{}_df{}_{}_{}_dt{}_id{}'.format(args.exp_type, args.project_name, args.data_name, str(args.rank_alpha).replace('.','_'),
                     args.seq_len, args.pred_len, args.enc_in, args.c_out,
                     args.d_model, args.n_heads, args.e_layers, args.d_layers, args.d_ff, args.des, ii, args.data_name, id)

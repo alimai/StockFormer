@@ -16,6 +16,7 @@ from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 from sklearn.preprocessing import StandardScaler
+from utils.data.stock_data_handle import Stock_Data
 
 working_path = os.path.dirname(os.path.abspath(__file__))
 # 将当前目录添加到模块搜索路径
@@ -39,76 +40,18 @@ if __name__ == '__main__':
     if not os.path.exists(config.RESULTS_DIR):
         os.makedirs(config.RESULTS_DIR)
 
+    # 【完全复用】使用 Stock_Data 统一处理所有数据（包括协方差计算和标准化）
+    data_manager = Stock_Data(
+        root_path='data/', 
+        dataset_name='CSI', 
+        full_stock_path='CSI/', 
+        size=[60, 1, 1], 
+        prediction_len=prediction_len
+    )
 
-    df = pd.DataFrame([], columns=['date','open','close','high','low','volume','dopen','dclose','dhigh','dlow','dvolume','price','tic'])
-
-    for ticker in ticker_list:
-        temp_df = pd.read_csv(os.path.join(full_stock_dir,ticker+'.csv'), usecols=['date', 'open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price'])
-        temp_df['date'] = temp_df['date'].apply(lambda x:str(x))
-        temp_df['date'] = pd.to_datetime(temp_df['date'])
-        temp_df['label_short_term'] = temp_df['close'].pct_change(periods=prediction_len[0]).shift(periods=(-1*prediction_len[0]))
-        temp_df['label_long_term'] = temp_df['close'].pct_change(periods=prediction_len[1]).shift(periods=(-1*prediction_len[1]))
-        temp_df['tic'] = pd.Series([ticker]*len(temp_df))
-        # temp_df = temp_df.rename(columns={'Date':'date', 'Open':'open', 'Close':'close', 'High':'high', 'Low':'low', 'Volume':'volume'})
-        df = pd.concat((df, temp_df))
-
-    df = df.sort_values(by=['date','tic'])
-
-    fe = FeatureEngineer(
-                        use_technical_indicator=True,
-                        tech_indicator_list=config.TECHNICAL_INDICATORS_LIST,
-                        use_turbulence=False,
-                        user_defined_feature = False)
-
-    print("generate technical indicator...")
-    df = fe.preprocess_data(df)
-
-    # add covariance matrix as states
-    df=df.sort_values(['date','tic'],ignore_index=True)
-    df.index = df.date.factorize()[0]
-
-    cov_list = []
-    return_list = []
-
-    # look back is one year
-    lookback=252
-    for i in range(lookback,len(df.index.unique())):
-        # 使用 i-1 排除当天数据，避免数据泄露（只使用历史数据计算协方差）
-        data_lookback = df.loc[i-lookback:i-1,:]
-        price_lookback=data_lookback.pivot_table(index = 'date',columns = 'tic', values = 'close')
-        return_lookback = price_lookback.pct_change().dropna()
-        return_list.append(return_lookback)
-
-        covs = return_lookback.cov().values
-        cov_list.append(covs)
-
-
-    df_cov = pd.DataFrame({'date':df.date.unique()[lookback:],'cov_list':cov_list,'return_list':return_list})
-    df = df.merge(df_cov, on='date')
-    df = df.sort_values(['date','tic']).reset_index(drop=True)
-
-
-    # 定义数据集时间范围（使用config中的CSI_date）
-    TRAIN_START, TRAIN_END = config.CSI_date[0], config.CSI_date[1]
-    EVAL_START, EVAL_END = config.CSI_date[2], config.CSI_date[3]
-    TEST_START, TEST_END = config.CSI_date[4], config.CSI_date[5]
-
-    # 处理技术指标中的无穷值
-    df[config.TECHNICAL_INDICATORS_LIST] = df[config.TECHNICAL_INDICATORS_LIST].replace([np.inf], config.INF)
-    df[config.TECHNICAL_INDICATORS_LIST] = df[config.TECHNICAL_INDICATORS_LIST].replace([-np.inf], config.INF*(-1))
-
-    # StandardScaler 只在训练数据上 fit，避免测试集信息泄露
-    scaler = StandardScaler()
-    train_mask = (df['date'] >= TRAIN_START) & (df['date'] < TRAIN_END)
-    train_data_for_scaler = df.loc[train_mask, config.TECHNICAL_INDICATORS_LIST]
-    scaler.fit(train_data_for_scaler.values)  # 只在训练数据上 fit
-
-    # 对所有数据进行 transform
-    df[config.TECHNICAL_INDICATORS_LIST] = scaler.transform(df[config.TECHNICAL_INDICATORS_LIST].values)
-
-    train = data_split(df, TRAIN_START, TRAIN_END)
-    eval = data_split(df, EVAL_START, EVAL_END)
-    test = data_split(df, TEST_START, TEST_END)
+    train = data_manager.get_split_df('train')
+    eval = data_manager.get_split_df('valid')
+    test = data_manager.get_split_df('test')
 
     stock_dimension = len(train.tic.unique())
     state_space = stock_dimension

@@ -110,13 +110,22 @@ class Stock_Data():
         self.boarder_end = [boarder1, boarder2, boarder3]
         self.boarder_start = [boarder1_, boarder2_, boarder3_]
 
-        df_data = df[self.attr]
-        df_data = df_data.replace([np.inf], config.INF)
-        df_data = df_data.replace([-np.inf], config.INF*(-1))
+        # 处理技术指标中的无穷值
+        df[self.attr] = df[self.attr].replace([np.inf], config.INF)
+        df[self.attr] = df[self.attr].replace([-np.inf], config.INF*(-1))
+
         if self.scale:
-            data = scaler.fit_transform(df_data.values)
+            # 【统一修改】标准化只在训练集上 fit，避免测试集信息泄露
+            scaler = StandardScaler()
+            # 获取训练集的范围
+            train_mask = (df['date_str'] >= self.border_dates[0]) & (df['date_str'] <= self.border_dates[1])
+            train_data_for_scaler = df.loc[train_mask, self.attr]
+            scaler.fit(train_data_for_scaler.values)
+            
+            # 对所有数据进行 transform
+            data = scaler.transform(df[self.attr].values)
         else:
-            data = df_data.values
+            data = df[self.attr].values
 
         cov_list = np.array(df['cov_list'].values.tolist()) # [stock_num*len, stock_num]
         feature_list = np.array(df[self.temporal_feature].values.tolist()) # [stock_num*len, 10]
@@ -135,9 +144,17 @@ class Stock_Data():
         self.label_all = np.stack((label_short_term, label_long_term), axis=0) # [2, days, num_stocks, 1]
         self.dates = np.array(dates)
         self.data_close = data_close
+        self.full_df = df # 【新增】保存处理好的全量 DataFrame
 
         print("data shape: ",self.data_all.shape)
         print("label shape: ",self.label_all.shape)
+
+    def get_split_df(self, type='train'):
+        # 【新增】辅助方法：直接返回对应阶段的 DataFrame
+        pos = self.type_map[type]
+        start_date = self.border_dates[pos*2]
+        end_date = self.border_dates[pos*2+1]
+        return self.full_df[(self.full_df['date_str'] >= start_date) & (self.full_df['date_str'] <= end_date)]
 
 
 

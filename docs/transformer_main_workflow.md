@@ -25,7 +25,7 @@
 # 核心导入
 from Transformer.exp.exp_pred import Exp_pred
 from Transformer.exp.exp_mae import Exp_mae
-from Transformer.data.stock_data_handle import Stock_Data
+from utils.data.stock_data_handle import Stock_Data
 from utils.config import TRANSFORMER_PARAMS_DEFAULT, TRANSFORMER_PARAMS_MAE, ...
 
 # 参数合并逻辑
