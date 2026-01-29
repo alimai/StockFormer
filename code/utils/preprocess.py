@@ -2,8 +2,8 @@ import datetime
 
 import numpy as np
 import pandas as pd
-from Transformer.utils.yahoodownloader import YahooDownloader
-import Transformer.config as config
+from utils.yahoodownloader import YahooDownloader
+from utils import config
 from stockstats import StockDataFrame as Sdf
 
 
