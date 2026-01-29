@@ -1,11 +1,14 @@
 import os
+import sys
 import argparse
-from exp.exp_pred import Exp_pred
-from exp.exp_mae import Exp_mae
+from Transformer.exp.exp_pred import Exp_pred
+from Transformer.exp.exp_mae import Exp_mae
 
-from data.stock_data_handle import Stock_Data
-import utils.tools as utils
-from config import TRANSFORMER_PARAMS_DEFAULT, TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
+from Transformer.data.stock_data_handle import Stock_Data
+import Transformer.utils.tools as utils
+from Transformer.config import fix_seed
+from Transformer.config import TRANSFORMER_PARAMS_DEFAULT
+from Transformer.config import TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
 
 import time
 import pdb
@@ -19,15 +22,19 @@ class Args:
         for key, value in param_dict.items():
             setattr(self, key, value)
 
+working_path = os.path.dirname(os.path.abspath(__file__))
+# 将当前目录添加到模块搜索路径
+# sys.path.insert(0, working_path)
+
 if __name__ == '__main__':
-    fix_seed = 2022
     random.seed(fix_seed)
     torch.manual_seed(fix_seed)
     np.random.seed(fix_seed)
 
-    # 先用TRANSFORMER_PARAMS_DEFAULT给args赋值默认值，然后用TRANSFORMER_PARAMS_***覆盖相应的值
     #TRANSFORMER_PARAMS_MAE,TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG
-    args = Args({**TRANSFORMER_PARAMS_DEFAULT, **TRANSFORMER_PARAMS_PRED_LONG})
+    TRANSFORMER_PARAMS_TARGET = TRANSFORMER_PARAMS_MAE
+    # 先用TRANSFORMER_PARAMS_DEFAULT赋默认值，然后用TRANSFORMER_PARAMS_TARGET覆盖相应的值
+    args = Args({**TRANSFORMER_PARAMS_DEFAULT, **TRANSFORMER_PARAMS_TARGET})
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
     if args.use_gpu and args.use_multi_gpu:

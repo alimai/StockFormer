@@ -103,7 +103,7 @@ TECHNICAL_INDICATORS_LIST = [
     # "return_ratio",
 ]
 
-USE_TICKET = os.listdir('../data/'+ version_name)
+USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 

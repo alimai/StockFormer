@@ -8,7 +8,7 @@ from math import sqrt
 import sys
 
 sys.path.append('StockFormer/Transformer/')
-from utils.masking import TriangularCausalMask, ProbMask
+from Transformer.utils.masking import TriangularCausalMask, ProbMask
 
 class FullAttention(nn.Module):
     def __init__(self, mask_flag=True, factor=5, scale=None, attention_dropout=0.1, output_attention=False):

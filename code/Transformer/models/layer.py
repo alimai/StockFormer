@@ -4,7 +4,7 @@ from torch import nn
 import sys
 
 sys.path.append('StockFormer/Transformer')
-import config
+import Transformer.config
 
 import pdb
 

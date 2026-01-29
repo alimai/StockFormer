@@ -5,8 +5,8 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 
-import utils
-from utils.metrics import mirr_top1, mirr_top_k, rank_ic, mae, mse
+import Transformer.utils as utils
+from Transformer.utils.metrics import mirr_top1, mirr_top_k, rank_ic, mae, mse
 
 
 class MetricMeter:

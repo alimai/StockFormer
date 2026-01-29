@@ -6,6 +6,7 @@ version_name = 'CSI'#'N100'#
 START_DATE = "2010-01-01"
 END_DATE = "2022-05-07"
 
+fix_seed = 2022
 INF = 1100
 
 # 检测GPU可用性并决定使用GPU还是CPU
@@ -108,10 +109,6 @@ TRANSFORMER_PARAMS_DEFAULT = {
 TRANSFORMER_PARAMS_PRED_SHORT = {
     "project_name": "transformer_CSI_predShort",
     "exp_type": "pred",
-    "data_name": "CSI",
-    "data_type": "stock",
-    "root_path": "../../data/",
-    "full_stock_path": "CSI/",
     "train_epochs": 3,
     "itr": 1,
     "batch_size": 32,
@@ -141,10 +138,6 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
 TRANSFORMER_PARAMS_PRED_LONG = {
     "project_name": "transformer_CSI_predLong",
     "exp_type": "pred",
-    "data_name": "CSI",
-    "data_type": "stock",
-    "root_path": "../../data/",
-    "full_stock_path": "CSI/",
     "train_epochs": 3,
     "itr": 1,
     "batch_size": 32,
@@ -174,10 +167,6 @@ TRANSFORMER_PARAMS_PRED_LONG = {
 TRANSFORMER_PARAMS_MAE = {
     "project_name": "transformer_CSI_mae",
     "exp_type": "mae",
-    "data_name": "CSI",
-    "data_type": "stock",
-    "root_path": "../../data/",
-    "full_stock_path": "CSI/",
     "train_epochs": 3,
     "itr": 1,
     "enc_in": 96,
@@ -288,7 +277,7 @@ TRANSFORMER_PARAMS_MAE = {
 #  '002179.SZ']
 
 
-USE_TICKET = os.listdir('../../data/'+ version_name)
+USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 

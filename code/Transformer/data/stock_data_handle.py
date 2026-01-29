@@ -8,8 +8,8 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 import pickle as pkl
 import sys
-from utils.preprocess import FeatureEngineer, data_split
-import config
+from Transformer.utils.preprocess import FeatureEngineer, data_split
+import Transformer.config as config
 import datetime
 
 import pdb

@@ -1,5 +1,6 @@
 import this
 import os
+import sys
 import time
 import datetime
 
@@ -16,14 +17,17 @@ from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 from sklearn.preprocessing import StandardScaler
 
+working_path = os.path.dirname(os.path.abspath(__file__))
+# 将当前目录添加到模块搜索路径
+#sys.path.insert(0, working_path)
 
 if __name__ == '__main__':
     version = 'CSI/'
     model_name='StockFormer/'
-    short_prediction_model_path = 'Transformer/pretrained/csi/Short/checkpoint.pth'
-    long_prediction_model_path =  'Transformer/pretrained/csi/Long/checkpoint.pth'
-    mae_model_path = 'Transformer/pretrained/csi/mae/checkpoint.pth'
-    full_stock_dir = '../data/CSI/'
+    short_prediction_model_path = working_path + '/Transformer/pretrained/csi/Short/checkpoint.pth'
+    long_prediction_model_path =  working_path + '/Transformer/pretrained/csi/Long/checkpoint.pth'
+    mae_model_path = working_path + '/Transformer/pretrained/csi/mae/checkpoint.pth'
+    full_stock_dir = 'data/CSI/'
     ticker_list = config.use_ticker_dict['CSI']
     prediction_len = [1,5]
 
