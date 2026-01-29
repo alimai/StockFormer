@@ -58,8 +58,8 @@ class FinancialMetricsCallback(BaseCallback):
             if infos is not None and len(infos) > 0:
                 info = infos[0]
                 # 记录到 TensorBoard
-                if "tot_reward" in info:
-                    self.logger.record("finance/total_reward", info["tot_reward"])
+                if "reward_ratio" in info:
+                    self.logger.record("finance/reward_ratio", info["reward_ratio"])
                 if "sharpe" in info:
                     self.logger.record("finance/sharpe_ratio", info["sharpe"])
         return True

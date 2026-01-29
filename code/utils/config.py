@@ -90,8 +90,8 @@ MAESAC_PARAMS_PRED = {
     "learning_rate": 0.0001,
     "learning_starts": 100,
     "ent_coef": "auto_0.1",
-    "enc_in":108,#股票数88+技术指标数8+时间特征数12???##股票数100+技术指标数8???
-    "dec_in":108,
+    "enc_in":10,#时序特征数10
+    "dec_in":10,
     "c_out_prediction":1,#不同于MAESAC_PARAMS
     "d_model":128,
     "d_ff":256,

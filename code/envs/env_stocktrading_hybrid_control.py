@@ -319,7 +319,7 @@ class StockTradingEnv(gym.Env):
 
             # 在 info 中返回 memory 数据（避免被 DummyVecEnv 自动 reset 清空）
             return self.state, self.reward, self.terminal, {
-                'tot_reward': tot_reward_ratio,
+                'reward_ratio': tot_reward_ratio,
                 'sharpe': sharpe,
                 'account_memory': df_total_value,
                 'actions_memory': self.save_action_memory(),
