@@ -16,7 +16,7 @@ from stable_baselines3.common.utils import polyak_update
 from stable_baselines3.sac.policies import SACPolicy
 
 from Transformer.models.transformer import Transformer_base as Transformer
-from Transformer.utils.metrics import ranking_loss
+from utils.metrics import ranking_loss
 from MySAC.SAC.policy_transformer import policy_transformer_stock_atten2 as policy_transformer_attn2
 import pdb
 

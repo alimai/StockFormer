@@ -5,10 +5,10 @@ from Transformer.exp.exp_pred import Exp_pred
 from Transformer.exp.exp_mae import Exp_mae
 
 from Transformer.data.stock_data_handle import Stock_Data
-import Transformer.utils.tools as utils
-from Transformer.config import fix_seed
-from Transformer.config import TRANSFORMER_PARAMS_DEFAULT
-from Transformer.config import TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
+import utils.tools as utils
+from utils.config import fix_seed
+from utils.config import TRANSFORMER_PARAMS_DEFAULT
+from utils.config import TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
 
 import time
 import pdb

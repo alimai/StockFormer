@@ -3,8 +3,8 @@ import torch
 from torch import nn
 import sys
 
-sys.path.append('StockFormer/Transformer')
-import Transformer.config
+#sys.path.append('StockFormer/Transformer')
+from utils import config
 
 import pdb
 
