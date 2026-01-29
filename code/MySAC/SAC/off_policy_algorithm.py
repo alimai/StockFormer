@@ -136,7 +136,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             replay_buffer_kwargs = {}
         self.replay_buffer_kwargs = replay_buffer_kwargs
         self._episode_storage = None
-        self.best_ep_rew_mean = -np.inf  # 跟踪最高的ep_rew_mean
 
         # Remove terminations (dones) that are due to time limit
         # see https://github.com/hill-a/stable-baselines/issues/863
@@ -334,7 +333,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         tb_log_name: str = "run",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-        save_path: Optional[str] = None,
     ) -> "OffPolicyAlgorithm":
 
         total_timesteps, callback = self._setup_learn(
@@ -347,9 +345,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             reset_num_timesteps,
             tb_log_name,
         )
-
-        # Set save path for model saving during training
-        self.save_path = save_path
 
         callback.on_training_start(locals(), globals())
 
@@ -366,9 +361,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
             if rollout.continue_training is False:
                 break
-            if self.replay_buffer.size() < self.batch_size  / 2:
-                continue
-            
+
             if self.num_timesteps > 0 and self.num_timesteps > self.learning_starts:
                 # If no `gradient_steps` is specified,
                 # do as many gradients steps as steps performed during the rollout
@@ -413,9 +406,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             # Note: when using continuous actions,
             # we assume that the policy uses tanh to scale the action
             # We use non-deterministic action in the case of SAC, for TD3, it does not matter
-            
-            unscaled_action, _ = self.predict(self._last_obs, deterministic=False)
-        
+            unscaled_action, _ = self.predict(self._last_obs, deterministic=False) 
 
         # Rescale the action from [low, high] to [-1, 1]
         if isinstance(self.action_space, gym.spaces.Box):
@@ -452,22 +443,8 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
         if len(self.ep_success_buffer) > 0:
             self.logger.record("rollout/success_rate", safe_mean(self.ep_success_buffer))
-            
-        # 检查ep_rew_mean是否创新高
-        if self.save_path is not None:
-            ep_rew_mean = self.logger.name_to_value.get("rollout/ep_rew_mean")
-            if ep_rew_mean is not None and ep_rew_mean > self.best_ep_rew_mean:
-                self.best_ep_rew_mean = ep_rew_mean
-                self.save(self.save_path + "/best_train_model.zip")
-                if self.verbose >= 1:
-                    print(f"New best ep_rew_mean: {ep_rew_mean:.2f}. Saving best_train_model.zip to {self.save_path}")
-            else:
-                    self.save(self.save_path + "/tmp_model.zip")
-                    if self.verbose >= 1:
-                        print(f"Saving tmp model to {self.save_path}")
-
         # Pass the number of timesteps for tensorboard
-        self.logger.dump(step=self.num_timesteps)#会清空 self.logger
+        self.logger.dump(step=self.num_timesteps)
 
     def _on_step(self) -> None:
         """
@@ -527,7 +504,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             infos,
         )
 
-
         self._last_obs = new_obs
         # Save the unnormalized observation
         if self._vec_normalize_env is not None:
@@ -564,12 +540,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         """
         # Switch to eval mode (this affects batch norm / dropout)
         self.policy.set_training_mode(False)
-        # 确保 state_transformer 在数据收集时处于 eval 模式
-        # 这样可以避免 BatchNorm 的 running statistics 在数据收集过程中被更新
-        # 如果 state_transformer 在 collect_rollouts 时处于 train 模式，BatchNorm 会更新 running statistics
-        # 然后在 train() 方法中，state_transformer 被设置为 train() 模式，可能导致状态表示异常
-        if hasattr(self, 'state_transformer'):
-            self.state_transformer.eval()
 
         episode_rewards, total_timesteps = [], []
         num_collected_steps, num_collected_episodes = 0, 0
@@ -603,7 +573,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 self.num_timesteps += 1
                 episode_timesteps += 1
                 num_collected_steps += 1
-                episode_reward += reward
 
                 # Give access to local variables
                 callback.update_locals(locals())
@@ -611,19 +580,20 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 if callback.on_step() is False:
                     return RolloutReturn(0.0, num_collected_steps, num_collected_episodes, continue_training=False)
 
+                episode_reward += reward
 
                 # Retrieve reward and episode length if using Monitor wrapper
                 self._update_info_buffer(infos, done)
 
                 # Store data in replay buffer (normalized action and unnormalized observation)
-                self._store_transition(replay_buffer, buffer_action, new_obs, reward, done, infos)
+                self._store_transition(replay_buffer, buffer_action, new_obs, reward, done, infos) 
 
                 self._update_current_progress_remaining(self.num_timesteps, self._total_timesteps)
 
                 # For DQN, check if the target network should be updated
                 # and update the exploration schedule
                 # For SAC/TD3, the update is done as the same time as the gradient update
-                # see https://github.com/hill-a/stable-baselines/issues/900
+                # see https://github.com/hill-a/stable-baselines3/issues/900
                 self._on_step()
 
                 if not should_collect_more_steps(train_freq, num_collected_steps, num_collected_episodes):
@@ -638,11 +608,9 @@ class OffPolicyAlgorithm(BaseAlgorithm):
                 if action_noise is not None:
                     action_noise.reset()
 
-                # # Log training infos
-                # if log_interval is not None and self._episode_num % log_interval == 0:
-                self.logger.record(key="rollout/real_reward", value=infos[0]['tot_reward'])
-                self.logger.record(key="rollout/sharpe", value=infos[0]['sharpe'])
-                self._dump_logs() 
+                # Log training infos
+                if log_interval is not None and self._episode_num % log_interval == 0:
+                    self._dump_logs()
 
         mean_reward = np.mean(episode_rewards) if num_collected_episodes > 0 else 0.0
 
