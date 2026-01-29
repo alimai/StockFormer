@@ -150,11 +150,20 @@ class Stock_Data():
         print("label shape: ",self.label_all.shape)
 
     def get_split_df(self, type='train'):
-        # 【新增】辅助方法：直接返回对应阶段的 DataFrame
+        # 【新增】获取对应阶段的 DataFrame 并重置索引
         pos = self.type_map[type]
         start_date = self.border_dates[pos*2]
         end_date = self.border_dates[pos*2+1]
-        return self.full_df[(self.full_df['date_str'] >= start_date) & (self.full_df['date_str'] <= end_date)]
+        
+        # 筛选数据
+        temp_df = self.full_df[(self.full_df['date_str'] >= start_date) & (self.full_df['date_str'] <= end_date)]
+        
+        # 【关键修复】重置索引，确保每个数据集（Train/Eval/Test）的索引都从 0 开始
+        # 这样环境中的 time_window_start 才能正确匹配
+        temp_df = temp_df.sort_values(['date', 'tic'], ignore_index=True)
+        temp_df.index = temp_df.date.factorize()[0]
+        
+        return temp_df
 
 
 
