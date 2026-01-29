@@ -17,3 +17,5 @@ code/results/
 code/Transformer/checkpoints
 log/
 tensorboard_log/
+results/
+checkpoints/
