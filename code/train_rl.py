@@ -40,7 +40,7 @@ if __name__ == '__main__':
     if not os.path.exists(config.RESULTS_DIR):
         os.makedirs(config.RESULTS_DIR)
 
-    # 【完全复用】使用 Stock_Data 统一处理所有数据（包括协方差计算和标准化）
+    # 使用 Stock_Data 统一处理所有数据（包括协方差计算和标准化）
     data_manager = Stock_Data(
         root_path='data/', 
         dataset_name='CSI', 

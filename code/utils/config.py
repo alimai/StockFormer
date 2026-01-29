@@ -336,11 +336,8 @@ USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
-CSI_date = ['2011-01-17','2018-12-28', '2019-01-02', '2021-12-30','2018-10-09', '2022-04-16']
-
-CSI_date_trans = ['20110419', '20181228', '20180102', '20201231',  '20190402', '20211231']
+CSI_date_trans = ['20110419', '20181228', '20190102', '20211230',  '20181009', '20220416']
 date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
-
 
 step_len = 1000  # 每个训练/测试阶段的时间步长度
 # 方案1：使用有序滑动窗口（Sliding Window）生成起始位置，减少环境突变
