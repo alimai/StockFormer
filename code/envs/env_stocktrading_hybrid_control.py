@@ -81,8 +81,8 @@ class StockTradingEnv(gym.Env):
 
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+1)) # cov matrix list + technical list + temporal feature * 60 + prediction labels + holding amount
-        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel+1))
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel)) # cov matrix list + technical list + temporal feature * 60 + prediction labels
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel))
 
         self.data = self.df.loc[self.day, :]
         self.tic = self.df.tic.unique()
@@ -478,8 +478,8 @@ class StockTradingEnv(gym.Env):
         self.long_hidden_feature.append(hidden_np2)
 
         # pdb.set_trace()
-        holding_amount = np.zeros((self.stock_dim,1), dtype=int)
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, holding_amount), axis=-1)
+        #holding_amount = np.zeros((self.stock_dim,1), dtype=int)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2), axis=-1)
         # print("Initial: ",state.shape)
         return state
 
@@ -519,10 +519,10 @@ class StockTradingEnv(gym.Env):
         self.short_hidden_feature.append(hidden_np1)
         self.long_hidden_feature.append(hidden_np2)
 
-        holding_amount = np.array(self.info[-self.stock_dim : ]) # (stock_dim, 1)
-        holding_amount_norm = ((holding_amount * np.array(self.info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
+        #holding_amount = np.array(self.info[-self.stock_dim : ]) # (stock_dim, 1)
+        #holding_amount_norm = ((holding_amount * np.array(self.info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
 
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, holding_amount_norm), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2), axis=-1)
         # print("Update: ",state.shape)
         return state
 

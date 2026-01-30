@@ -30,11 +30,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.optimizer = torch.optim.Adam(itertools.chain(self.attention.parameters(), self.attention2.parameters()), lr=lr)
         self.device = device
         
-    def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, holding, mask=None):
+    def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, mask=None):
         # relational_feature shape [B, N, D]
         # temporal_feature_short=temporal_feature_long shape [B, N, D]
-        # holding shape [B, N] or None
-        # return feature shape [B, N, D+1]
+        # return feature shape [B, N, D]
 
         temporal_hybrid_feature, attn = self.attention(
             temporal_feature_long, temporal_feature_short, temporal_feature_short,
@@ -51,9 +50,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_feature = temporal_feature + self.dropout(temporal_relational_hybrid_feature)
         hybrid_feature = self.norm(temporal_feature)
 
-        combined_feature = torch.cat((hybrid_feature, holding), dim=-1) # [B, N, D+1]
+        #combined_feature = torch.cat((hybrid_feature, holding), dim=-1) # [B, N, D+1]
 
-        return combined_feature
+        return hybrid_feature
 
 
 
