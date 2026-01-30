@@ -326,31 +326,24 @@ class StockTradingEnv(gym.Env):
             }
 
         else:
-
-            # pdb.set_trace()
-            actions = actions * self.hmax  # actions initially is scaled between 0?-1 to 1
-            actions = actions.astype(
-                int
-            )
-            begin_total_asset = self.info[0] + sum(
-                np.array(self.info[1 : (self.stock_dim + 1)])
-                * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
-            )
-            
+            # pdb.set_trace()            
+            zero_day_prices = np.array(self.info[1 : (self.stock_dim + 1)])
             first_day_prices = np.array(self._get_future_price(days_ahead=1))
-            fifth_day_prices = np.array(self._get_future_price(days_ahead=5))            
-            avg_prices = (first_day_prices + fifth_day_prices) / 2.0
-            asset_for_reward_orig = self.info[0] + sum(
-                avg_prices
-                * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
-            )
-            # print("begin_total_asset:{}".format(begin_total_asset))
+            fifth_day_prices = np.array(self._get_future_price(days_ahead=5))
+
+            begin_total_asset = self.info[0] + sum(
+                zero_day_prices * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+            )#初始总资产=现金+股票价格*股票数量   
+
+            actions = (actions + 1) * self.hmax / 2  # actions initially is scaled between -1 to 1
+            actions = actions.astype(int)
+            actions = actions - self.info[self.stock_dim+1:self.stock_dim*2+1]
 
             argsort_actions = np.argsort(actions)
-
             sell_index = argsort_actions[: np.where(actions < 0)[0].shape[0]]
             buy_index = argsort_actions[::-1][: np.where(actions > 0)[0].shape[0]]
 
+            #更新现金和持仓信息
             for index in sell_index:
                 # print(f"Num shares before: {self.state[index+self.stock_dim+1]}")
                 # print(f'take sell action before : {actions[index]}')
@@ -362,29 +355,27 @@ class StockTradingEnv(gym.Env):
                 # print('take buy action: {}'.format(actions[index]))
                 actions[index] = self._buy_stock(index, actions[index])
 
-            self.actions_memory.append(actions)
+            #需要在持仓信息更新后
+            self.end_total_asset = self.info[0] + sum(
+                first_day_prices * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
+            )
+
+            # 使用第一天和第五天价格的平均值计算 reward
+            avg_prices = (first_day_prices + fifth_day_prices) / 2.0
+            asset_for_reward_new = self.info[0] + sum(
+                avg_prices * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
+            )
+            market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
+            self.reward = asset_for_reward_new / begin_total_asset - 1.0
+            self.reward = (self.reward * 2 - market_value_growth_ratio) * self.reward_scaling
 
             # state: s -> s+1 #更新日期和价格信息
             self.day += 1
             self.data = self.df.loc[self.day, :]#更新日期
-            self.info = self._update_info()#更新价格信息
-            
-            self.end_total_asset = self.info[0] + sum(
-                np.array(self.info[1: (self.stock_dim + 1)])#等于first_day_prices
-                * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
-            )
-
-            # 使用第一天和第五天价格的平均值计算 reward
-            asset_for_reward_new = self.info[0] + sum(
-                avg_prices
-                * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
-            )
-            used_asset_orig = (asset_for_reward_orig + begin_total_asset) * 0.5
-            self.reward = (( asset_for_reward_new - used_asset_orig)/(used_asset_orig*1.0))
-            self.reward = self.reward * self.reward_scaling
-
+            self.info = self._update_info()#更新价格信息       
             self.state = self._update_state()
 
+            self.actions_memory.append(actions)
             self.asset_memory.append(self.end_total_asset)
             self.date_memory.append(self._get_date())
             self.rewards_memory.append(self.reward)

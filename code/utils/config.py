@@ -64,7 +64,7 @@ NORMALIZED_TEMPORAL_FEATURE = [
 MAESAC_PARAMS = {
     "batch_size": 32,#important
     "buffer_size": 10000,
-    "learning_rate": 0.00001,
+    "learning_rate": 0.001,
     "learning_starts": 100,
     "ent_coef": "auto_0.001",#key
     "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
@@ -346,4 +346,4 @@ step_len = 500  # 每个训练/测试阶段的时间步长度
 random.seed(fix_seed)
 stride = int(step_len/5) #步长为 step_len 的五分之一
 rand_start= random.randint(0, stride)
-time_window_start = [i+rand_start for i in range(60, 2000 - stride * 4, stride)]
+time_window_start = [i+rand_start for i in range(60, 1800 - stride * 4, stride)]
