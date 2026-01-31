@@ -259,9 +259,7 @@ class StockTradingEnv(gym.Env):
                 )
 
             #avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
-            # 执行优化方案：使用固定的 step_len 进行归一化（注意不是实际长度）
-            # 这样能让短 episode 的终端奖励在量级上远小于长 episode，彻底解决价值泄露问题
-            self.reward = ((tot_reward_ratio * 2 - market_value_growth_ratio) * self.reward_scaling) / self.step_len
+            self.reward = (tot_reward_ratio * 2 - market_value_growth_ratio)# * self.reward_scaling / self.step_len
 
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
@@ -361,7 +359,7 @@ class StockTradingEnv(gym.Env):
             )
 
             # 使用第一天和第五天价格的平均值计算 reward
-            avg_prices = (first_day_prices + fifth_day_prices) / 2.0
+            avg_prices = fifth_day_prices#first_day_prices *0.3 + fifth_day_prices * 0.7
             asset_for_reward_new = self.info[0] + sum(
                 avg_prices * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
@@ -369,17 +367,17 @@ class StockTradingEnv(gym.Env):
             self.reward = asset_for_reward_new / begin_total_asset - 1.0
             self.reward = (self.reward * 2 - market_value_growth_ratio) * self.reward_scaling
 
-            # state: s -> s+1 #更新日期和价格信息
-            self.day += 1
-            self.data = self.df.loc[self.day, :]#更新日期
-            self.info = self._update_info()#更新价格信息       
-            self.state = self._update_state()
-
             self.actions_memory.append(actions)
             self.asset_memory.append(self.end_total_asset)
             self.date_memory.append(self._get_date())
             self.rewards_memory.append(self.reward)
             self.amount_memory.append(self.info[-self.stock_dim:])
+
+            # state: s -> s+1 #更新日期和价格信息
+            self.day += 1
+            self.data = self.df.loc[self.day, :]#更新日期
+            self.info = self._update_info()#更新价格信息       
+            self.state = self._update_state()
 
         return self.state, self.reward, self.terminal, {}
 

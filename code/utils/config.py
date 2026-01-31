@@ -66,7 +66,7 @@ MAESAC_PARAMS = {
     "buffer_size": 10000,
     "learning_rate": 0.001,
     "learning_starts": 100,
-    "ent_coef": "auto_0.001",#key
+    "ent_coef": "auto_0.01",#key
     "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
     "dec_in": 96,#解码器的输入维度
     "c_out_construction": 96,#模型的输出维度
@@ -75,7 +75,7 @@ MAESAC_PARAMS = {
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "dropout":0.01,
+    "dropout":0.05,
     "gamma": 0.9999,#折扣因子,越小越重视短期奖励，最大为1
     # "tau": 0.005,#目标网络软更新系数，越小更新越慢，一般取0.001-0.005
     "transformer_path":'',#mae_model_path,
