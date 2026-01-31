@@ -111,8 +111,8 @@ if __name__ == '__main__':
             load_pretrain = True
 
         # 【修复】调整包装顺序：只保留 VecMonitor
-        env_train_vm = VecMonitor(env_train, log_dir+'_train')
-        env_eval_vm = VecMonitor(env_eval, log_dir+'_test')
+        env_train_vm = VecMonitor(env_train, log_dir)
+        env_eval_vm = VecMonitor(env_eval, log_dir)
 
         # 【移除】彻底删除 VecNormalize 逻辑，直接使用 VecMonitor 包装后的环境
         agent = DRLAgent(env = env_train_vm)
@@ -130,7 +130,7 @@ if __name__ == '__main__':
         start = time.time()
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
-                                    check_freq=50000,
+                                    check_freq=10000,
                                     log_dir=log_dir,
                                     model_dir=model_dir,
                                     eval_env=env_eval_vm,  # 使用 VecMonitor 包装后的评估环境

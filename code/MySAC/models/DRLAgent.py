@@ -64,12 +64,44 @@ class FinancialMetricsCallback(BaseCallback):
                     self.logger.record("finance/sharpe_ratio", info["sharpe"])
         return True
 
-class oursTrainingRewardCallback(BaseCallback):
-    def __init__(self, check_freq:int, log_dir: str, verbose: int=1):
-        super(oursTrainingRewardCallback, self).__init__(verbose)
+class SaveModelCallback(BaseCallback):
+    """
+    自定义 Callback：用于定期保存模型
+    - 每个 episode 结束保存为 tmp_mode.zip
+    - 每 10 个 episode 结束保存为带有编号的备份
+    """
+    def __init__(self, model_save_path: str, verbose: int = 0):
+        super(SaveModelCallback, self).__init__(verbose)
+        self.model_save_path = model_save_path
+        self.episode_count = 0
+        if self.model_save_path is not None:
+            os.makedirs(self.model_save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        done = self.locals.get("done", False)
+        dones = self.locals.get("dones")
+        is_episode_finished = done or (dones is not None and dones[0])
+
+        if is_episode_finished:
+            self.episode_count += 1
+            # 每个 episode 保存为 tmp_mode.zip
+            tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
+            self.model.save(tmp_path)
+            
+            # 每 10 个 episode 保存一个备份
+            if self.episode_count % 10 == 0:
+                backup_path = os.path.join(self.model_save_path, f"model_episode_{self.episode_count}.zip")
+                self.model.save(backup_path)
+                if self.verbose > 0:
+                    print(f"Episode {self.episode_count}: Saved checkpoint to {backup_path}")
+        return True
+
+class TrainingRewardCallback(BaseCallback):
+    def __init__(self, check_freq:int, model_save_path: str, log_dir: str, verbose: int=1):
+        super(TrainingRewardCallback, self).__init__(verbose)
         self.check_freq = check_freq
         self.log_dir = log_dir
-        self.save_path = os.path.join(log_dir, 'best_model')
+        self.save_path = model_save_path
         self.best_mean_reward = -np.inf
     
     def _init_callback(self) -> None:
@@ -79,12 +111,11 @@ class oursTrainingRewardCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         if self.n_calls % self.check_freq == 0:
-
           # Retrieve training reward
           x, y = ts2xy(load_results(self.log_dir), 'timesteps')
           if len(x) > 0:
               # Mean training reward over the last 10 episodes
-              mean_reward = np.mean(y[-50:])
+              mean_reward = np.mean(y[-10:])
               if self.verbose > 0:
                 print(f"Num timesteps: {self.num_timesteps}")
                 print(f"Best mean reward: {self.best_mean_reward:.2f} - Last mean reward per episode: {mean_reward:.2f}")
@@ -95,7 +126,7 @@ class oursTrainingRewardCallback(BaseCallback):
                   # Example for saving best model
                   if self.verbose > 0:
                     print(f"Saving new best model to {self.save_path}")
-                  self.model.save(self.save_path+'/model.zip')
+                  self.model.save(self.save_path+'/best_train_model.zip')
 
         return True      
 
@@ -173,10 +204,10 @@ class DRLAgent:
     def train_model(self, model, tb_log_name, check_freq, model_dir, log_dir, eval_env, total_timesteps=5000, verbose=1, deterministic=True):
         eval_callback = EvalCallback(eval_env, best_model_save_path=model_dir, log_path=log_dir, eval_freq=check_freq, n_eval_episodes=1, deterministic=deterministic, render=False)
         tb_callback=TensorboardCallback(verbose=verbose, model_save_path=model_dir)
-        # 【新增】金融指标监控 Callback
         finance_callback = FinancialMetricsCallback(verbose=verbose)
-        
-        callback = CallbackList([eval_callback, tb_callback, finance_callback])
+        save_callback = SaveModelCallback(model_save_path=model_dir, verbose=verbose)
+        trainingreward_callback = TrainingRewardCallback(check_freq=check_freq, model_save_path=model_dir, log_dir=log_dir, verbose=verbose)
+        callback = CallbackList([eval_callback, tb_callback, finance_callback, save_callback, trainingreward_callback])
 
         model = model.learn(
             total_timesteps=total_timesteps,
