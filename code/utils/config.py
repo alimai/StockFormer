@@ -63,8 +63,8 @@ NORMALIZED_TEMPORAL_FEATURE = [
 ##transformer Model Parameters
 MAESAC_PARAMS = {
     "batch_size": 32,#important
-    "buffer_size": 10000,
-    "learning_rate": 0.001,
+    "buffer_size": 20000,
+    "learning_rate": 0.0003,
     "learning_starts": 100,
     "ent_coef": "auto_0.01",#key
     "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
@@ -76,8 +76,7 @@ MAESAC_PARAMS = {
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
     "dropout":0.05,
-    "gamma": 0.9999,#折扣因子,越小越重视短期奖励，最大为1
-    # "tau": 0.005,#目标网络软更新系数，越小更新越慢，一般取0.001-0.005
+    "gamma": 0.99,#折扣因子,越小越重视短期奖励，最大为1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
     "train_freq": 99,  # 每5步训练一次

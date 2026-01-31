@@ -110,35 +110,15 @@ if __name__ == '__main__':
         if os.path.exists(final_model_path):
             load_pretrain = True
 
-        # 【修复】调整包装顺序：先 VecMonitor 再 VecNormalize
-        # 这样 VecMonitor 记录的是原始奖励，ep_rew_mean 才能正确反映训练效果
-        env_train_vm = VecMonitor(env_train, log_dir+'_train')  # 先包装 Monitor
+        # 【修复】调整包装顺序：只保留 VecMonitor
+        env_train_vm = VecMonitor(env_train, log_dir+'_train')
         env_eval_vm = VecMonitor(env_eval, log_dir+'_test')
 
-        # 使用 VecNormalize 对 reward 进行标准化，避免终端 reward 和普通 reward 数值差异过大
-        vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
-        if load_pretrain:#
-            if os.path.exists(vn_path):# 恢复 VecNormalize 的统计信息
-                env_train_vn = VecNormalize.load(vn_path, env_train_vm)  # 注意改为包装 vm
-                env_eval_vn = VecNormalize.load(vn_path, env_eval_vm)
-                print(f"Loaded VecNormalize stats from {vn_path}")
-            else:
-                print("Can not loaded VecNormalize stats!!!")
-                exit(0)
-        else:
-            env_train_vn = VecNormalize(env_train_vm, norm_reward=True, norm_obs=True, gamma=config.MAESAC_PARAMS.get("gamma", 0.99))  # 传入一致的 gamma
-            env_eval_vn = VecNormalize(env_eval_vm, norm_reward=True, norm_obs=True, gamma=config.MAESAC_PARAMS.get("gamma", 0.99))
-
-        # 评估环境冻结统计信息，避免评估时更新均值/方差
-        env_eval_vn.training = False
-        env_eval_vn.norm_reward = False
-
-
-        # 【修复】使用 VecNormalize 包装后的环境（最外层）
-        agent = DRLAgent(env = env_train_vn)
+        # 【移除】彻底删除 VecNormalize 逻辑，直接使用 VecMonitor 包装后的环境
+        agent = DRLAgent(env = env_train_vm)
         if load_pretrain:
             print(f"load: {final_model_path}...")
-            model_sac = SAC_MAE.load(final_model_path, env=env_train_vn, tensorboard_log=tensorboard_log_dir)
+            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
             model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)
@@ -153,13 +133,10 @@ if __name__ == '__main__':
                                     check_freq=50000,
                                     log_dir=log_dir,
                                     model_dir=model_dir,
-                                    eval_env=env_eval_vn,  # 同样使用 VecNormalize 包装后的评估环境
-                                    total_timesteps=30000)
+                                    eval_env=env_eval_vm,  # 使用 VecMonitor 包装后的评估环境
+                                    total_timesteps=30000) # 提升训练步数至 200,000
         end = time.time()
         print("Training time: %.3f"%(end-start))
-
-        # 保存 VecNormalize 的统计信息
-        env_train_vn.save(os.path.join(model_dir, 'vec_normalize.pkl'))
 
     #强化学习训练后保存的模型（如best_train_model.zip）是一个复合模型，它包含了：
     #   - 更新后的MAE模型（state_transformer）---对应原mae/checkpoint.pth
@@ -173,19 +150,9 @@ if __name__ == '__main__':
     env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
     test_trade_gym = Env(df = test, **env_kwargs)
     env_test, _ = test_trade_gym.get_sb_env()
-    # 如果存在 VecNormalize 统计文件，则加载它
-    if os.path.exists(vn_path):
-        env_test_vn = VecNormalize.load(vn_path, env_test)
-        print(f"Loaded VecNormalize from {vn_path}")
-    else:
-        env_test_vn = VecNormalize(env_test, norm_reward=True, norm_obs=True, gamma=config.MAESAC_PARAMS.get("gamma", 0.99))
-
-    # 测试时冻结 VecNormalize 统计信息，避免测试数据污染训练时的统计
-    env_test_vn.training = False  # 停止更新均值/方差统计
-    env_test_vn.norm_reward = False  # 测试时不需要归一化奖励
-
+    # 测试阶段：使用原始环境
     start = time.time()
-    results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test_vn, cwd=model_path)
+    results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test, cwd=model_path)
     end = time.time()
     print("Test time: %.3f"%(end-start))
 
