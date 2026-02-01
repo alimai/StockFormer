@@ -359,7 +359,7 @@ class StockTradingEnv(gym.Env):
             )
 
             # 使用第一天和第五天价格的平均值计算 reward
-            avg_prices = fifth_day_prices#first_day_prices *0.3 + fifth_day_prices * 0.7
+            avg_prices = first_day_prices#first_day_prices *0.3 + fifth_day_prices * 0.7
             asset_for_reward_new = self.info[0] + sum(
                 avg_prices * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )

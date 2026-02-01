@@ -83,24 +83,24 @@ MAESAC_PARAMS = {
     "gradient_steps": 99,  # 每次训练进行5个梯度更新
 }
 
-MAESAC_PARAMS_PRED = {
-    "batch_size": 128,
-    "buffer_size": 50000,
-    "learning_rate": 0.0001,
-    "learning_starts": 100,
-    "ent_coef": "auto_0.1",
-    "enc_in":10,#时序特征数10
-    "dec_in":10,
-    "c_out_prediction":1,#不同于MAESAC_PARAMS
-    "d_model":128,
-    "d_ff":256,
-    "n_heads":8,#不同于MAESAC_PARAMS
-    "e_layers":3,#不同于MAESAC_PARAMS
-    "d_layers":2,#不同于MAESAC_PARAMS
-    "dropout":0.05,
-    "pred_len":1,#不同于MAESAC_PARAMS
-    "seq_len":60,#不同于MAESAC_PARAMS
-}
+# MAESAC_PARAMS_PRED = {
+#     "batch_size": 128,
+#     "buffer_size": 50000,
+#     "learning_rate": 0.0001,
+#     "learning_starts": 100,
+#     "ent_coef": "auto_0.1",
+#     "enc_in":10,#时序特征数10
+#     "dec_in":10,
+#     "c_out_prediction":1,#不同于MAESAC_PARAMS
+#     "d_model":128,
+#     "d_ff":256,
+#     "n_heads":8,#不同于MAESAC_PARAMS
+#     "e_layers":3,#不同于MAESAC_PARAMS
+#     "d_layers":2,#不同于MAESAC_PARAMS
+#     "dropout":0.05,
+#     "pred_len":1,#不同于MAESAC_PARAMS
+#     "seq_len":60,#不同于MAESAC_PARAMS
+# }
 
 # Transformer Default Parameters
 TRANSFORMER_PARAMS_DEFAULT = {
