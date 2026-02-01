@@ -61,11 +61,11 @@ NORMALIZED_TEMPORAL_FEATURE = [
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
-    "batch_size": 32,#important
+    "batch_size": 32,#important,同时影响速度
     "buffer_size": 20000,
-    "learning_rate": 0.0003,
+    "learning_rate": 0.001,
     "learning_starts": 100,
-    "ent_coef": "auto_0.5",#key--同时影响actor_loss/critic_loss
+    "ent_coef": "auto_0.1",#key--同时影响actor_loss/critic_loss
     "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
     "dec_in": 96,#解码器的输入维度
     "c_out_construction": 96,#模型的输出维度

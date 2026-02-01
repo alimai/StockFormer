@@ -266,8 +266,8 @@ class StockTradingEnv(gym.Env):
             df_rewards["date"] = self.date_memory[:-1]
 
             if self.episode % self.print_verbosity == 0:
-                print(self.mode)
-                print(f"day: {self.day}, episode: {self.episode}")
+                print(self.mode, f"episode: {self.episode}")
+                print(f"startday: {self.start_day}, endday: {self.day}")
                 print(f"begin_total_asset: {self.asset_memory[0]:0.2f}")
                 print(f"end_total_asset: {self.end_total_asset:0.2f}")
                 print(f"total_reward: {tot_reward:0.2f}")
@@ -395,7 +395,7 @@ class StockTradingEnv(gym.Env):
         else:#最开始步初始化      
             self.time_windows_point = 0
             self.start_day = self.time_window_start[self.time_windows_point]
-            self.episode = 0
+            self.episode = 1
 
 
         self.day = self.start_day
@@ -420,7 +420,7 @@ class StockTradingEnv(gym.Env):
         self.date_memory = [self._get_date()]
 
         print("=================================")
-        print(self.mode, f"day: {self.day}, episode: {self.episode}")
+        print(self.mode, f"reset...")
         print("=================================")
 
         return self.state

@@ -67,8 +67,7 @@ class FinancialMetricsCallback(BaseCallback):
 class SaveModelCallback(BaseCallback):
     """
     自定义 Callback：用于定期保存模型
-    - 每个 episode 结束保存为 tmp_mode.zip
-    - 每 10 个 episode 结束保存为带有编号的备份
+    - 每 2 个 episode 结束保存为 tmp_mode.zip
     """
     def __init__(self, model_save_path: str, verbose: int = 0):
         super(SaveModelCallback, self).__init__(verbose)
@@ -84,16 +83,13 @@ class SaveModelCallback(BaseCallback):
 
         if is_episode_finished:
             self.episode_count += 1
-            # 每个 episode 保存为 tmp_mode.zip
-            tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
-            self.model.save(tmp_path)
             
-            # 每 10 个 episode 保存一个备份
-            if self.episode_count % 10 == 0:
-                backup_path = os.path.join(self.model_save_path, f"model_episode_{self.episode_count}.zip")
-                self.model.save(backup_path)
+            # 每 2 个 episode 保存一个备份
+            if self.episode_count % 2 == 0:
+                tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
+                self.model.save(tmp_path)
                 if self.verbose > 0:
-                    print(f"Episode {self.episode_count}: Saved checkpoint to {backup_path}")
+                    print(f"Episode {self.episode_count}: Saved checkpoint to {tmp_path}")
         return True
 
 class TrainingRewardCallback(BaseCallback):
