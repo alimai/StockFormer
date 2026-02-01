@@ -143,7 +143,6 @@ if __name__ == '__main__':
     #   - SAC策略actor网络和价值critic网络 ---全连接层
     #   - 其他Transformer组件（actor_transformer, critic_transformer）
     model_path = os.path.join('trained_models/', version, model_name, 'best_train_model.zip')
-    vn_path = os.path.join('trained_models/', version, model_name, 'vec_normalize.pkl')
 
     env_name = "test"
     env_kwargs["mode"] = env_name
