@@ -117,18 +117,28 @@ class Stock_Data():
         if self.scale:
             # 【统一修改】标准化只在训练集上 fit，避免测试集信息泄露
             scaler = StandardScaler()
+            scaler_temporal = StandardScaler() # 新增：用于 temporal_feature 的归一化器
+
             # 获取训练集的范围
             train_mask = (df['date_str'] >= self.border_dates[0]) & (df['date_str'] <= self.border_dates[1])
+            
+            # 1. 归一化技术指标
             train_data_for_scaler = df.loc[train_mask, self.attr]
             scaler.fit(train_data_for_scaler.values)
-            
-            # 对所有数据进行 transform
             data = scaler.transform(df[self.attr].values)
+
+            # 2. 【关键修复】归一化时序特征 (Open, Close, High, Low, Volume ...)
+            # 必须归一化，否则不同时间窗口的价格绝对值差异会导致分布漂移
+            train_temporal_for_scaler = df.loc[train_mask, self.temporal_feature]
+            scaler_temporal.fit(train_temporal_for_scaler.values)
+            feature_list = scaler_temporal.transform(df[self.temporal_feature].values)
+            
         else:
             data = df[self.attr].values
+            feature_list = np.array(df[self.temporal_feature].values.tolist())
 
         cov_list = np.array(df['cov_list'].values.tolist()) # [stock_num*len, stock_num]
-        feature_list = np.array(df[self.temporal_feature].values.tolist()) # [stock_num*len, 10]
+        # feature_list 已经在上面处理过了
         close_list = np.array(df['price'].values.tolist())
 
         # pdb.set_trace()

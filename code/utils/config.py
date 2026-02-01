@@ -1,5 +1,4 @@
 import os
-import random
 import torch
 
 version_name = 'CSI'#'N100'#
@@ -66,7 +65,7 @@ MAESAC_PARAMS = {
     "buffer_size": 20000,
     "learning_rate": 0.0003,
     "learning_starts": 100,
-    "ent_coef": "auto_0.01",#key
+    "ent_coef": "auto_0.5",#key--同时影响actor_loss/critic_loss
     "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
     "dec_in": 96,#解码器的输入维度
     "c_out_construction": 96,#模型的输出维度
@@ -342,7 +341,5 @@ step_len = 500  # 每个训练/测试阶段的时间步长度
 # 方案1：使用有序滑动窗口（Sliding Window）生成起始位置，减少环境突变
 # 这种方式在 step_len 较小时能保证训练数据在宏观时间上的连续性
 # 设定步长为 100，确保相邻 Episode 之间有数据重叠或紧密衔接
-random.seed(fix_seed)
-stride = int(step_len/5) #步长为 step_len 的五分之一
-rand_start= random.randint(0, stride)
-time_window_start = [i+rand_start for i in range(60, 1800 - stride * 4, stride)]
+stride = int(step_len/2) #步长为 step_len 的五分之一
+time_window_start = [i for i in range(60, 1800 - (step_len-100), stride)]
