@@ -382,17 +382,21 @@ class StockTradingEnv(gym.Env):
         return self.state, self.reward, self.terminal, {}
 
     def reset(self):
-
-        if self.mode == 'train':            
+        if self.terminal:#训练或测试后重新初始化
             self.time_windows_point += 1#remove for test
             if self.time_windows_point >= len(self.time_window_start):
-                stride = int(self.step_len/5) # 步长为 step_len 的五分之一
-                rand_start= random.randint(0, stride)
-                self.time_window_start = [i+rand_start for i in range(60, 2000 - stride * 4, stride)]
                 self.time_windows_point = 0
             self.start_day = self.time_window_start[self.time_windows_point]
-        else:
-            self.start_day = self.time_window_start[0]
+            if self.mode == 'train':
+                rand_start_bias= random.randint(0, int(self.step_len/5))
+                self.start_day += rand_start_bias
+            self.episode += 1
+            self.terminal = False
+        else:#最开始步初始化      
+            self.time_windows_point = 0
+            self.start_day = self.time_window_start[self.time_windows_point]
+            self.episode = 0
+
 
         self.day = self.start_day
         self.data = self.df.loc[self.day, :]
@@ -405,22 +409,9 @@ class StockTradingEnv(gym.Env):
         self.short_hidden_feature = []
         self.long_hidden_feature = []
 
-        # --- 方案2：状态预热实现 ---
-        # 在正式开始 Episode 前，模拟运行若干步以预热 Transformer 特征
-        # 注意：预热期间不进行交易，不计入奖励
-        # self.end_total_asset = self.initial_amount  # 重置资产总额
-        # for _ in range(self.warmup_steps):
-        #     if self.day < self.df.index.unique().max() - 1:
-        #         self.day += 1
-        #         self.data = self.df.loc[self.day, :]
-        #         self.info = self._update_info()
-        #         self.state = self._update_state()
-        # ------------------------
-
         self.turbulence = 0
         self.cost = 0
         self.trades = 0
-        self.terminal = False
         self.asset_memory = [self.initial_amount]
         # self.iteration=self.iteration
         self.rewards_memory = []
@@ -428,7 +419,6 @@ class StockTradingEnv(gym.Env):
         self.amount_memory = []#[self.info[-self.stock_dim:]]
         self.date_memory = [self._get_date()]
 
-        self.episode += 1
         print("=================================")
         print(self.mode, f"day: {self.day}, episode: {self.episode}")
         print("=================================")
