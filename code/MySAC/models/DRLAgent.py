@@ -60,6 +60,8 @@ class FinancialMetricsCallback(BaseCallback):
                 # 记录到 TensorBoard
                 if "reward_ratio" in info:
                     self.logger.record("finance/reward_ratio", info["reward_ratio"])
+                if "reward_step" in info:
+                    self.logger.record("finance/reward_step", info["reward_step"])
                 if "sharpe" in info:
                     self.logger.record("finance/sharpe_ratio", info["sharpe"])
         return True
