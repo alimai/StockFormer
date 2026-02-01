@@ -117,21 +117,58 @@ class Stock_Data():
         if self.scale:
             # 【统一修改】标准化只在训练集上 fit，避免测试集信息泄露
             scaler = StandardScaler()
-            scaler_temporal = StandardScaler() # 新增：用于 temporal_feature 的归一化器
 
             # 获取训练集的范围
             train_mask = (df['date_str'] >= self.border_dates[0]) & (df['date_str'] <= self.border_dates[1])
             
-            # 1. 归一化技术指标
+            # 1. 归一化技术指标 (Tech Indicators) - 保持原有逻辑
             train_data_for_scaler = df.loc[train_mask, self.attr]
             scaler.fit(train_data_for_scaler.values)
             data = scaler.transform(df[self.attr].values)
 
-            # 2. 【关键修复】归一化时序特征 (Open, Close, High, Low, Volume ...)
-            # 必须归一化，否则不同时间窗口的价格绝对值差异会导致分布漂移
-            train_temporal_for_scaler = df.loc[train_mask, self.temporal_feature]
-            scaler_temporal.fit(train_temporal_for_scaler.values)
-            feature_list = scaler_temporal.transform(df[self.temporal_feature].values)
+            # 2. 归一化时序特征 (Temporal Features) - 方案 C
+            # 定义分组
+            price_abs_cols = ['open', 'close', 'high', 'low']
+            price_diff_cols = ['dopen', 'dclose', 'dhigh', 'dlow']
+            vol_abs_cols = ['volume']
+            vol_diff_cols = ['dvolume']
+
+            # 筛选当前存在的列
+            valid_price_abs = [c for c in price_abs_cols if c in self.temporal_feature]
+            valid_price_diff = [c for c in price_diff_cols if c in self.temporal_feature]
+            valid_vol_abs = [c for c in vol_abs_cols if c in self.temporal_feature]
+            valid_vol_diff = [c for c in vol_diff_cols if c in self.temporal_feature]
+
+            # --- Group A: 价格组 ---
+            if valid_price_abs:
+                # 仅使用训练集数据的绝对价格计算参数
+                train_price_vals = df.loc[train_mask, valid_price_abs].values.flatten()
+                mean_price = np.mean(train_price_vals)
+                std_price = np.std(train_price_vals) + 1e-8 # 防止除以0
+                
+                # 1. 绝对价格：(X - Mean) / Std
+                df.loc[:, valid_price_abs] = (df[valid_price_abs] - mean_price) / std_price
+                
+                # 2. 差分价格：X / Std (方案 C：共享 Std，但不减 Mean，保持 0 对称性)
+                if valid_price_diff:
+                    df.loc[:, valid_price_diff] = df[valid_price_diff] / std_price
+
+            # --- Group B: 成交量组 ---
+            if valid_vol_abs:
+                # 仅使用训练集数据的绝对成交量计算参数
+                train_vol_vals = df.loc[train_mask, valid_vol_abs].values.flatten()
+                mean_vol = np.mean(train_vol_vals)
+                std_vol = np.std(train_vol_vals) + 1e-8
+                
+                # 1. 绝对成交量：(X - Mean) / Std
+                df.loc[:, valid_vol_abs] = (df[valid_vol_abs] - mean_vol) / std_vol
+                
+                # 2. 差分成交量：X / Std (方案 C：共享 Std，不减 Mean)
+                if valid_vol_diff:
+                    df.loc[:, valid_vol_diff] = df[valid_vol_diff] / std_vol
+
+            # 提取最终归一化后的特征矩阵
+            feature_list = df[self.temporal_feature].values
             
         else:
             data = df[self.attr].values
