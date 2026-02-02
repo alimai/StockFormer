@@ -1,70 +1,55 @@
-# 📄 关于 `off_policy_algorithm.py` 多副本问题的分析报告
+# 📄 关于 `off_policy_algorithm.py` 多副本问题的分析报告 (已解决)
 
 ## 1. 背景概述
-在当前工程中存在两个同名的 `off_policy_algorithm.py` 文件，分别位于自定义模块目录和本地标准库目录。经过代码审计和调用链分析，确认这两个文件均处于激活状态，但服务于不同的算法逻辑。
+在之前的工程版本中，由于 Transformer (MAE) 提取的隐藏特征维度（如 128）与环境原始观察空间维度不匹配，曾通过在 `code/MySAC/SAC/` 下创建 `off_policy_algorithm.py` 的副本并修改其初始化逻辑来解决。
 
-### 文件路径
-1.  **自定义版本**：`code/MySAC/SAC/off_policy_algorithm.py`
-2.  **标准版本**：`code/stable_baselines3/common/off_policy_algorithm.py`
+**当前状态**：该多副本问题已彻底解决，自定义副本已被移除。
 
 ---
 
-## 2. 调用关系分析
+## 2. 解决方案：动态观察空间 Hook 机制
 
-| 文件位置 | 主要调用者 | 适用场景 |
-| :--- | :--- | :--- |
-| `MySAC/SAC/` | `code/MySAC/SAC/MAE_SAC.py` | 运行 `StockFormer` 核心模型 `MAE_SAC` 时使用。 |
-| `stable_baselines3/` | `stable_baselines3` 下的 `dqn`, `td3`, `sac` 等标准算法 | 运行 SB3 原生算法或进行基准测试时使用。 |
+在最新的 `code/MySAC/SAC/MAE_SAC.py` 中，通过在模型初始化阶段引入 **Hook 机制**，成功实现了对原生 `stable_baselines3` 库的完全复用，而无需修改其源码。
 
-在执行 `train_rl.py` 训练 `maesac` 模型时，系统会优先通过显式导入使用 `MySAC` 目录下的自定义版本。
+### 核心代码实现 (位于 `MAE_SAC.py` 的 `_setup_model` 方法)
 
----
+```python
+def _setup_model(self) -> None:
+    # 1. 保存环境原始的观察空间（用于后续 ReplayBuffer 初始化）
+    original_obs_space = self.observation_space
+    
+    # ... 初始化 ReplayBuffer 等 ...
 
-## 3. 核心代码差异
-
-这两个文件的代码重合度超过 99%，唯一的**关键差异**位于策略网络（Policy）的初始化逻辑中：
-
-### 差异代码对比 (约第 222 行)
-
-*   **自定义版本 (MySAC)**：
-    ```python
+    # 2. 核心 Hook：临时切换观察空间
+    # 将其切换为 Transformer 映射后的隐藏状态空间 (hidden_state_space)
+    self.observation_space = self.hidden_state_space
+    
+    # 3. 初始化 Policy
+    # 此时 Policy 会依据切换后的维度创建 Actor 和 Critic 网络输入层
     self.policy = self.policy_class(
-        self.hidden_state_space,  # 使用 Transformer 转换后的隐藏状态空间
+        self.observation_space,
         self.action_space,
         self.lr_schedule,
         **self.policy_kwargs,
     )
-    ```
-*   **标准版本 (SB3)**：
-    ```python
-    self.policy = self.policy_class(
-        self.observation_space,  # 使用环境原始的观察空间
-        self.action_space,
-        self.lr_schedule,
-        **self.policy_kwargs,
-    )
-    ```
+    
+    # 4. 还原原始观察空间
+    # 确保环境交互和采样流程仍基于原始维度进行
+    self.observation_space = original_obs_space
+```
 
 ---
 
-## 4. 为什么要进行这种定制？
+## 3. 架构优势
 
-这是 `StockFormer` 架构的核心设计决定的：
-
-1.  **特征降维**：原始股票数据（包含协方差矩阵和技术指标）维度极高。本项目使用 Transformer (MAE) 作为特征提取器，将高维输入映射为低维的 `hidden_state`。
-2.  **维度匹配**：策略网络（Actor/Critic）的输入层必须匹配 `hidden_state` 的维度（通常为 128），而不是原始 `observation_space` 的维度。
-3.  **架构隔离**：为了不破坏原生 `stable_baselines3` 库对普通任务的支持，开发者选择在 `MySAC` 目录下复制并修改了基类，实现了针对 `StockFormer` 任务的专用逻辑。
+1.  **零侵入性**：无需在本地维护 `stable_baselines3` 的源码副本，直接通过 pip 安装标准库即可运行。
+2.  **兼容性强**：这种 Hook 方式确保了 `ReplayBuffer` 仍然存储原始高维数据，而 `Policy` 网络则针对低维隐藏特征进行决策，完美适配 `StockFormer` 的表示学习架构。
+3.  **易于维护**：消除了冗余代码，避免了未来升级 `stable_baselines3` 时可能出现的版本冲突。
 
 ---
 
-## 5. 结论与风险评估
-
-### 结论
-**MySAC 目录下的版本没有问题，且是项目运行所必须的。** 它确保了强化学习的决策层能正确接收来自预训练 Transformer 的特征向量。
-
-### 潜在风险
-*   **维护冗余**：两个文件高度重复。如果未来需要修改 Off-Policy 算法的通用逻辑（如 `collect_rollouts` 采样逻辑），必须在两个文件中同步修改。
-*   **同步建议**：若无特殊需求，建议保持这两个文件除了 `hidden_state_space` 初始化逻辑外的一致性。
+## 4. 结论
+**目前的工程结构是健康且符合最佳实践的。** 开发者无需担心 `off_policy_algorithm.py` 的多副本问题，所有的定制化逻辑都已收敛在 `MAE_SAC.py` 及其相关的 Transformer 模块中。
 
 ---
-*文档更新日期：2026年1月29日*
+*文档更新日期：2026年2月3日*
