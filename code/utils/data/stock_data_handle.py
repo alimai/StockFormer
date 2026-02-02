@@ -56,7 +56,7 @@ class Stock_Data():
         # month_day: 12.15 for Dec 15th
         df['month_day'] = df['date'].dt.month + df['date'].dt.day / 100.0
         # weekday: 1 for Monday, ..., 7 for Sunday
-        df['weekday'] = df['date'].dt.isoweekday
+        df['weekday'] = df['date'].dt.dayofweek
 
         fe = FeatureEngineer(
                     use_technical_indicator=True,
@@ -179,8 +179,8 @@ class Stock_Data():
             # Min: 1.01 (Jan 1st), Max: 12.31 (Dec 31st) -> Range: 11.3
             df['month_day'] = (df['month_day'] - 1.01) / 11.3
             
-            # Min: 1 (Mon), Max: 7 (Sun) -> Range: 6
-            df['weekday'] = (df['weekday'] - 1) / 6.0
+            # Min: 0 (Mon), Max: 6 (Sun) -> Range: 6
+            df['weekday'] = df['weekday'] / 6.0
 
             # 提取最终归一化后的特征矩阵
             feature_list = df[self.temporal_feature].values
