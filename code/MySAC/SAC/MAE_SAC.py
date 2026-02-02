@@ -186,6 +186,7 @@ class SAC(OffPolicyAlgorithm):
             else:
                 transformer_device = 'cpu'
 
+        # MAE 模型
         self.state_transformer = Transformer(enc_in=enc_in, dec_in=dec_in, c_out=c_out_construction,
                                              n_heads=n_heads, e_layers=e_layers, d_layers=d_layers,
                                              d_model=d_model, d_ff=d_ff, dropout=dropout).to(transformer_device)
@@ -591,6 +592,8 @@ class SAC(OffPolicyAlgorithm):
             mask = stock_mask.unsqueeze(2).expand(-1, -1, feat_dim)
 
             enc_inp = mask * batch_enc1
+            # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
+            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
             enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
 
             # 计算被屏蔽股票的重建损失

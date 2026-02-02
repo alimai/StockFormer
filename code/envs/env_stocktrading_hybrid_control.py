@@ -80,7 +80,8 @@ class StockTradingEnv(gym.Env):
         self.hidden_channel = hidden_channel
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2)) # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day + weekday
+        # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day + weekday#88+8+2*128+2
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
         self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel))
 
         print("action_space shape: ",self.action_space.shape)

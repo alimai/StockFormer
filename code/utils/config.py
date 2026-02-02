@@ -25,11 +25,11 @@ MAESAC_PARAMS = {
     "learning_rate": 0.001,
     "learning_starts": 100,
     "ent_coef": "auto_0.01",#key--同时影响actor_loss/critic_loss
-    "enc_in": 96,#编码器的输入维度#股票数88+技术指标数8
-    "dec_in": 96,#解码器的输入维度
-    "c_out_construction": 96,#模型的输出维度
-    "d_model":128,#模型的隐藏层维度
-    "d_ff":256,#前馈神经网络的维度
+    "enc_in": 96,#MAE编码器的输入维度#股票数88+技术指标数8
+    "dec_in": 96,#MAE解码器的输入维度
+    "c_out_construction": 96,#MAE模型的输出维度（只用来评估重建损失）
+    "d_model":128,#MAE模型的隐藏层维度（输入给SAC模型，也用作SAC模型的输入维度）
+    "d_ff":256,#SAC前馈神经网络的维度
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
@@ -129,7 +129,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
-    "enc_in": 10,
+    "enc_in": 10,#时序指标10个
     "dec_in": 10,
     "c_out": 1,
     "d_model": 128,
@@ -338,7 +338,7 @@ use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 CSI_date_trans = ['20110419', '20181228', '20190102', '20211230',  '20181009', '20220415']
 date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
 
-step_len = 800  # 每个训练/测试阶段的时间步长度
+step_len = 500  # 每个训练/测试阶段的时间步长度
 # 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
-stride = int(step_len * 0.8) 
-time_window_start = [i for i in range(60, 1800 - (step_len-100), stride)]
+stride = int(step_len * 0.5) 
+time_window_start = [i for i in range(960, 1800 - (step_len-100), stride)]
