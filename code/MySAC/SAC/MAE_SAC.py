@@ -322,11 +322,11 @@ class SAC(OffPolicyAlgorithm):
             # 使用随机数作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
             seed = random.randint(0, 2**31 - 1)
             # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
-            state, temporal_feature_short, temporal_feature_long, loss_s = self._state_transfer(
+            state, temporal_feature_short, temporal_feature_long, additional_feature, loss_s = self._state_transfer(
                 replay_data.observations, seed=seed)#,mask_mode = 'feature'
             # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
             state_for_actor = state.detach()
-            actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state_for_actor, temporal_feature_short, temporal_feature_long))
+            actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, additional_feature))
             log_prob = log_prob.reshape(-1, 1)
 
             ent_coef_loss = None
@@ -355,17 +355,17 @@ class SAC(OffPolicyAlgorithm):
             # 使用相同的随机 seed，确保 state 和 next_state 使用相同的 mask 模式
             # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值            
             # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
-            next_state, next_temporal_feature_short, next_temporal_feature_long, loss_ns = self._state_transfer(
+            next_state, next_temporal_feature_short, next_temporal_feature_long, next_additional_feature, loss_ns = self._state_transfer(
                 replay_data.next_observations, seed=seed)
             # 使用 detach 确保状态表示稳定，避免 state_transformer 更新影响 target 计算
             next_state = next_state.detach()
             with th.no_grad():
                 # Select action according to policy
-                next_actions, next_log_prob = self.actor.action_log_prob(self.actor_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long))
+                next_actions, next_log_prob = self.actor.action_log_prob(self.actor_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long, next_additional_feature))
 
                 # next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute the next Q values: min over all critics targets
-                next_q_values = th.cat(self.critic_target(self.critic_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long), next_actions), dim=1)
+                next_q_values = th.cat(self.critic_target(self.critic_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long, next_additional_feature), next_actions), dim=1)
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                 # add entropy term
                 next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
@@ -376,7 +376,7 @@ class SAC(OffPolicyAlgorithm):
             # Get current Q-values estimates for each critic network
             # using action from the replay buffer
             # 【论文一致性】Critic 使用原始 state（不 detach），允许梯度传播到 state_transformer
-            current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long), replay_data.actions)
+            current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, additional_feature), replay_data.actions)
 
             # Compute critic loss
             # pdb.set_trace() # get critic loss item value
@@ -423,7 +423,7 @@ class SAC(OffPolicyAlgorithm):
             # Mean over all critic networks
             alpha = 0
             # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
-            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_feature_short, temporal_feature_long), actions_pi), dim=1)
+            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, additional_feature), actions_pi), dim=1)
 
             min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
             actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
@@ -502,8 +502,8 @@ class SAC(OffPolicyAlgorithm):
         try:
             with th.no_grad():
                 obs = th.FloatTensor(test_obs).to(self.transformer_device)
-                obs_tensor, temporal_short, temporal_long = self._state_transfer_predict(obs)
-                state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long)
+                obs_tensor, temporal_short, temporal_long, additional_feature = self._state_transfer_predict(obs)
+                state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long, additional_feature)
                 obs_array = state_tensor.detach().cpu().numpy()
 
             if flag:
@@ -550,7 +550,8 @@ class SAC(OffPolicyAlgorithm):
         temporal_feature_long = x[:, :, hidden_channel+self.in_feat: hidden_channel*2+self.in_feat]
         # temporal_features = th.cat((temporal_feature_short, temporal_feature_long), dim=1)
 
-        return enc_out, temporal_feature_short, temporal_feature_long
+        additional_feature = x[:, :, hidden_channel*2+self.in_feat:]
+        return enc_out, temporal_feature_short, temporal_feature_long, additional_feature
 
 
     def _state_transfer(self, x, seed=None, mask_mode='nope'):
@@ -565,7 +566,7 @@ class SAC(OffPolicyAlgorithm):
             - 'feature': 屏蔽技术指标，随机选择部分特征，对所有股票屏蔽这些特征
             - 'mixed': 混合模式，同时随机屏蔽部分股票和部分特征
             - 'nope': 不进行任何屏蔽，保留所有特征和股票
-        :return: 编码后的状态、时间特征、重建损失
+        :return: 编码后的状态、时序特征、附加特征、重建损失
         """
         bs, stock_num = x.shape[0], x.shape[1]
         feat_dim = self.in_feat  # 特征维度 (96)
@@ -691,7 +692,8 @@ class SAC(OffPolicyAlgorithm):
             temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
             temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
 
-            return enc_out, temporal_feature_short, temporal_feature_long, loss
+            additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+            return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss
 
         loss = self.transformer_criteria(pred, true)
 
@@ -699,4 +701,5 @@ class SAC(OffPolicyAlgorithm):
         temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
         temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
 
-        return enc_out, temporal_feature_short, temporal_feature_long, loss
+        additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+        return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss
