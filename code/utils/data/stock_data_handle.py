@@ -7,7 +7,7 @@ import pdb
 import torch
 from doctest import testfile
 from torch.utils.data import Dataset, DataLoader
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 import pickle as pkl
 from utils.preprocess import FeatureEngineer, data_split
 from utils import config
@@ -35,7 +35,7 @@ class Stock_Data():
         self.__read_data__()
 
     def __read_data__(self):
-        scaler = StandardScaler()
+        scaler = MinMaxScaler()
         stock_num = len(self.ticker_list)
 
         full_stock_dir = os.path.join(self.root_path, self.full_stock)
@@ -116,7 +116,7 @@ class Stock_Data():
 
         if self.scale:
             # 【统一修改】标准化只在训练集上 fit，避免测试集信息泄露
-            scaler = StandardScaler()
+            scaler = MinMaxScaler()
 
             # 获取训练集的范围
             train_mask = (df['date_str'] >= self.border_dates[0]) & (df['date_str'] <= self.border_dates[1])
@@ -143,29 +143,31 @@ class Stock_Data():
             if valid_price_abs:
                 # 仅使用训练集数据的绝对价格计算参数
                 train_price_vals = df.loc[train_mask, valid_price_abs].values.flatten()
-                mean_price = np.mean(train_price_vals)
-                std_price = np.std(train_price_vals) + 1e-8 # 防止除以0
+                min_price = np.min(train_price_vals)
+                max_price = np.max(train_price_vals)
+                range_price = max_price - min_price + 1e-8 # 防止除以0
                 
-                # 1. 绝对价格：(X - Mean) / Std
-                df.loc[:, valid_price_abs] = (df[valid_price_abs] - mean_price) / std_price
+                # 1. 绝对价格：(X - Min) / Range -> 缩放到 [0, 1]
+                df.loc[:, valid_price_abs] = (df[valid_price_abs] - min_price) / range_price
                 
-                # 2. 差分价格：X / Std (方案 C：共享 Std，但不减 Mean，保持 0 对称性)
+                # 2. 差分价格：X / Range (共享 Range，但不减 Min，保持相对变化比例)
                 if valid_price_diff:
-                    df.loc[:, valid_price_diff] = df[valid_price_diff] / std_price
+                    df.loc[:, valid_price_diff] = df[valid_price_diff] / range_price
 
             # --- Group B: 成交量组 ---
             if valid_vol_abs:
                 # 仅使用训练集数据的绝对成交量计算参数
                 train_vol_vals = df.loc[train_mask, valid_vol_abs].values.flatten()
-                mean_vol = np.mean(train_vol_vals)
-                std_vol = np.std(train_vol_vals) + 1e-8
+                min_vol = np.min(train_vol_vals)
+                max_vol = np.max(train_vol_vals)
+                range_vol = max_vol - min_vol + 1e-8
                 
-                # 1. 绝对成交量：(X - Mean) / Std
-                df.loc[:, valid_vol_abs] = (df[valid_vol_abs] - mean_vol) / std_vol
+                # 1. 绝对成交量：(X - Min) / Range -> 缩放到 [0, 1]
+                df.loc[:, valid_vol_abs] = (df[valid_vol_abs] - min_vol) / range_vol
                 
-                # 2. 差分成交量：X / Std (方案 C：共享 Std，不减 Mean)
+                # 2. 差分成交量：X / Range (共享 Range，不减 Min)
                 if valid_vol_diff:
-                    df.loc[:, valid_vol_diff] = df[valid_vol_diff] / std_vol
+                    df.loc[:, valid_vol_diff] = df[valid_vol_diff] / range_vol
 
             # 提取最终归一化后的特征矩阵
             feature_list = df[self.temporal_feature].values

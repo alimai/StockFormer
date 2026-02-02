@@ -18,47 +18,6 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'
 
-## stockstats technical indicator column names
-## check https://pypi.org/project/stockstats/ for different names
-TECHNICAL_INDICATORS_LIST = [
-    "macd",
-    "boll_ub",
-    "boll_lb",
-    "rsi_30",
-    "cci_30",
-    "dx_30",
-    "close_30_sma",
-    "close_60_sma",
-    # "return_ratio",
-]
-
-
-ADDITIONAL_FEATURE = [
-    'label_short_term',
-    'label_long_term'
-]
-
-TEMPORAL_FEATURE = [
-    'open',
-    'close',
-    'high',
-    'low',
-    'volume',
-    'dopen',
-    'dclose',
-    'dhigh',
-    'dlow',
-    'dvolume'
-]
-
-NORMALIZED_TEMPORAL_FEATURE = [
-    'open', 
-    'close', 
-    'high', 
-    'low', 
-    'volume'
-]
-
 ##transformer Model Parameters
 MAESAC_PARAMS = {
     "batch_size": 32,#important,同时影响速度
@@ -100,6 +59,8 @@ MAESAC_PARAMS = {
 #     "pred_len":1,#不同于MAESAC_PARAMS
 #     "seq_len":60,#不同于MAESAC_PARAMS
 # }
+
+
 
 # Transformer Default Parameters
 TRANSFORMER_PARAMS_DEFAULT = {
@@ -239,6 +200,46 @@ TRANSFORMER_PARAMS_MAE = {
     "long_term_len": 5,
 }
 
+## stockstats technical indicator column names
+## check https://pypi.org/project/stockstats/ for different names
+TECHNICAL_INDICATORS_LIST = [
+    "macd",
+    "boll_ub",
+    "boll_lb",
+    "rsi_30",
+    "cci_30",
+    "dx_30",
+    "close_30_sma",
+    "close_60_sma",
+    # "return_ratio",
+]
+
+ADDITIONAL_FEATURE = [
+    'label_short_term',
+    'label_long_term'
+]
+
+TEMPORAL_FEATURE = [
+    'open',
+    'close',
+    'high',
+    'low',
+    'volume',
+    'dopen',
+    'dclose',
+    'dhigh',
+    'dlow',
+    'dvolume'
+]
+
+NORMALIZED_TEMPORAL_FEATURE = [
+    'open', 
+    'close', 
+    'high', 
+    'low', 
+    'volume'
+]
+
 # use CSI -300 ticker
 USE_CSI_300_TICKET = ['600519.SS',
  '601318.SS',
@@ -337,9 +338,7 @@ use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 CSI_date_trans = ['20110419', '20181228', '20190102', '20211230',  '20181009', '20220415']
 date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
 
-step_len = 500  # 每个训练/测试阶段的时间步长度
-# 方案1：使用有序滑动窗口（Sliding Window）生成起始位置，减少环境突变
-# 这种方式在 step_len 较小时能保证训练数据在宏观时间上的连续性
-# 设定步长为 100，确保相邻 Episode 之间有数据重叠或紧密衔接
-stride = int(step_len/2) #步长为 step_len 的五分之一
+step_len = 800  # 每个训练/测试阶段的时间步长度
+# 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
+stride = int(step_len * 0.8) 
 time_window_start = [i for i in range(60, 1800 - (step_len-100), stride)]
