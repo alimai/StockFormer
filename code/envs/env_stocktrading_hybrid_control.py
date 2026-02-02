@@ -63,7 +63,7 @@ class StockTradingEnv(gym.Env):
         self.csv_path = csv_path
         os.makedirs(figure_path, exist_ok=True)
         os.makedirs(csv_path, exist_ok=True)
-    
+
         self.df = df
         self.stock_dim = stock_dim
         self.initial_amount = initial_amount
@@ -86,7 +86,7 @@ class StockTradingEnv(gym.Env):
         print("action_space shape: ",self.action_space.shape)
         print("observation_space shape: ",self.observation_space.shape)
         print("hidden_state_space shape: ",self.hidden_state_space.shape)
- 
+
         self.data = self.df.loc[self.day, :]
         self.tic = self.df.tic.unique()
         self.terminal = False
@@ -206,21 +206,21 @@ class StockTradingEnv(gym.Env):
     def _get_future_price(self, days_ahead=5):
         """
         获取未来第N天的价格（用于计算 end_total_asset）
-        
+
         :param days_ahead: 向前看的天数，默认5天
         :return: 未来第N天的价格列表，如果超出数据范围则返回最后一天的价格
         """
         max_day = len(self.df.index.unique()) - 1
         future_day = self.day + days_ahead
-        
+
         # 如果未来第N天超出数据范围，使用最后一天的价格
         if future_day > max_day:
             future_day = max_day
-        
+
         # 获取未来第N天的价格数据
         future_data = self.df.loc[future_day, :]
         future_prices = future_data.price.values.tolist()
-        
+
         return future_prices
 
     def step(self, actions):
@@ -229,7 +229,7 @@ class StockTradingEnv(gym.Env):
             self.terminal = (self.day - self.start_day) >= self.step_len + 1
         if not self.terminal:
             self.terminal = self.day >= self.df.index.unique().max()#len(self.df.index.unique()) - 1
-            
+
         if self.terminal:
             # print(f"Episode: {self.episode}")
             if self.make_plots:
@@ -240,7 +240,7 @@ class StockTradingEnv(gym.Env):
             )
             tot_reward = (self.end_total_asset - self.initial_amount)
             tot_reward_ratio = tot_reward/(self.initial_amount*1.0)
-            
+
             # 计算所有股票持仓数为1时，从start_day到当前day的市值增长系数
             start_day_data = self.df.loc[self.start_day, :]
             start_day_prices = start_day_data.price.values  # start_day时所有股票价格
@@ -248,7 +248,7 @@ class StockTradingEnv(gym.Env):
             start_market_value = np.sum(start_day_prices)   # 持仓数为1的起始市值
             current_market_value = np.sum(current_day_prices)  # 持仓数为1的当前市值
             market_value_growth_ratio = current_market_value / start_market_value - 1.0  # 市值增长系数
-            
+
             df_total_value = pd.DataFrame(self.asset_memory)
             df_total_value.columns = ["account_value"]
             df_total_value["date"] = self.date_memory
@@ -280,8 +280,8 @@ class StockTradingEnv(gym.Env):
                 print("=================================")
 
                 # f1 = open(self.log_name, 'a')
-                # f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t' 
-                #     + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t' 
+                # f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t'
+                #     + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t'
                 #     + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
                 # f1.close()
 
@@ -330,14 +330,14 @@ class StockTradingEnv(gym.Env):
         else:
             #self.info： 当前现金[0] + 所有股票价格[1 : (self.stock_dim + 1)]
             #  + 所有股票持仓数量[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)]
-            # pdb.set_trace()            
+            # pdb.set_trace()
             zero_day_prices = np.array(self.info[1 : (self.stock_dim + 1)])
             first_day_prices = np.array(self._get_future_price(days_ahead=1))
             fifth_day_prices = np.array(self._get_future_price(days_ahead=5))
 
             begin_total_asset = self.info[0] + sum(
                 zero_day_prices * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
-            )#初始总资产=现金+股票价格*股票数量   
+            )#初始总资产=现金+股票价格*股票数量
 
             actions = (actions + 1) * self.hmax / 2  # actions initially is scaled between -1 to 1
             actions = actions.astype(int)
@@ -382,7 +382,7 @@ class StockTradingEnv(gym.Env):
             # state: s -> s+1 #更新日期和价格信息
             self.day += 1
             self.data = self.df.loc[self.day, :]#更新日期
-            self.info = self._update_info()#更新价格信息       
+            self.info = self._update_info()#更新价格信息
             self.state = self._update_state()
 
         return self.state, self.reward, self.terminal, {}
@@ -398,7 +398,7 @@ class StockTradingEnv(gym.Env):
                 self.start_day += rand_start_bias
             self.episode += 1
             self.terminal = False
-        else:#最开始步初始化      
+        else:#最开始步初始化
             self.time_windows_point = 0
             self.start_day = self.time_window_start[self.time_windows_point]
             self.episode = 1
@@ -407,7 +407,7 @@ class StockTradingEnv(gym.Env):
         self.day = self.start_day
         self.data = self.df.loc[self.day, :]
         # self.covs = self.data['cov_list'].values[0]
-        
+
         # 标准初始化
         self.info = self._initiate_info()
         self.state = self._initial_state()
@@ -589,10 +589,10 @@ class StockTradingEnv(gym.Env):
         if path is not None:
             state_dict = torch.load(path, map_location=self.device)
             new_state_dict = OrderedDict()
-            for k, v in state_dict.items(): 
-                name = k[7:] 
+            for k, v in state_dict.items():
+                name = k[7:]
                 new_state_dict[name] = v
             model.load_state_dict(new_state_dict)
             print("Successfully load prediction mode...", path)
-        
+
         return model
