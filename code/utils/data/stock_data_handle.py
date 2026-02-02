@@ -52,6 +52,12 @@ class Stock_Data():
             df = pd.concat((df, temp_df))
         df = df.sort_values(by=['date','tic'])
 
+        # Add time features
+        # month_day: 12.15 for Dec 15th
+        df['month_day'] = df['date'].dt.month + df['date'].dt.day / 100.0
+        # weekday: 1 for Monday, ..., 7 for Sunday
+        df['weekday'] = df['date'].dt.isoweekday
+
         fe = FeatureEngineer(
                     use_technical_indicator=True,
                     tech_indicator_list = config.TECHNICAL_INDICATORS_LIST,
@@ -169,6 +175,13 @@ class Stock_Data():
                 if valid_vol_diff:
                     df.loc[:, valid_vol_diff] = df[valid_vol_diff] / range_vol
 
+            # --- Group C: 时间特征组 (Unconditional Normalization) ---
+            # Min: 1.01 (Jan 1st), Max: 12.31 (Dec 31st) -> Range: 11.3
+            df['month_day'] = (df['month_day'] - 1.01) / 11.3
+            
+            # Min: 1 (Mon), Max: 7 (Sun) -> Range: 6
+            df['weekday'] = (df['weekday'] - 1) / 6.0
+
             # 提取最终归一化后的特征矩阵
             feature_list = df[self.temporal_feature].values
             
@@ -179,12 +192,16 @@ class Stock_Data():
         cov_list = np.array(df['cov_list'].values.tolist()) # [stock_num*len, stock_num]
         # feature_list 已经在上面处理过了
         close_list = np.array(df['price'].values.tolist())
+        month_day_list = np.array(df['month_day'].values.tolist())
+        weekday_list = np.array(df['weekday'].values.tolist())
 
         # pdb.set_trace()
         data_cov = cov_list.reshape(-1, stock_num, cov_list.shape[1], cov_list.shape[2]) # [day, num_stocks, num_stocks, num_stocks]
         data_technical = data.reshape(-1, stock_num, len(self.attr)) # [day, stock_num, technical_len]
         data_feature = feature_list.reshape(-1, stock_num, len(self.temporal_feature)) # [day, stock_num, temporal_feature_len=10]
         data_close = close_list.reshape(-1, stock_num)
+        data_month_day = month_day_list.reshape(-1, stock_num)
+        data_weekday = weekday_list.reshape(-1, stock_num)
 
         label_short_term = np.array(df['label_short_term'].values.tolist()).reshape(-1, stock_num)
         label_long_term = np.array(df['label_long_term'].values.tolist()).reshape(-1, stock_num)
@@ -193,6 +210,8 @@ class Stock_Data():
         self.label_all = np.stack((label_short_term, label_long_term), axis=0) # [2, days, num_stocks, 1]
         self.dates = np.array(dates)
         self.data_close = data_close
+        self.data_month_day = data_month_day
+        self.data_weekday = data_weekday
         self.full_df = df # 【新增】保存处理好的全量 DataFrame
 
         print("data shape: ",self.data_all.shape)
