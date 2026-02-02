@@ -81,8 +81,8 @@ class StockTradingEnv(gym.Env):
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day + weekday#88+8+2*128+2
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
-        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel))
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+1))
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel+1))
 
         print("action_space shape: ",self.action_space.shape)
         print("observation_space shape: ",self.observation_space.shape)
@@ -470,7 +470,7 @@ class StockTradingEnv(gym.Env):
 
         # pdb.set_trace()
         #holding_amount = np.zeros((self.stock_dim,1), dtype=int)
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature, month_day_feature), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature), axis=-1)#, month_day_feature
         # print("Initial: ",state.shape)
         return state
 
@@ -517,7 +517,7 @@ class StockTradingEnv(gym.Env):
         #holding_amount = np.array(self.info[-self.stock_dim : ]) # (stock_dim, 1)
         #holding_amount_norm = ((holding_amount * np.array(self.info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
 
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature, month_day_feature), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature), axis=-1)#, month_day_feature
         # print("Update: ",state.shape)
         return state
 
