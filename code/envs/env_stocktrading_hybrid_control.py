@@ -464,7 +464,7 @@ class StockTradingEnv(gym.Env):
 
         # Extract normalized date features
         # self.data contains all stocks for the current day, so we can reshape the columns directly
-        month_day_feature = self.data['month_day'].values.reshape(self.stock_dim, 1)
+        month_day_feature = np.round(self.data['month_day'].values).astype(int).reshape(self.stock_dim, 1)
         weekday_feature = self.data['weekday'].values.reshape(self.stock_dim, 1)
 
         # pdb.set_trace()
@@ -510,7 +510,7 @@ class StockTradingEnv(gym.Env):
         self.long_hidden_feature.append(hidden_np2)
 
         # Extract normalized date features
-        month_day_feature = self.data['month_day'].values.reshape(self.stock_dim, 1)
+        month_day_feature = np.round(self.data['month_day'].values).astype(int).reshape(self.stock_dim, 1)
         weekday_feature = self.data['weekday'].values.reshape(self.stock_dim, 1)
 
         #holding_amount = np.array(self.info[-self.stock_dim : ]) # (stock_dim, 1)
