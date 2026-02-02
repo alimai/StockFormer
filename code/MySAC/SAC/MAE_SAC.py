@@ -702,4 +702,6 @@ class SAC(OffPolicyAlgorithm):
         temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
 
         additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+        #各元素维度：[bs, stock_num, d_model]， [bs, stock_num, hidden_channel]， [bs, stock_num, hidden_channel]，
+        # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2]， loss (标量)
         return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss

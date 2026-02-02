@@ -33,7 +33,7 @@ class StockTradingEnv(gym.Env):
         action_space,
         tech_indicator_list,
         temporal_feature_list,
-        additional_list,
+        type_list,
         time_window_start, # should be a list
         short_prediction_model_path = None,
         long_prediction_model_path = None,
@@ -75,7 +75,7 @@ class StockTradingEnv(gym.Env):
         self.action_dim = action_space
         self.tech_indicator_list = tech_indicator_list
         self.temporal_feature_list = temporal_feature_list
-        self.additional_list = additional_list
+        self.type_list = type_list
         self.temporal_len = temporal_len
         self.hidden_channel = hidden_channel
 

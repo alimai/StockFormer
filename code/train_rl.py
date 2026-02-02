@@ -68,7 +68,7 @@ if __name__ == '__main__':
         "stock_dim": stock_dimension,
         "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST,
         "temporal_feature_list": config.TEMPORAL_FEATURE,
-        "additional_list": config.ADDITIONAL_FEATURE,
+        "type_list": config.TYPE_FEATURE,
         "action_space": stock_dimension,
         "reward_scaling": 100,
         "figure_path":'results/figures/'+version+model_name,

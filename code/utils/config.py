@@ -214,7 +214,7 @@ TECHNICAL_INDICATORS_LIST = [
     # "return_ratio",
 ]
 
-ADDITIONAL_FEATURE = [
+TYPE_FEATURE = [
     'label_short_term',
     'label_long_term'
 ]
