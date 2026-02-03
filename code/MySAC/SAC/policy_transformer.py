@@ -54,7 +54,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         combined_feature = torch.cat((hybrid_feature, additional_feature), dim=-1) # [B, N, D+x]
 
-        return combined_feature
+        return hybrid_feature#combined_feature#
 
 
 
