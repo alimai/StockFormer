@@ -81,10 +81,10 @@ class StockTradingEnv(gym.Env):
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day + weekday#88+8+2*128+2
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+1))
-        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel))
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel+2))
         # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
-        # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受了n维额外信息
+        # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)
 
         print("action_space shape: ",self.action_space.shape)
         print("observation_space shape: ",self.observation_space.shape)
@@ -467,12 +467,12 @@ class StockTradingEnv(gym.Env):
 
         # Extract normalized date features
         # self.data contains all stocks for the current day, so we can reshape the columns directly
-        month_day_feature = np.round(self.data['month_day'].values).astype(int).reshape(self.stock_dim, 1)
+        month_day_feature = self.data['month_day'].values.reshape(self.stock_dim, 1)
         weekday_feature = self.data['weekday'].values.reshape(self.stock_dim, 1)
 
         # pdb.set_trace()
         #holding_amount = np.zeros((self.stock_dim,1), dtype=int)
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature), axis=-1)#, month_day_feature
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature, month_day_feature), axis=-1)
         # print("Initial: ",state.shape)
         return state
 
@@ -513,13 +513,13 @@ class StockTradingEnv(gym.Env):
         self.long_hidden_feature.append(hidden_np2)
 
         # Extract normalized date features
-        month_day_feature = np.round(self.data['month_day'].values).astype(int).reshape(self.stock_dim, 1)
+        month_day_feature = self.data['month_day'].values.reshape(self.stock_dim, 1)
         weekday_feature = self.data['weekday'].values.reshape(self.stock_dim, 1)
 
         #holding_amount = np.array(self.info[-self.stock_dim : ]) # (stock_dim, 1)
         #holding_amount_norm = ((holding_amount * np.array(self.info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
 
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature), axis=-1)#, month_day_feature
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature, month_day_feature), axis=-1)
         # print("Update: ",state.shape)
         return state
 

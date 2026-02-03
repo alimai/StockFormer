@@ -55,7 +55,7 @@ class Stock_Data():
         # Add time features
         # month_day: 12.15 for Dec 15th
         df['month_day'] = df['date'].dt.month + df['date'].dt.day / 100.0
-        # weekday: 1 for Monday, ..., 7 for Sunday
+        # weekday: 0 for Monday, ..., 6 for Sunday
         df['weekday'] = df['date'].dt.dayofweek
 
         fe = FeatureEngineer(
@@ -177,7 +177,7 @@ class Stock_Data():
 
             # --- Group C: 时间特征组 (Unconditional Normalization) ---
             # Min: 1.01 (Jan 1st), Max: 12.31 (Dec 31st) -> Range: 11.3
-            df['month_day'] = (df['month_day'] - 1.01) / 11.3
+            df['month_day'] = ((df['month_day'] - 1.01)/2).astype(int) / 5#11.3
             
             # Min: 0 (Mon), Max: 6 (Sun) -> Range: 6
             df['weekday'] = df['weekday'] / 6.0
