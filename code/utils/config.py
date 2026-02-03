@@ -20,9 +20,9 @@ else:
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
-    "batch_size": 32,#important,同时影响速度
-    "buffer_size": 20000,
-    "learning_rate": 0.001,
+    "batch_size": 64,#important,同时影响速度
+    "buffer_size": 50000,
+    "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 100,
     "ent_coef": "auto_0.01",#key--同时影响actor_loss/critic_loss
     "enc_in": 96,#MAE编码器的输入维度#股票数88+技术指标数8

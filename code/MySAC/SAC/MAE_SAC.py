@@ -203,7 +203,7 @@ class SAC(OffPolicyAlgorithm):
             print("Successfully initialize transformer model...")
 
         self.transformer_device = transformer_device
-        self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=learning_rate)
+        self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=1e-5)
         self.transformer_criteria = th.nn.MSELoss()
 
         self.critic_alpha = critic_alpha
