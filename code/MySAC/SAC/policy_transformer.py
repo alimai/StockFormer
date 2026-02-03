@@ -37,24 +37,25 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # return feature shape [B, N, D+x]
 
 
-        temporal_hybrid_feature, attn = self.attention(
-            temporal_feature_long, temporal_feature_short, temporal_feature_short,
-            attn_mask=mask
-        )
-        temporal_feature_long = temporal_feature_long + self.dropout(temporal_hybrid_feature)
-        temporal_feature = self.norm(temporal_feature_long)
+        # temporal_hybrid_feature, attn = self.attention(
+        #     temporal_feature_long, temporal_feature_short, temporal_feature_short,
+        #     attn_mask=mask
+        # )
+        # temporal_feature_long = temporal_feature_long + self.dropout(temporal_hybrid_feature)
+        # temporal_feature = self.norm(temporal_feature_long)
 
-        temporal_relational_hybrid_feature, attn = self.attention2(
-            temporal_feature, relational_feature, relational_feature,
-            attn_mask=mask
-        )
+        # temporal_relational_hybrid_feature, attn = self.attention2(
+        #     temporal_feature, relational_feature, relational_feature,
+        #     attn_mask=mask
+        # )
 
-        temporal_feature = temporal_feature + self.dropout(temporal_relational_hybrid_feature)
-        hybrid_feature = self.norm(temporal_feature)
+        # temporal_feature = temporal_feature + self.dropout(temporal_relational_hybrid_feature)
+        # hybrid_feature = self.norm(temporal_feature)
 
+        hybrid_feature = self.norm(relational_feature)
         combined_feature = torch.cat((hybrid_feature, additional_feature), dim=-1) # [B, N, D+x]
 
-        return combined_feature#hybrid_feature#
+        return hybrid_feature#combined_feature#
 
 
 
