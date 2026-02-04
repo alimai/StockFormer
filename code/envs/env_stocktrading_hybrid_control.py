@@ -107,10 +107,10 @@ class StockTradingEnv(gym.Env):
             else:
                 device = 'cpu'
         self.device = device
-        self.short_prediction_model = self.load_model(short_prediction_model_path).to(self.device)
-        self.long_prediction_model = self.load_model(long_prediction_model_path).to(self.device)
-        self.short_prediction_model.eval()
-        self.long_prediction_model.eval()
+        # self.short_prediction_model = self.load_model(short_prediction_model_path).to(self.device)
+        # self.long_prediction_model = self.load_model(long_prediction_model_path).to(self.device)
+        # self.short_prediction_model.eval()
+        # self.long_prediction_model.eval()
 
         self.warmup_steps = 15 # 新增：预热步数
 
@@ -450,17 +450,20 @@ class StockTradingEnv(gym.Env):
         covs = np.array(self.data['cov_list'].values[0]) # (stock_dim, stock_dim)
         technical_indicators = np.array(self.data[self.tech_indicator_list].values.tolist()) # (stock_dim, len(technical_list))
 
-        temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
-        temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes=bs, days, feature_list_len)
-        enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
-        dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
+        # 注释掉原始的hidden feature生成部分，用伪数据代替
+        # temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
+        # temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes=bs, days, feature_list_len)
+        # enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
+        # dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
 
-        _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
-        _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
+        # _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
+        # _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
 
 
-        hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
-        hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
+        # 生成伪hidden feature数据
+        hidden_feature_dim = self.hidden_channel  # 假设hidden_channel是隐藏特征维度
+        hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
 
         self.short_hidden_feature.append(hidden_np1)
         self.long_hidden_feature.append(hidden_np2)
@@ -490,18 +493,21 @@ class StockTradingEnv(gym.Env):
         covs = np.array(self.data['cov_list'].values[0]) # (stock_dim, stock_dim)
         technical_indicators = np.array(self.data[self.tech_indicator_list].values.tolist()) # (stock_dim, len(technical_list))
 
-        temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
-        temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
+        # 注释掉原始的hidden feature生成部分，用伪数据代替
+        # temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
+        # temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
+        #
+        # enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
+        # dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
+        #
+        # _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
+        # _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
 
-        enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
-        dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
 
-        _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
-        _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
-
-
-        hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
-        hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
+        # 生成伪hidden feature数据
+        hidden_feature_dim = self.hidden_channel  # 假设hidden_channel是隐藏特征维度
+        hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
 
         # 优化：限制hidden feature列表的最大长度，避免内存累积
         max_hidden_length = 30  # 最多保存最近50个时间步的特征
