@@ -293,7 +293,7 @@ class SAC(OffPolicyAlgorithm):
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
-        self.state_transformer.train()
+        # self.state_transformer.train()
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer, self.critic.optimizer, self.actor_transformer.optimizer, self.critic_transformer.optimizer, self.transformer_optim]
         if self.ent_coef_optimizer is not None:
@@ -376,7 +376,8 @@ class SAC(OffPolicyAlgorithm):
             # Get current Q-values estimates for each critic network
             # using action from the replay buffer
             # 【论文一致性】Critic 使用原始 state（不 detach），允许梯度传播到 state_transformer
-            current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, additional_feature), replay_data.actions)
+            #current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, additional_feature), replay_data.actions)
+            current_q_values = self.critic(self.critic_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, additional_feature), replay_data.actions)
 
             # Compute critic loss
             # pdb.set_trace() # get critic loss item value
@@ -411,12 +412,12 @@ class SAC(OffPolicyAlgorithm):
             # 根据论文："propagates the analytic gradients of state values back into the relation inference module"
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
-            self.transformer_optim.zero_grad()  # 【论文一致性】包含 state_transformer
+            # self.transformer_optim.zero_grad()  # 【论文一致性】包含 state_transformer
             critic_loss.backward()
 
             self.critic.optimizer.step()
             self.critic_transformer.optimizer.step()
-            self.transformer_optim.step()  # 【论文一致性】Critic 梯度更新 state_transformer
+            # self.transformer_optim.step()  # 【论文一致性】Critic 梯度更新 state_transformer
 
             # Compute actor loss
             # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
