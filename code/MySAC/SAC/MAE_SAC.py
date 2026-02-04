@@ -411,12 +411,12 @@ class SAC(OffPolicyAlgorithm):
             # 根据论文："propagates the analytic gradients of state values back into the relation inference module"
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
-            # self.transformer_optim.zero_grad()  # 【论文一致性】包含 state_transformer
+            self.transformer_optim.zero_grad()  # 【论文一致性】包含 state_transformer
             critic_loss.backward()
 
             self.critic.optimizer.step()
             self.critic_transformer.optimizer.step()
-            # self.transformer_optim.step()  # 【论文一致性】Critic 梯度更新 state_transformer
+            self.transformer_optim.step()  # 【论文一致性】Critic 梯度更新 state_transformer
 
             # Compute actor loss
             # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
