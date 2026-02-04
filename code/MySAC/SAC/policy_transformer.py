@@ -27,7 +27,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             else:
                 device = 'cpu'
 
-        self.optimizer = torch.optim.Adam(itertools.chain(self.attention.parameters(), self.attention2.parameters()), lr=lr)
+        self.optimizer = torch.optim.Adam(itertools.chain(self.attention.parameters(), self.attention2.parameters()), lr=1e-5)#lr)
         self.device = device
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
@@ -55,13 +55,13 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # return combined_feature
 
 
-        # relational_hybrid_feature, attn = self.attention(
-        #     relational_feature, relational_feature, relational_feature,
-        #     attn_mask=mask
-        # )
-        # temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
-        # hybrid_feature = self.norm(temporal_feature)
-        hybrid_feature = self.norm(relational_feature)
+        relational_hybrid_feature, attn = self.attention(
+            relational_feature, relational_feature, relational_feature,
+            attn_mask=mask
+        )
+        temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
+        hybrid_feature = self.norm(temporal_feature)
+        #hybrid_feature = self.norm(relational_feature)
 
         return hybrid_feature
 
