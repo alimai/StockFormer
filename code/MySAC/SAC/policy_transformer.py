@@ -55,12 +55,13 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # return combined_feature
 
 
-        relational_hybrid_feature, attn = self.attention(
-            relational_feature, relational_feature, relational_feature,
-            attn_mask=mask
-        )
-        temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
-        hybrid_feature = self.norm(temporal_feature)
+        # relational_hybrid_feature, attn = self.attention(
+        #     relational_feature, relational_feature, relational_feature,
+        #     attn_mask=mask
+        # )
+        # temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
+        # hybrid_feature = self.norm(temporal_feature)
+        hybrid_feature = self.norm(relational_feature)
 
         return hybrid_feature
 
