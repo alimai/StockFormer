@@ -20,11 +20,11 @@ else:
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
-    "batch_size": 64,#important,同时影响速度
+    "batch_size": 128,#important,同时影响速度
     "buffer_size": 50000,
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 100,
-    "ent_coef": "auto_0.01",#key--同时影响actor_loss/critic_loss
+    "ent_coef": "auto_0.001",#key--同时影响actor_loss/critic_loss
     "enc_in": 96,#MAE编码器的输入维度#股票数88+技术指标数8
     "dec_in": 96,#MAE解码器的输入维度
     "c_out_construction": 96,#MAE模型的输出维度（只用来评估重建损失）
@@ -37,8 +37,8 @@ MAESAC_PARAMS = {
     "gamma": 0.99,#折扣因子,越小越重视短期奖励，最大为1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
-    "train_freq": 249,  # 每5步训练一次
-    "gradient_steps": 100,  # 每次训练进行5个梯度更新
+    "train_freq": 249,  # 每x步训练一次
+    "gradient_steps": 100,  # 每次训练进行x个梯度更新
 }
 
 # MAESAC_PARAMS_PRED = {
@@ -341,4 +341,4 @@ date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
 step_len = 500  # 每个训练/测试阶段的时间步长度
 # 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
 stride = int(step_len * 0.6) 
-time_window_start = [60,360]#[i for i in range(60, 1800 - int(step_len*0.6), stride)]
+time_window_start = [i for i in range(60, 1800 - int(step_len*0.6), stride)]
