@@ -106,15 +106,15 @@ if __name__ == '__main__':
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
-        final_model_path = os.path.join('trained_models/', version, model_name, 'best_train_model000.zip')
+        final_model_path = os.path.join('trained_models/', version, model_name, 'tmp_mode.zip')
         if os.path.exists(final_model_path):
             load_pretrain = True
 
-        # 【修复】调整包装顺序：只保留 VecMonitor
+        # 使用 VecMonitor 包装环境以记录训练和评估的统计信息
         env_train_vm = VecMonitor(env_train, log_dir)
         env_eval_vm = VecMonitor(env_eval, log_dir)
 
-        # 【移除】彻底删除 VecNormalize 逻辑，直接使用 VecMonitor 包装后的环境
+        # 训练强化学习代理,加载模型
         agent = DRLAgent(env = env_train_vm)
         if load_pretrain:
             print(f"load: {final_model_path}...")
@@ -130,11 +130,11 @@ if __name__ == '__main__':
         start = time.time()
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
-                                    check_freq=10000,
+                                    check_freq=3000,
                                     log_dir=log_dir,
                                     model_dir=model_dir,
-                                    eval_env=env_eval_vm,  # 使用 VecMonitor 包装后的评估环境
-                                    total_timesteps=30000) # 提升训练步数至 200,000
+                                    eval_env=env_eval_vm,
+                                    total_timesteps=30000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 

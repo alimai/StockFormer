@@ -503,7 +503,7 @@ class SAC(OffPolicyAlgorithm):
         try:
             with th.no_grad():
                 obs = th.FloatTensor(test_obs).to(self.transformer_device)
-                obs_tensor, temporal_short, temporal_long, additional_feature = self._state_transfer_predict(obs)
+                obs_tensor, temporal_short, temporal_long, additional_feature,_ = self._state_transfer(obs)
                 state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long, additional_feature)
                 obs_array = state_tensor.detach().cpu().numpy()
 
@@ -538,22 +538,6 @@ class SAC(OffPolicyAlgorithm):
         state_dicts.extend(["critic_transformer", "critic_transformer.optimizer"])
 
         return state_dicts, saved_pytorch_variables
-
-    def _state_transfer_predict(self, x):
-
-        batch_enc1 = x[:, :, :self.in_feat] # [cov+technical_list]
-
-        enc_out, _, output = self.state_transformer(batch_enc1, batch_enc1)
-
-        hidden_channel = enc_out.shape[-1]
-
-        temporal_feature_short = x[:, :, self.in_feat: hidden_channel+self.in_feat]
-        temporal_feature_long = x[:, :, hidden_channel+self.in_feat: hidden_channel*2+self.in_feat]
-        # temporal_features = th.cat((temporal_feature_short, temporal_feature_long), dim=1)
-
-        additional_feature = x[:, :, hidden_channel*2+self.in_feat:]
-        return enc_out, temporal_feature_short, temporal_feature_long, additional_feature
-
 
     def _state_transfer(self, x, seed=None, mask_mode='nope'):
         """

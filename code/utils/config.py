@@ -338,7 +338,7 @@ use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 CSI_date_trans = ['20110419', '20181228', '20190102', '20211230',  '20181009', '20220415']
 date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
 
-step_len = 500  # 每个训练/测试阶段的时间步长度
+step_len = 800  # 每个训练/测试阶段的时间步长度
 # 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
 stride = int(step_len * 0.6) 
 time_window_start = [i for i in range(60, 1800 - int(step_len*0.6), stride)]
