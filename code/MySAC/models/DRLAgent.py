@@ -199,12 +199,12 @@ class DRLAgent:
         )
         return model
 
-    def train_model(self, model, tb_log_name, check_freq, model_dir, log_dir, eval_env, total_timesteps=5000, verbose=1, deterministic=True):
-        eval_callback = EvalCallback(eval_env, best_model_save_path=model_dir, log_path=log_dir, eval_freq=check_freq, n_eval_episodes=1, deterministic=deterministic, render=False)
+    def train_model(self, model, tb_log_name, check_freq, model_dir, train_log_dir, eval_log_dir, eval_env, total_timesteps=5000, verbose=1, deterministic=True):
+        eval_callback = EvalCallback(eval_env, best_model_save_path=model_dir, log_path=eval_log_dir, eval_freq=check_freq, n_eval_episodes=1, deterministic=deterministic, render=False)
         tb_callback=TensorboardCallback(verbose=verbose, model_save_path=model_dir)
         finance_callback = FinancialMetricsCallback(verbose=verbose)
         save_callback = SaveModelCallback(model_save_path=model_dir, verbose=verbose)
-        trainingreward_callback = TrainingRewardCallback(check_freq=check_freq, model_save_path=model_dir, log_dir=log_dir, verbose=verbose)
+        trainingreward_callback = TrainingRewardCallback(check_freq=check_freq, model_save_path=model_dir, log_dir=train_log_dir, verbose=verbose)
         callback = CallbackList([eval_callback, tb_callback, finance_callback, save_callback, trainingreward_callback])
 
         model = model.learn(

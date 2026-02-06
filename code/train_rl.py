@@ -136,7 +136,8 @@ if __name__ == '__main__':
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
                                     check_freq=3000,
-                                    log_dir=log_path,
+                                    train_log_dir=log_path_train,#callback路径
+                                    eval_log_dir=log_path_eval,#callback路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
                                     total_timesteps=30000)
