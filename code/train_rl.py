@@ -120,7 +120,9 @@ if __name__ == '__main__':
 
         # 训练强化学习代理,加载模型
         agent = DRLAgent(env = env_train_vm)
-        policy_kwargs = {"optimizer_kwargs": {"weight_decay": 1e-4}}
+        policy_kwargs = {"optimizer_kwargs": {"weight_decay": 1e-4},
+                         "net_arch": [128, 128] # 与 d_model 保持一致，减少特征扭曲,默认[256,256]
+                        }#for MlpPolicy
         if load_pretrain:
             print(f"load: {final_model_path}...")
             model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)

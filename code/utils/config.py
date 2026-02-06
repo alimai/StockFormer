@@ -29,8 +29,8 @@ MAESAC_PARAMS = {
     "enc_in": 96,#MAE编码器的输入维度#股票数88+技术指标数8
     "dec_in": 96,#MAE解码器的输入维度
     "c_out_construction": 96,#MAE模型的输出维度（只用来评估重建损失）
-    "d_model":128,#MAE模型的隐藏层维度（输入给SAC模型）
-    "d_ff":256,#SAC前馈神经网络的维度（SAC模型支持可变长度输入）
+    "d_model":128,#MAE模型的隐藏层维度（编码后，解码前，输入给SAC模型）
+    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络) in SAC Transformer,位于编码/解码block内
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
