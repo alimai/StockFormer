@@ -203,7 +203,7 @@ class SAC(OffPolicyAlgorithm):
             print("Successfully initialize transformer model...")
 
         self.transformer_device = transformer_device
-        self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=1e-5)
+        self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=1e-5, weight_decay=1e-4)
         self.transformer_criteria = th.nn.MSELoss()
 
         self.critic_alpha = critic_alpha
@@ -278,7 +278,7 @@ class SAC(OffPolicyAlgorithm):
             # Note: we optimize the log of the entropy coeff which is slightly different from the paper
             # as discussed in https://github.com/rail-berkeley/softlearning/issues/37
             self.log_ent_coef = th.log(th.ones(1, device=self.device) * init_value).requires_grad_(True)
-            self.ent_coef_optimizer = th.optim.Adam([self.log_ent_coef], lr=self.lr_schedule(1))
+            self.ent_coef_optimizer = th.optim.Adam([self.log_ent_coef], lr=self.lr_schedule(1), weight_decay=1e-4)
         else:
             # Force conversion to float
             # this will throw an error if a malformed string (different from 'auto')

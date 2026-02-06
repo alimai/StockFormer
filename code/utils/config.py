@@ -34,7 +34,7 @@ MAESAC_PARAMS = {
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "dropout":0.05,
+    "dropout":0.1,
     "gamma": 0.99,#折扣因子,越小越重视短期奖励，最大为1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,

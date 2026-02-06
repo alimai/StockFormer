@@ -120,12 +120,13 @@ if __name__ == '__main__':
 
         # 训练强化学习代理,加载模型
         agent = DRLAgent(env = env_train_vm)
+        policy_kwargs = {"optimizer_kwargs": {"weight_decay": 1e-4}}
         if load_pretrain:
             print(f"load: {final_model_path}...")
-            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)
+            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
-            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)
+            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed, policy_kwargs=policy_kwargs)
 
         timestamp = datetime.datetime.now().strftime("%H%M%S")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
@@ -146,7 +147,7 @@ if __name__ == '__main__':
     #   - 更新后的MAE模型（state_transformer）---对应原mae/checkpoint.pth
     #   - SAC策略actor网络和价值critic网络 ---全连接层
     #   - 其他Transformer组件（actor_transformer, critic_transformer）
-    model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_train_model.zip')
+    model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_model.zip')
 
     env_name = "test"
     env_kwargs["mode"] = env_name

@@ -27,7 +27,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             else:
                 device = 'cpu'
 
-        self.optimizer = torch.optim.Adam(itertools.chain(self.attention.parameters(), self.attention2.parameters()), lr=1e-5)#lr)
+        self.optimizer = torch.optim.Adam(itertools.chain(self.attention.parameters(), self.attention2.parameters()), lr=1e-5, weight_decay=1e-4)#lr)
         self.device = device
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
