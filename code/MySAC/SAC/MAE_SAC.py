@@ -323,7 +323,7 @@ class SAC(OffPolicyAlgorithm):
             seed = random.randint(0, 2**31 - 1)
             # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
             state, temporal_feature_short, temporal_feature_long, additional_feature, loss_s = self._state_transfer(
-                replay_data.observations, seed=seed)#,mask_mode = 'feature'
+                replay_data.observations, seed=seed,mask_mode = 'mixed')#
             # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
             state_for_actor = state.detach()
             actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, additional_feature))
@@ -356,7 +356,7 @@ class SAC(OffPolicyAlgorithm):
             # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值            
             # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
             next_state, next_temporal_feature_short, next_temporal_feature_long, next_additional_feature, loss_ns = self._state_transfer(
-                replay_data.next_observations, seed=seed)
+                replay_data.next_observations, seed=seed,mask_mode = 'mixed')
             # 使用 detach 确保状态表示稳定，避免 state_transformer 更新影响 target 计算
             next_state = next_state.detach()
             with th.no_grad():
@@ -619,8 +619,8 @@ class SAC(OffPolicyAlgorithm):
         elif mask_mode == 'mixed':
             # ==================== 模式3: 混合模式，同时屏蔽股票和特征  - 优化版 ====================
             # 优化版本：减少重复计算，提高性能
-            num_stock_mask = max(1, int(stock_num * 0.01))
-            num_feat_mask = max(1, int(feat_dim * 0.01))
+            num_stock_mask = max(1, int(stock_num * 0.5))
+            num_feat_mask = max(1, int(feat_dim * 0.1))
             if seed is not None:
                 with th.random.fork_rng():
                     th.random.manual_seed(seed)
