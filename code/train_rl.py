@@ -24,13 +24,14 @@ working_path = os.path.dirname(os.path.abspath(__file__))
 #sys.path.insert(0, working_path)
 
 if __name__ == '__main__':
-    version = 'CSI/'
-    model_name='StockFormer/'
+    version_name = config.version_name
+    model_name = config.model_name
+
     short_prediction_model_path = working_path + '/Transformer/pretrained/csi/Short/checkpoint.pth'
     long_prediction_model_path =  working_path + '/Transformer/pretrained/csi/Long/checkpoint.pth'
     mae_model_path = working_path + '/Transformer/pretrained/csi/mae/checkpoint.pth'
-    full_stock_dir = 'data/CSI/'
-    ticker_list = config.use_ticker_dict['CSI']
+    full_stock_dir = os.path.join('data', version_name)
+    ticker_list = config.use_ticker_dict[version_name]
     prediction_len = [1,5]
 
 
@@ -44,8 +45,8 @@ if __name__ == '__main__':
     # 使用 Stock_Data 统一处理所有数据（包括协方差计算和标准化）
     data_manager = Stock_Data(
         root_path='data/', 
-        dataset_name='CSI', 
-        full_stock_path='CSI/', 
+        dataset_name=version_name, 
+        full_stock_path=version_name+'/', 
         size=[60, 1, 1], 
         prediction_len=prediction_len
     )
@@ -58,8 +59,6 @@ if __name__ == '__main__':
     state_space = stock_dimension
     print(f"Stock Dimension: {stock_dimension}, State Space: {state_space}")
 
-    tensorboard_log_dir = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac')
-
     env_kwargs = {
         "hmax": 100,
         "initial_amount": 100000,
@@ -71,24 +70,29 @@ if __name__ == '__main__':
         "type_list": config.TYPE_FEATURE,
         "action_space": stock_dimension,
         "reward_scaling": 100,
-        "figure_path":'results/figures/'+version+model_name,
-        "csv_path": 'results/csv/'+version+model_name,
+        "figure_path":os.path.join(config.RESULTS_DIR, 'figures', version_name, model_name),
+        "csv_path": os.path.join(config.RESULTS_DIR, 'csv', version_name, model_name),
         "mode":'train',
         "time_window_start":config.time_window_start,
         "step_len": config.step_len,
         "temporal_len": 60,
         "hidden_channel":128,
-        "model_name":model_name[:-1],
+        "model_name":model_name,
         "short_prediction_model_path": short_prediction_model_path,
         "long_prediction_model_path": long_prediction_model_path,
         "device": config.device,
     }
 
-    # evaluation environment
-    model_dir = os.path.join(config.TRAINED_MODEL_DIR, version[:-1], model_name[:-1])
-    log_dir = os.path.join(config.RESULTS_DIR, version[:-1], model_name[:-1])
-    os.makedirs(log_dir, exist_ok=True)
-    os.makedirs(model_dir, exist_ok=True)
+    tensorboard_log_dir = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac_tb')
+    os.makedirs(tensorboard_log_dir, exist_ok=True)
+    log_path = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac_mnt')
+    os.makedirs(log_path, exist_ok=True)
+    log_path_train = os.path.join(log_path, 'train')
+    os.makedirs(log_path_train, exist_ok=True)
+    log_path_eval = os.path.join(log_path, 'eval')
+    os.makedirs(log_path_eval, exist_ok=True)
+    model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name)
+    os.makedirs(model_path, exist_ok=True)
 
     print("Initial Env...")
     train_mode = True#False#
@@ -106,13 +110,13 @@ if __name__ == '__main__':
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
-        final_model_path = os.path.join('trained_models/', version, model_name, 'tmp_mode.zip')
+        final_model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'tmp_mode.zip')
         if os.path.exists(final_model_path):
             load_pretrain = True
 
         # 使用 VecMonitor 包装环境以记录训练和评估的统计信息
-        env_train_vm = VecMonitor(env_train, log_dir)
-        env_eval_vm = VecMonitor(env_eval, log_dir)
+        env_train_vm = VecMonitor(env_train, log_path_train)
+        env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
         # 训练强化学习代理,加载模型
         agent = DRLAgent(env = env_train_vm)
@@ -124,15 +128,15 @@ if __name__ == '__main__':
             model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)
 
         timestamp = datetime.datetime.now().strftime("%H%M%S")
-        tb_log_name_with_timestamp = model_name[:-1] + '_' + timestamp + '/'
+        tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
 
         print('Start training...')
         start = time.time()
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
                                     check_freq=3000,
-                                    log_dir=log_dir,
-                                    model_dir=model_dir,
+                                    log_dir=log_path,
+                                    model_dir=model_path,
                                     eval_env=env_eval_vm,
                                     total_timesteps=30000)
         end = time.time()
@@ -142,7 +146,7 @@ if __name__ == '__main__':
     #   - 更新后的MAE模型（state_transformer）---对应原mae/checkpoint.pth
     #   - SAC策略actor网络和价值critic网络 ---全连接层
     #   - 其他Transformer组件（actor_transformer, critic_transformer）
-    model_path = os.path.join('trained_models/', version, model_name, 'best_train_model.zip')
+    model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_train_model.zip')
 
     env_name = "test"
     env_kwargs["mode"] = env_name
@@ -155,8 +159,8 @@ if __name__ == '__main__':
     end = time.time()
     print("Test time: %.3f"%(end-start))
 
-    df_root = 'results/test/'+version+model_name
+    df_root = os.path.join(config.RESULTS_DIR, 'test', version_name, model_name)
     os.makedirs(df_root, exist_ok=True)
     assets_test, actions_test = results[1], results[2]
-    actions_test.to_csv(df_root+'df_actions_test.csv')
-    assets_test.to_csv(df_root+'df_assets_test.csv')
+    actions_test.to_csv(os.path.join(df_root, 'df_actions_test.csv'))
+    assets_test.to_csv(os.path.join(df_root, 'df_assets_test.csv'))

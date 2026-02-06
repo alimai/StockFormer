@@ -2,8 +2,9 @@ import os
 import torch
 
 version_name = 'CSI'#'N100'#
+model_name='StockFormer'
 TRAINED_MODEL_DIR = "trained_models"
-TENSORBOARD_LOG_DIR = "tensorboard_log"
+TENSORBOARD_LOG_DIR = "log"
 RESULTS_DIR = "results"
 
 START_DATE = "2010-01-01"
