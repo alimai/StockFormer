@@ -21,7 +21,7 @@ else:
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
-    "batch_size": 96,#important,同时影响速度
+    "batch_size": 128,#important,同时影响速度
     "buffer_size": 50000,
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 100,
@@ -34,7 +34,7 @@ MAESAC_PARAMS = {
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "dropout":0.1,
+    "dropout":0.2,
     "gamma": 0.99,#折扣因子,越小越重视短期奖励，最大为1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,

@@ -203,7 +203,7 @@ class StockTradingEnv(gym.Env):
 
     def _make_plot(self):
         plt.plot(self.asset_memory, "r")
-        plt.savefig(self.figure_path+self.mode+"_account_value_trade_{}.png".format(self.episode))
+        plt.savefig(self.figure_path+"/account_value_{}_{}.png".format(self.mode, self.episode))
         plt.close()
 
     def _get_future_price(self, days_ahead=5):
@@ -234,9 +234,6 @@ class StockTradingEnv(gym.Env):
             self.terminal = self.day >= self.df.index.unique().max()#len(self.df.index.unique()) - 1
 
         if self.terminal:
-            # print(f"Episode: {self.episode}")
-            if self.make_plots:
-                self._make_plot()
             self.end_total_asset = self.info[0] + sum(
                 np.array(self.info[1 : (self.stock_dim + 1)])
                 * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
@@ -287,39 +284,42 @@ class StockTradingEnv(gym.Env):
                 #     + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t'
                 #     + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
                 # f1.close()
+                
+            if self.make_plots:
+                if (self.model_name != "") and (self.mode != ""):
+                    self._make_plot()
+                    # plt.plot(self.asset_memory, "r")
+                    # plt.savefig(
+                    #     self.figure_path+"/account_value_{}_{}.png".format(
+                    #         self.mode, self.episode
+                    #     )
+                    # )
+                    # plt.close()
 
-            if (self.model_name != "") and (self.mode != ""):
-                df_actions = self.save_action_memory()
-                df_actions.to_csv(
-                    self.csv_path+"actions_{}_{}_{}.csv".format(
-                        self.mode, self.model_name, self.episode
+                    df_actions = self.save_action_memory()
+                    df_actions.to_csv(
+                        self.csv_path+"/actions_{}_{}_{}.csv".format(
+                            self.mode, self.episode
+                        )
                     )
-                )
-                df_stock_amount = self.save_holding_amount()
-                df_stock_amount.to_csv(
-                    self.csv_path+"amount_{}_{}_{}.csv".format(
-                        self.mode, self.model_name, self.episode
+                    df_stock_amount = self.save_holding_amount()
+                    df_stock_amount.to_csv(
+                        self.csv_path+"/amount_{}_{}_{}.csv".format(
+                            self.mode, self.episode
+                        )
                     )
-                )
-                df_total_value.to_csv(
-                    self.csv_path+"account_value_{}_{}_{}.csv".format(
-                        self.mode, self.model_name, self.episode
-                    ),
-                    index=False,
-                )
-                df_rewards.to_csv(
-                    self.csv_path+"account_rewards_{}_{}_{}.csv".format(
-                        self.mode, self.model_name, self.episode
-                    ),
-                    index=False,
-                )
-                plt.plot(self.asset_memory, "r")
-                plt.savefig(
-                    self.figure_path+"account_value_{}_{}_{}.png".format(
-                        self.mode, self.model_name, self.episode
+                    df_total_value.to_csv(
+                        self.csv_path+"/account_value_{}_{}_{}.csv".format(
+                            self.mode, self.episode
+                        ),
+                        index=False,
                     )
-                )
-                plt.close()
+                    df_rewards.to_csv(
+                        self.csv_path+"/account_rewards_{}_{}_{}.csv".format(
+                            self.mode, self.episode
+                        ),
+                        index=False,
+                    )
 
             # 在 info 中返回 memory 数据（避免被 DummyVecEnv 自动 reset 清空）
             return self.state, self.reward, self.terminal, {

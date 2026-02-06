@@ -11,7 +11,7 @@ import pdb
 
 
 class policy_transformer_stock_atten2(nn.Module): # attention(long, short), attention(hybrid, relational) 
-    def __init__(self, d_model=128, n_heads=4, dropout=0.0, lr=0.0001, output_attention=False, device=None):
+    def __init__(self, d_model=128, n_heads=4, dropout=0.1, lr=0.0001, output_attention=False, device=None):
         super().__init__()
         self.attention = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
