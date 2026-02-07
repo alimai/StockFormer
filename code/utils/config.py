@@ -25,7 +25,7 @@ MAESAC_PARAMS = {
     "buffer_size": 50000,
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 100,
-    "ent_coef": "auto_0.001",#key--同时影响actor_loss/critic_loss
+    "ent_coef": 0.001,#"auto_0.001",#key--同时影响actor_loss/critic_loss
     "enc_in": 96,#MAE编码器的输入维度#股票数88+技术指标数8
     "dec_in": 96,#MAE解码器的输入维度
     "c_out_construction": 96,#MAE模型的输出维度（只用来评估重建损失）
@@ -336,7 +336,7 @@ USE_CSI_300_TICKET = ['600519.SS',
 #USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
-CSI_date_trans = ['20110419', '20181228', '20190102', '20211230',  '20181009', '20220415']
+CSI_date_trans = ['20110419', '20181228', '20190712', '20211230',  '20181009', '20220415']
 date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
 
 step_len = 800  # 每个训练/测试阶段的时间步长度

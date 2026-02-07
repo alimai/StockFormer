@@ -137,7 +137,7 @@ if __name__ == '__main__':
         start = time.time()
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
-                                    check_freq=3000,
+                                    check_freq=2000,
                                     train_log_dir=log_path_train,#callback路径
                                     eval_log_dir=log_path_eval,#callback路径
                                     model_dir=model_path,

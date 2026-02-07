@@ -298,24 +298,24 @@ class StockTradingEnv(gym.Env):
 
                     df_actions = self.save_action_memory()
                     df_actions.to_csv(
-                        self.csv_path+"/actions_{}_{}_{}.csv".format(
+                        self.csv_path+"/actions_{}_{}.csv".format(
                             self.mode, self.episode
                         )
                     )
                     df_stock_amount = self.save_holding_amount()
                     df_stock_amount.to_csv(
-                        self.csv_path+"/amount_{}_{}_{}.csv".format(
+                        self.csv_path+"/amount_{}_{}.csv".format(
                             self.mode, self.episode
                         )
                     )
                     df_total_value.to_csv(
-                        self.csv_path+"/account_value_{}_{}_{}.csv".format(
+                        self.csv_path+"/account_value_{}_{}.csv".format(
                             self.mode, self.episode
                         ),
                         index=False,
                     )
                     df_rewards.to_csv(
-                        self.csv_path+"/account_rewards_{}_{}_{}.csv".format(
+                        self.csv_path+"/account_rewards_{}_{}.csv".format(
                             self.mode, self.episode
                         ),
                         index=False,
