@@ -336,7 +336,7 @@ USE_CSI_300_TICKET = ['600519.SS',
 #USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
-CSI_date_trans = ['20110419', '20181228', '20190712', '20211230',  '20181009', '20220415']
+CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
 date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
 
 step_len = 800  # 每个训练/测试阶段的时间步长度

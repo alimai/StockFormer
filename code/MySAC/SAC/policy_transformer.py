@@ -54,7 +54,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # combined_feature = torch.cat((hybrid_feature, additional_feature), dim=-1) # [B, N, D+x]
         # return combined_feature
 
-
+        # note: use without MAE update 
         relational_hybrid_feature, attn = self.attention(
             relational_feature, relational_feature, relational_feature,
             attn_mask=mask

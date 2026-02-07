@@ -262,8 +262,9 @@ class StockTradingEnv(gym.Env):
                 )
 
             #avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
-            self.reward = (tot_reward_ratio * 2 - market_value_growth_ratio) / (self.day - self.start_day+1)
-            self.reward = self.reward * self.reward_scaling
+            self.reward = tot_reward_ratio + (tot_reward_ratio - market_value_growth_ratio) * 2.0
+            self.reward /= (self.day - self.start_day+1)
+            self.reward *= self.reward_scaling
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
@@ -368,13 +369,14 @@ class StockTradingEnv(gym.Env):
             )
 
             # 使用第一天和第五天价格的平均值计算 reward
-            avg_prices = first_day_prices#first_day_prices *0.3 + fifth_day_prices * 0.7
+            avg_prices = first_day_prices *0.3 + fifth_day_prices * 0.7#first_day_prices#
             asset_for_reward_new = self.info[0] + sum(
                 avg_prices * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
             market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
             self.reward = asset_for_reward_new / begin_total_asset - 1.0
-            self.reward = (self.reward * 2 - market_value_growth_ratio) * self.reward_scaling
+            self.reward = self.reward + (self.reward - market_value_growth_ratio)*2.0 
+            self.reward *= self.reward_scaling
 
             self.actions_memory.append(actions)
             self.asset_memory.append(self.end_total_asset)
