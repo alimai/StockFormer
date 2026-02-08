@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
-        final_model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_train_model.zip')
+        final_model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_train_model---.zip')
         if os.path.exists(final_model_path):
             load_pretrain = True
 
@@ -126,10 +126,10 @@ if __name__ == '__main__':
                         }#for MlpPolicy
         if load_pretrain:
             print(f"load: {final_model_path}...")
-            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
+            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)#, policy_kwargs=policy_kwargs)
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
-            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed, policy_kwargs=policy_kwargs)
+            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)#, policy_kwargs=policy_kwargs)
 
         timestamp = datetime.datetime.now().strftime("%H%M%S")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
