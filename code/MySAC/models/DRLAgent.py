@@ -154,20 +154,20 @@ class FinancialEvalCallback(EvalCallback):
                 for episode in range(self.n_eval_episodes):
                     episode_reward = 0.0
                     episode_length = 0
-                    done = False
                     state = self.eval_env.reset()
+                    done = [False]
                     
-                    while not done:
+                    while not done[0]:
                         # 预测动作
                         action, _ = self.model.predict(state, deterministic=self.deterministic)                        
                         # 执行动作
                         state, reward, done, info = self.eval_env.step(action)                        
                         # 累积奖励
-                        episode_reward += reward
+                        episode_reward += reward[0]
                         episode_length += 1
                         
                         # 如果episode结束，保存最后一步的info
-                        if done:
+                        if done[0]:
                             eval_info_list.append(info[0])  # info是一个列表，取第一个元素
                             
                     episode_rewards.append(episode_reward)
@@ -182,9 +182,10 @@ class FinancialEvalCallback(EvalCallback):
                     print(f"Eval num_timesteps={self.num_timesteps}, " f"episode_reward={mean_reward:.2f} +/- {std_reward:.2f}")
                     print(f"Episode length: {mean_ep_length:.2f} +/- {std_ep_length:.2f}")
                 
-                # # 添加到当前Logger---与父类重复，无需再次添加
-                # self.logger.record("eval/mean_reward", float(mean_reward))
-                # self.logger.record("eval/mean_ep_length", mean_ep_length)
+                # 添加到当前Logger
+                self.logger.record("eval/mean_reward", float(mean_reward))
+                self.logger.record("eval/std_reward", float(std_reward))
+                self.logger.record("eval/mean_ep_length", mean_ep_length)
 
                 # Dump log so the evaluation results are printed with the correct timestep
                 self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
@@ -210,13 +211,16 @@ class FinancialEvalCallback(EvalCallback):
                     if sharpe_ratios:
                         avg_sharpe_ratio = np.mean(sharpe_ratios)
                         self.logger.record("eval/sharpe_ratio", avg_sharpe_ratio)
+                
+                # 评估完成，直接返回 True 避免 super()._on_step() 再次执行评估
+                return True
                         
             except Exception as e:
                 # 如果手动评估失败，记录错误但继续执行
                 if self.verbose > 0:
                     print(f"Warning: Could not extract financial metrics: {e}")
                 
-        # 调用父类的_on_step方法，确保其他回调逻辑正常运行
+        # 对于非评估步或评估失败的情况，调用父类逻辑
         continue_training = super()._on_step()
         return continue_training
 
