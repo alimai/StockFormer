@@ -184,7 +184,6 @@ class FinancialEvalCallback(EvalCallback):
                 
                 # 添加到当前Logger
                 self.logger.record("eval/mean_reward", float(mean_reward))
-                self.logger.record("eval/std_reward", float(std_reward))
                 self.logger.record("eval/mean_ep_length", mean_ep_length)
 
                 # Dump log so the evaluation results are printed with the correct timestep
