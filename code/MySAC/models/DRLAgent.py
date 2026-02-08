@@ -67,84 +67,6 @@ class FinancialMetricsCallback(BaseCallback):
                     self.logger.record("finance/sharpe_ratio", info["sharpe"])
         return True
 
-class SaveModelCallback(BaseCallback):
-    """
-    自定义 Callback：用于定期保存模型
-    - 每 2 个 episode 结束保存为 tmp_mode.zip
-    """
-    def __init__(self, model_save_path: str, verbose: int = 0):
-        super(SaveModelCallback, self).__init__(verbose)
-        self.model_save_path = model_save_path
-        self.episode_count = 0
-        if self.model_save_path is not None:
-            os.makedirs(self.model_save_path, exist_ok=True)
-
-    def _on_step(self) -> bool:
-        done = self.locals.get("done", False)
-        dones = self.locals.get("dones")
-        is_episode_finished = done or (dones is not None and dones[0])
-
-        if is_episode_finished:
-            self.episode_count += 1
-            
-            # 每 2 个 episode 保存一个备份
-            if self.episode_count % 2 == 0:
-                tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
-                self.model.save(tmp_path)
-                if self.verbose > 0:
-                    print(f"Episode {self.episode_count}: Saved checkpoint to {tmp_path}")
-        return True
-
-class TrainingRewardCallback(BaseCallback):
-    def __init__(self, check_freq:int, model_save_path: str, log_dir: str, verbose: int=1):
-        super(TrainingRewardCallback, self).__init__(verbose)
-        self.check_freq = check_freq
-        self.log_dir = log_dir
-        self.save_path = model_save_path
-        self.best_mean_reward = -np.inf
-    
-    def _init_callback(self) -> None:
-        # Create folder if needed
-        if self.save_path is not None:
-            os.makedirs(self.save_path, exist_ok=True)
-
-    def _on_step(self) -> bool:
-        if self.n_calls % self.check_freq == 0:
-          # Retrieve training reward
-          x, y = ts2xy(load_results(self.log_dir), 'timesteps')
-          if len(x) > 0:
-              # Mean training reward over the last 10 episodes
-              mean_reward = np.mean(y[-10:])
-              if self.verbose > 0:
-                print(f"Num timesteps: {self.num_timesteps}")
-                print(f"Best mean reward: {self.best_mean_reward:.2f} - Last mean reward per episode: {mean_reward:.2f}")
-
-              # New best model, you could save the agent here
-              if mean_reward > self.best_mean_reward:
-                  self.best_mean_reward = mean_reward
-                  # Example for saving best model
-                  if self.verbose > 0:
-                    print(f"Saving new best model to {self.save_path}")
-                  self.model.save(self.save_path+'/best_train_model.zip')
-
-        return True      
-
-
-class TensorboardCallback(BaseCallback):
-    """
-    Custom callback for plotting additional values in tensorboard.
-    """
-
-    def __init__(self, verbose=0, model_save_path=""):
-        super(TensorboardCallback, self).__init__(verbose)
-        self.save_path = model_save_path
-        if self.save_path is not None:
-            os.makedirs(self.save_path, exist_ok=True)
-
-    def _on_step(self) -> bool:        
-        return True
-
-
 class CombinedCallback(BaseCallback):
     """
     组合回调：包含Tensorboard、模型保存和训练奖励记录功能
@@ -201,13 +123,12 @@ class CombinedCallback(BaseCallback):
 
         return True
 
-
-class EvalWithFinancialMetricsCallback(EvalCallback):
+class FinancialEvalCallback(EvalCallback):
     """
     自定义 EvalCallback：在评估阶段记录金融指标到 TensorBoard
     """
     def __init__(self, eval_env, best_model_save_path, log_path, eval_freq, n_eval_episodes, deterministic, render):
-        super(EvalWithFinancialMetricsCallback, self).__init__(
+        super(FinancialEvalCallback, self).__init__(
             eval_env=eval_env,
             best_model_save_path=best_model_save_path,
             log_path=log_path,
@@ -261,9 +182,9 @@ class EvalWithFinancialMetricsCallback(EvalCallback):
                     print(f"Eval num_timesteps={self.num_timesteps}, " f"episode_reward={mean_reward:.2f} +/- {std_reward:.2f}")
                     print(f"Episode length: {mean_ep_length:.2f} +/- {std_ep_length:.2f}")
                 
-                # 添加到当前Logger
-                self.logger.record("eval/mean_reward", float(mean_reward))
-                self.logger.record("eval/mean_ep_length", mean_ep_length)
+                # # 添加到当前Logger---与父类重复，无需再次添加
+                # self.logger.record("eval/mean_reward", float(mean_reward))
+                # self.logger.record("eval/mean_ep_length", mean_ep_length)
 
                 # Dump log so the evaluation results are printed with the correct timestep
                 self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
@@ -356,7 +277,7 @@ class DRLAgent:
         return model
 
     def train_model(self, model, tb_log_name, check_freq, model_dir, train_log_dir, eval_log_dir, eval_env, total_timesteps=5000, verbose=1, deterministic=True):
-        eval_callback = EvalWithFinancialMetricsCallback(eval_env, best_model_save_path=model_dir, log_path=eval_log_dir, eval_freq=check_freq,
+        eval_callback = FinancialEvalCallback(eval_env, best_model_save_path=model_dir, log_path=eval_log_dir, eval_freq=check_freq,
                                                           n_eval_episodes=1, deterministic=deterministic, render=False)
         combined_callback = CombinedCallback(model_save_path=model_dir, check_freq=check_freq, log_dir=train_log_dir, verbose=verbose)
         finance_callback = FinancialMetricsCallback(verbose=verbose)
