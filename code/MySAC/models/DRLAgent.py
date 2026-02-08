@@ -8,6 +8,7 @@ from utils import config
 from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 import os
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback, CallbackList
+from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.noise import (
     NormalActionNoise,
     OrnsteinUhlenbeckActionNoise,
@@ -144,6 +145,161 @@ class TensorboardCallback(BaseCallback):
         return True
 
 
+class CombinedCallback(BaseCallback):
+    """
+    组合回调：包含Tensorboard、模型保存和训练奖励记录功能
+    """
+    def __init__(self, model_save_path="", check_freq=0, log_dir="", verbose=0):
+        super(CombinedCallback, self).__init__(verbose)
+        self.model_save_path = model_save_path
+        self.check_freq = check_freq
+        self.log_dir = log_dir
+        self.best_mean_reward = -np.inf
+        self.episode_count = 0
+        
+        if self.model_save_path is not None:
+            os.makedirs(self.model_save_path, exist_ok=True)
+
+    def _init_callback(self) -> None:
+        # Create folder if needed
+        if self.model_save_path is not None:
+            os.makedirs(self.model_save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        # 检查episode是否结束，如果是则增加计数并考虑保存模型
+        done = self.locals.get("done", False)
+        dones = self.locals.get("dones")
+        is_episode_finished = done or (dones is not None and dones[0])
+
+        if is_episode_finished:
+            self.episode_count += 1
+            # 每2个episode保存一个备份
+            if self.episode_count % 2 == 0:
+                tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
+                self.model.save(tmp_path)
+                if self.verbose > 0:
+                    print(f"Episode {self.episode_count}: Saved checkpoint to {tmp_path}")
+
+        # 按指定频率记录训练奖励
+        if self.check_freq > 0 and self.n_calls % self.check_freq == 0:
+            # Retrieve training reward
+            x, y = ts2xy(load_results(self.log_dir), 'timesteps')
+            if len(x) > 0:
+                # Mean training reward over the last 10 episodes
+                mean_reward = np.mean(y[-10:])
+                if self.verbose > 0:
+                    print(f"Num timesteps: {self.num_timesteps}")
+                    print(f"Best mean reward: {self.best_mean_reward:.2f} - Last mean reward per episode: {mean_reward:.2f}")
+
+                # New best model, you could save the agent here
+                if mean_reward > self.best_mean_reward:
+                    self.best_mean_reward = mean_reward
+                    # Example for saving best model
+                    if self.verbose > 0:
+                        print(f"Saving new best model to {self.model_save_path}")
+                    self.model.save(self.model_save_path+'/best_train_model.zip')
+
+        return True
+
+
+class EvalWithFinancialMetricsCallback(EvalCallback):
+    """
+    自定义 EvalCallback：在评估阶段记录金融指标到 TensorBoard
+    """
+    def __init__(self, eval_env, best_model_save_path, log_path, eval_freq, n_eval_episodes, deterministic, render):
+        super(EvalWithFinancialMetricsCallback, self).__init__(
+            eval_env=eval_env,
+            best_model_save_path=best_model_save_path,
+            log_path=log_path,
+            eval_freq=eval_freq,
+            n_eval_episodes=n_eval_episodes,
+            deterministic=deterministic,
+            render=render
+        )
+
+    def _on_step(self) -> bool:
+        # 检查是否到了评估频率
+        if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
+            # 为了获取评估期间的金融指标，我们需要运行评估并收集相关信息
+            # 由于evaluate_policy不直接返回info字典，我们需要手动运行评估过程
+            try:
+                # 重置评估环境
+                episode_rewards = []
+                episode_lengths = []
+                
+                # 存储每次评估的信息
+                eval_info_list = []
+                
+                for episode in range(self.n_eval_episodes):
+                    episode_reward = 0.0
+                    episode_length = 0
+                    done = False
+                    state = self.eval_env.reset()
+                    
+                    while not done:
+                        # 预测动作
+                        action, _ = self.model.predict(state, deterministic=self.deterministic)                        
+                        # 执行动作
+                        state, reward, done, info = self.eval_env.step(action)                        
+                        # 累积奖励
+                        episode_reward += reward
+                        episode_length += 1
+                        
+                        # 如果episode结束，保存最后一步的info
+                        if done:
+                            eval_info_list.append(info[0])  # info是一个列表，取第一个元素
+                            
+                    episode_rewards.append(episode_reward)
+                    episode_lengths.append(episode_length)
+                
+                # 计算并记录原有指标（eval/mean_reward, eval/mean_ep_length等）
+                mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
+                mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
+                self.last_mean_reward = mean_reward
+
+                if self.verbose > 0:
+                    print(f"Eval num_timesteps={self.num_timesteps}, " f"episode_reward={mean_reward:.2f} +/- {std_reward:.2f}")
+                    print(f"Episode length: {mean_ep_length:.2f} +/- {std_ep_length:.2f}")
+                
+                # 添加到当前Logger
+                self.logger.record("eval/mean_reward", float(mean_reward))
+                self.logger.record("eval/mean_ep_length", mean_ep_length)
+
+                # Dump log so the evaluation results are printed with the correct timestep
+                self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
+                self.logger.dump(self.num_timesteps)
+
+                # 检查是否为最佳模型
+                if mean_reward > self.best_mean_reward:
+                    if self.verbose > 0:
+                        print("New best mean reward!")
+                    if self.best_model_save_path is not None:
+                        self.model.save(os.path.join(self.best_model_save_path, "best_model"))
+                    self.best_mean_reward = mean_reward
+
+                # 计算并记录新增的金融指标
+                if eval_info_list:
+                    reward_ratios = [info.get('reward_ratio', 0) for info in eval_info_list if 'reward_ratio' in info]
+                    sharpe_ratios = [info.get('sharpe', 0) for info in eval_info_list if 'sharpe' in info]
+                    
+                    if reward_ratios:
+                        avg_reward_ratio = np.mean(reward_ratios)
+                        self.logger.record("eval/reward_ratio", avg_reward_ratio)
+                        
+                    if sharpe_ratios:
+                        avg_sharpe_ratio = np.mean(sharpe_ratios)
+                        self.logger.record("eval/sharpe_ratio", avg_sharpe_ratio)
+                        
+            except Exception as e:
+                # 如果手动评估失败，记录错误但继续执行
+                if self.verbose > 0:
+                    print(f"Warning: Could not extract financial metrics: {e}")
+                
+        # 调用父类的_on_step方法，确保其他回调逻辑正常运行
+        continue_training = super()._on_step()
+        return continue_training
+
+
 class DRLAgent:
     """Provides implementations for DRL algorithms
 
@@ -200,12 +356,11 @@ class DRLAgent:
         return model
 
     def train_model(self, model, tb_log_name, check_freq, model_dir, train_log_dir, eval_log_dir, eval_env, total_timesteps=5000, verbose=1, deterministic=True):
-        eval_callback = EvalCallback(eval_env, best_model_save_path=model_dir, log_path=eval_log_dir, eval_freq=check_freq, n_eval_episodes=1, deterministic=deterministic, render=False)
-        tb_callback=TensorboardCallback(verbose=verbose, model_save_path=model_dir)
+        eval_callback = EvalWithFinancialMetricsCallback(eval_env, best_model_save_path=model_dir, log_path=eval_log_dir, eval_freq=check_freq,
+                                                          n_eval_episodes=1, deterministic=deterministic, render=False)
+        combined_callback = CombinedCallback(model_save_path=model_dir, check_freq=check_freq, log_dir=train_log_dir, verbose=verbose)
         finance_callback = FinancialMetricsCallback(verbose=verbose)
-        save_callback = SaveModelCallback(model_save_path=model_dir, verbose=verbose)
-        trainingreward_callback = TrainingRewardCallback(check_freq=check_freq, model_save_path=model_dir, log_dir=train_log_dir, verbose=verbose)
-        callback = CallbackList([eval_callback, tb_callback, finance_callback, save_callback, trainingreward_callback])
+        callback = CallbackList([eval_callback, combined_callback, finance_callback])
 
         model = model.learn(
             total_timesteps=total_timesteps,
