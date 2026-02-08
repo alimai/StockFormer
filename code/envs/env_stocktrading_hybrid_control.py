@@ -399,7 +399,7 @@ class StockTradingEnv(gym.Env):
                 self.time_windows_point = 0
             self.start_day = self.time_window_start[self.time_windows_point]
             if self.mode == 'train':
-                rand_start_bias= random.randint(0, int(self.step_len/5))
+                rand_start_bias= 0#random.randint(0, int(self.step_len/5))
                 self.start_day += rand_start_bias
             self.episode += 1
             self.terminal = False
