@@ -182,6 +182,19 @@ class FinancialEvalCallback(EvalCallback):
                     print(f"Eval num_timesteps={self.num_timesteps}, " f"episode_reward={mean_reward:.2f} +/- {std_reward:.2f}")
                     print(f"Episode length: {mean_ep_length:.2f} +/- {std_ep_length:.2f}")
                 
+                # 计算并记录新增的金融指标
+                if eval_info_list:
+                    reward_ratios = [info.get('reward_ratio', 0) for info in eval_info_list if 'reward_ratio' in info]
+                    sharpe_ratios = [info.get('sharpe', 0) for info in eval_info_list if 'sharpe' in info]
+                    
+                    if reward_ratios:
+                        avg_reward_ratio = np.mean(reward_ratios)
+                        self.logger.record("eval/reward_ratio", avg_reward_ratio)
+                        
+                    if sharpe_ratios:
+                        avg_sharpe_ratio = np.mean(sharpe_ratios)
+                        self.logger.record("eval/sharpe_ratio", avg_sharpe_ratio)
+
                 # 添加到当前Logger
                 self.logger.record("eval/mean_reward", float(mean_reward))
                 self.logger.record("eval/mean_ep_length", mean_ep_length)
@@ -198,19 +211,6 @@ class FinancialEvalCallback(EvalCallback):
                         self.model.save(os.path.join(self.best_model_save_path, "best_model"))
                     self.best_mean_reward = mean_reward
 
-                # 计算并记录新增的金融指标
-                if eval_info_list:
-                    reward_ratios = [info.get('reward_ratio', 0) for info in eval_info_list if 'reward_ratio' in info]
-                    sharpe_ratios = [info.get('sharpe', 0) for info in eval_info_list if 'sharpe' in info]
-                    
-                    if reward_ratios:
-                        avg_reward_ratio = np.mean(reward_ratios)
-                        self.logger.record("eval/reward_ratio", avg_reward_ratio)
-                        
-                    if sharpe_ratios:
-                        avg_sharpe_ratio = np.mean(sharpe_ratios)
-                        self.logger.record("eval/sharpe_ratio", avg_sharpe_ratio)
-                
                 # 评估完成，直接返回 True 避免 super()._on_step() 再次执行评估
                 return True
                         
