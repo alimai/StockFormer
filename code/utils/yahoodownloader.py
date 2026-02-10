@@ -32,7 +32,7 @@ class YahooDownloader:
         self.end_date = end_date
         self.ticker_list = ticker_list
 
-    def fetch_data(self, proxy=None) -> pd.DataFrame:
+    def fetch_data(self) -> pd.DataFrame:
         """Fetches data from Yahoo API
         Parameters
         ----------
@@ -46,29 +46,36 @@ class YahooDownloader:
         # Download and save the data in a pandas DataFrame:
         data_df = pd.DataFrame()
         for tic in self.ticker_list:
-            temp_df = yf.download(tic, start=self.start_date, end=self.end_date, proxy=proxy)
+            temp_df = yf.download(tic, start=self.start_date, end=self.end_date)
             temp_df["tic"] = tic
-            data_df = data_df.append(temp_df)
+            data_df = pd.concat([data_df, temp_df], axis=0)
         # reset the index, we want to use numbers as index instead of dates
         data_df = data_df.reset_index()
         try:
-            # convert the column names to standardized names
-            data_df.columns = [
-                "date",
-                "open",
-                "high",
-                "low",
-                "close",
-                "adjcp",
-                "volume",
-                "tic",
-            ]
-            # use adjusted close price instead of close price
-            data_df["close"] = data_df["adjcp"]
-            # drop the adjusted close price column
-            data_df = data_df.drop(labels="adjcp", axis=1)
-        except NotImplementedError:
-            print("the features are not supported currently")
+            # 动态映射列名，不再依赖固定顺序
+            column_map = {
+                'Date': 'date',
+                'Open': 'open',
+                'High': 'high',
+                'Low': 'low',
+                'Close': 'close',
+                'Adj Close': 'adjcp',
+                'Volume': 'volume',
+                'tic': 'tic'
+            }
+            # 如果是 MultiIndex (yfinance 常见情况)，先打平
+            if isinstance(data_df.columns, pd.MultiIndex):
+                data_df.columns = [col[0] if col[1] == '' else col[0] for col in data_df.columns]
+            
+            # 重命名存在的列
+            data_df = data_df.rename(columns=column_map)
+            
+            # 确保必要的列都存在
+            if 'adjcp' in data_df.columns:
+                data_df["close"] = data_df["adjcp"]
+                data_df = data_df.drop(labels="adjcp", axis=1, errors='ignore')
+        except Exception as e:
+            print(f"Error standardizing columns: {e}")
         # create day of the week column (monday = 0)
         data_df["day"] = data_df["date"].dt.dayofweek
         # convert date to standard string format, easy to filter
