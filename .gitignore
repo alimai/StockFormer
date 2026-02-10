@@ -12,10 +12,11 @@ code/*/*/.DS_Store
 code/*/*/*/.DS_Store
 code/results2/
 code/tensorboard_log/
-stockformer_env/
 code/results/
 code/Transformer/checkpoints
+checkpoints/
+stockformer_env/
 log/
 tensorboard_log/
 results/
-checkpoints/
+data/
