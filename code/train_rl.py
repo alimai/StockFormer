@@ -126,10 +126,10 @@ if __name__ == '__main__':
                         }#for MlpPolicy
         if load_pretrain:
             print(f"load: {final_model_path}...")
-            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
+            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)#, policy_kwargs=policy_kwargs)
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
-            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed, policy_kwargs=policy_kwargs)
+            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)#, policy_kwargs=policy_kwargs)
 
         timestamp = datetime.datetime.now().strftime("%H%M%S")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
