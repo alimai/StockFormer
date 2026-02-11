@@ -41,6 +41,8 @@ class Stock_Data():
         full_stock_dir = os.path.join(self.root_path, self.full_stock)
 
         df = pd.DataFrame([], columns=['date','open','close','high','low','volume','dopen','dclose','dhigh','dlow','dvolume', 'price', 'tic'])
+        # Track which stocks were successfully loaded
+        successful_tickers = []
         for ticket in self.ticker_list:
             temp_df = pd.read_csv(os.path.join(full_stock_dir,ticket+'.csv'), usecols=['date', 'open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price'])
 
@@ -49,15 +51,25 @@ class Stock_Data():
             for col in numeric_cols_to_float:
                 if col in temp_df.columns:
                     temp_df[col] = pd.to_numeric(temp_df[col], errors='coerce').astype(float)
+                    # 使用线性插值填补NaN值
+                    temp_df[col] = temp_df[col].interpolate(method='linear')
+                    # 如果首行或末行仍有NaN值，使用前向填充或后向填充
+                    temp_df[col] = temp_df[col].ffill().bfill()
 
             temp_df['date'] = temp_df['date'].apply(lambda x:str(x))
             temp_df['date'] = pd.to_datetime(temp_df['date'])
             temp_df['label_short_term'] = temp_df['close'].pct_change(periods=self.prediction_len[0]).shift(periods=(-1*self.prediction_len[0]))
             temp_df['label_long_term'] = temp_df['close'].pct_change(periods=self.prediction_len[1]).shift(periods=(-1*self.prediction_len[1]))
             temp_df['tic'] = ticket
+            
             df = pd.concat((df, temp_df))
+            successful_tickers.append(ticket)
         df = df.sort_values(by=['date','tic'])
         df['date'] = pd.to_datetime(df['date'])
+
+        # Update stock_num to reflect the actual number of stocks loaded
+        stock_num = len(successful_tickers)
+        print(f"Successfully loaded {stock_num} stocks: {successful_tickers[:5]}{'...' if len(successful_tickers) > 5 else ''}")
 
         # Add time features
         # month_day: 12.15 for Dec 15th
@@ -74,10 +86,10 @@ class Stock_Data():
         print("generate technical indicator...")
         df = fe.preprocess_data(df)
         
-        # 【关键修复】确保所有技术指标和时序特征都是数值类型，防止产生 object 数组
-        for col in self.attr + self.temporal_feature:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+        # # 【关键修复】确保所有技术指标和时序特征都是数值类型，防止产生 object 数组
+        # for col in self.attr + self.temporal_feature:
+        #     if col in df.columns:
+        #         df[col] = pd.to_numeric(df[col], errors='coerce')
 
         # add covariance matrix as states
         df=df.sort_values(['date','tic'],ignore_index=True)
@@ -112,7 +124,6 @@ class Stock_Data():
         df_cov = pd.DataFrame({'date':df.date.unique()[lookback:],'cov_list':cov_list,'return_list':return_list})
         df = df.merge(df_cov, on='date')
         df = df.sort_values(['date','tic']).reset_index(drop=True)
-
         df['date_str'] = df['date'].apply(lambda x: datetime.datetime.strftime(x,'%Y%m%d'))
 
         dates = df['date_str'].unique().tolist()
@@ -132,6 +143,7 @@ class Stock_Data():
         original_attr_list = config.TECHNICAL_INDICATORS_LIST
         for col in original_attr_list:
             if col not in df.columns:
+                print(f"Warning: Technical indicator column '{col}' not found in data. Filling with zeros.")
                 df[col] = 0.0  # 补全缺失列，解决维度不匹配的根本原因
         
         self.attr = original_attr_list
@@ -145,6 +157,9 @@ class Stock_Data():
         df[self.attr] = df[self.attr].replace([np.inf], config.INF)
         df[self.attr] = df[self.attr].replace([-np.inf], config.INF*(-1))
 
+        # After trimming the df to match the cov matrix dates, we need to ensure all data arrays have the same number of days
+        # Extract data after trimming to ensure consistent dimensions
+        # Process data after df has been trimmed to match cov matrix dates
         if self.scale:
             # 【统一修改】标准化只在训练集上 fit，避免测试集信息泄露
             scaler = MinMaxScaler()
@@ -214,6 +229,10 @@ class Stock_Data():
         weekday_list = np.array(df['weekday'].values.tolist())
 
         # pdb.set_trace()
+        # Check the actual shape of the cov_list to determine how to reshape it properly
+        print(f"Shape of cov_list: {cov_list.shape}")
+        print(f"Expected stock_num: {stock_num}")
+        
         data_cov = cov_list.reshape(-1, stock_num, cov_list.shape[1], cov_list.shape[2]) # [day, num_stocks, num_stocks, num_stocks]
         data_technical = data.reshape(-1, stock_num, len(self.attr)) # [day, stock_num, technical_len]
         data_feature = feature_list.reshape(-1, stock_num, len(self.temporal_feature)) # [day, stock_num, temporal_feature_len=10]

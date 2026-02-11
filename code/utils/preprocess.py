@@ -117,7 +117,20 @@ class FeatureEngineer:
         df = df.sort_values(["date", "tic"], ignore_index=True)
         df.index = df.date.factorize()[0]
         merged_closes = df.pivot_table(index="date", columns="tic", values="close")
-        merged_closes = merged_closes.dropna(axis=1)
+
+        # 确保数据是数值类型后再进行插值
+        merged_closes = merged_closes.apply(pd.to_numeric, errors='coerce')
+
+        # 只对数值型列进行插值
+        numeric_cols = merged_closes.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            # 对nan值做线性插值处理，而不是直接删除
+            merged_closes[numeric_cols] = merged_closes[numeric_cols].interpolate(method='linear', axis=0)  # 沿时间轴插值
+            # 填充剩余的NaN值（首行或末行可能无法插值）
+            merged_closes[numeric_cols] = merged_closes[numeric_cols].ffill().bfill()#ffill()（前向填充）和bfill()（后向填充）
+
+        #merged_closes = merged_closes.dropna(axis=1)
+
         tics = merged_closes.columns
         df = df[df.tic.isin(tics)]
         return df
