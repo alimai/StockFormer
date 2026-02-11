@@ -3,30 +3,20 @@ import os
 import sys
 import time
 import datetime
-import setuptools
-
-import pandas as pd
-import numpy as np
-import matplotlib
-matplotlib.use('Agg')
 
 from utils import config
-from utils.preprocess import FeatureEngineer, data_split
 from MySAC.models.DRLAgent import DRLAgent
 from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
-from sklearn.preprocessing import StandardScaler
 from utils.data.stock_data_handle import Stock_Data
 
-working_path = os.path.dirname(os.path.abspath(__file__))
-# 将当前目录添加到模块搜索路径
-#sys.path.insert(0, working_path)
 
 if __name__ == '__main__':
     version_name = config.version_name
     model_name = config.model_name
 
+    working_path = os.path.dirname(os.path.abspath(__file__))
     short_prediction_model_path = working_path + '/Transformer/pretrained/csi/Short/checkpoint.pth'
     long_prediction_model_path =  working_path + '/Transformer/pretrained/csi/Long/checkpoint.pth'
     mae_model_path = working_path + '/Transformer/pretrained/csi/mae/checkpoint.pth'

@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import random
-from gym.utils import seeding
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
+from gymnasium.utils import seeding
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ import os
 
 
 class StockTradingEnv(gym.Env):
-    """A stock trading environment for OpenAI gym"""
+    """A stock trading environment for OpenAI gymnasium"""
 
     metadata = {"render.modes": ["human"]}
 
@@ -51,6 +51,7 @@ class StockTradingEnv(gym.Env):
         device=None,
         print_additional_flag=0,
     ):
+        super().__init__()
         # start time
         self.start_day = time_window_start[0]
         self.day = self.start_day
@@ -120,7 +121,7 @@ class StockTradingEnv(gym.Env):
         self.long_hidden_feature = []
 
         # initalize state and info
-        self.info = self._initiate_info()
+        self.env_info = self._initiate_info()
         self.state = self._initial_state()
 
         # initialize reward
@@ -141,25 +142,25 @@ class StockTradingEnv(gym.Env):
 
     def _sell_stock(self, index, action):
         def _do_sell_normal():
-            if self.info[index + 1] > 0:
+            if self.env_info[index + 1] > 0:
                 # Sell only if the price is > 0 (no missing data in this particular date)
                 # perform sell action based on the sign of the action
-                if self.info[index + self.stock_dim + 1] > 0:
+                if self.env_info[index + self.stock_dim + 1] > 0:
                     # Sell only if current asset is > 0
                     sell_num_shares = min(
-                        abs(action), self.info[index + self.stock_dim + 1]
+                        abs(action), self.env_info[index + self.stock_dim + 1]
                     )
                     sell_amount = (
-                        self.info[index + 1]
+                        self.env_info[index + 1]
                         * sell_num_shares
                         * (1 - self.transaction_cost_pct)
                     )
                     # update balance
-                    self.info[0] += sell_amount
+                    self.env_info[0] += sell_amount
 
-                    self.info[index + self.stock_dim + 1] -= sell_num_shares
+                    self.env_info[index + self.stock_dim + 1] -= sell_num_shares
                     self.cost += (
-                        self.info[index + 1] * sell_num_shares * self.transaction_cost_pct
+                        self.env_info[index + 1] * sell_num_shares * self.transaction_cost_pct
                     )
                     self.trades += 1
                 else:
@@ -175,21 +176,21 @@ class StockTradingEnv(gym.Env):
 
     def _buy_stock(self, index, action):
         def _do_buy():
-            if self.info[index + 1] > 0:
+            if self.env_info[index + 1] > 0:
                 # Buy only if the price is > 0 (no missing data in this particular date)
-                available_amount = self.info[0] // self.info[index + 1]
+                available_amount = self.env_info[0] // self.env_info[index + 1]
                 # print('available_amount:{}'.format(available_amount))
 
                 # update balance
                 buy_num_shares = min(available_amount, action)
                 buy_amount = (
-                    self.info[index + 1] * buy_num_shares * (1 + self.transaction_cost_pct)
+                    self.env_info[index + 1] * buy_num_shares * (1 + self.transaction_cost_pct)
                 )
-                self.info[0] -= buy_amount
+                self.env_info[0] -= buy_amount
 
-                self.info[index + self.stock_dim + 1] += buy_num_shares
+                self.env_info[index + self.stock_dim + 1] += buy_num_shares
 
-                self.cost += self.info[index + 1] * buy_num_shares * self.transaction_cost_pct
+                self.cost += self.env_info[index + 1] * buy_num_shares * self.transaction_cost_pct
                 self.trades += 1
             else:
                 buy_num_shares = 0
@@ -234,9 +235,9 @@ class StockTradingEnv(gym.Env):
             self.terminal = self.day >= self.df.index.unique().max()#len(self.df.index.unique()) - 1
 
         if self.terminal:
-            self.end_total_asset = self.info[0] + sum(
-                np.array(self.info[1 : (self.stock_dim + 1)])
-                * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+            self.end_total_asset = self.env_info[0] + sum(
+                np.array(self.env_info[1 : (self.stock_dim + 1)])
+                * np.array(self.env_info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
             )
             tot_reward = (self.end_total_asset - self.initial_amount)
             tot_reward_ratio = tot_reward/(self.initial_amount*1.0)
@@ -323,7 +324,7 @@ class StockTradingEnv(gym.Env):
                     )
 
             # 在 info 中返回 memory 数据（避免被 DummyVecEnv 自动 reset 清空）
-            return self.state, self.reward, self.terminal, {
+            return self.state, self.reward, self.terminal, False, {
                 'reward_ratio': tot_reward_ratio,
                 'reward_step':np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
                 'sharpe': sharpe,
@@ -332,20 +333,20 @@ class StockTradingEnv(gym.Env):
             }
 
         else:
-            #self.info： 当前现金[0] + 所有股票价格[1 : (self.stock_dim + 1)]
+            #self.env_info： 当前现金[0] + 所有股票价格[1 : (self.stock_dim + 1)]
             #  + 所有股票持仓数量[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)]
             # pdb.set_trace()
-            zero_day_prices = np.array(self.info[1 : (self.stock_dim + 1)])
+            zero_day_prices = np.array(self.env_info[1 : (self.stock_dim + 1)])
             first_day_prices = np.array(self._get_future_price(days_ahead=1))
             fifth_day_prices = np.array(self._get_future_price(days_ahead=5))
 
-            begin_total_asset = self.info[0] + sum(
-                zero_day_prices * np.array(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+            begin_total_asset = self.env_info[0] + sum(
+                zero_day_prices * np.array(self.env_info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
             )#初始总资产=现金+股票价格*股票数量
 
             actions = (actions + 1) * self.hmax / 2  # actions initially is scaled between -1 to 1
             actions = actions.astype(int)
-            actions = actions - self.info[self.stock_dim+1:self.stock_dim*2+1]
+            actions = actions - np.array(self.env_info[self.stock_dim+1:self.stock_dim*2+1])
 
             argsort_actions = np.argsort(actions)
             sell_index = argsort_actions[: np.where(actions < 0)[0].shape[0]]
@@ -364,14 +365,14 @@ class StockTradingEnv(gym.Env):
                 actions[index] = self._buy_stock(index, actions[index])
 
             #需要在持仓信息更新后
-            self.end_total_asset = self.info[0] + sum(
-                first_day_prices * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
+            self.end_total_asset = self.env_info[0] + sum(
+                first_day_prices * np.array(self.env_info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
 
             # 使用第一天和第五天价格的平均值计算 reward
             avg_prices = first_day_prices *0.3 + fifth_day_prices * 0.7#first_day_prices#
-            asset_for_reward_new = self.info[0] + sum(
-                avg_prices * np.array(self.info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
+            asset_for_reward_new = self.env_info[0] + sum(
+                avg_prices * np.array(self.env_info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
             )
             market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
             self.reward = asset_for_reward_new / begin_total_asset - 1.0
@@ -382,17 +383,18 @@ class StockTradingEnv(gym.Env):
             self.asset_memory.append(self.end_total_asset)
             self.date_memory.append(self._get_date())
             self.rewards_memory.append(self.reward)
-            self.amount_memory.append(self.info[-self.stock_dim:])
+            self.amount_memory.append(self.env_info[-self.stock_dim:])
 
             # state: s -> s+1 #更新日期和价格信息
             self.day += 1
             self.data = self.df.loc[self.day, :]#更新日期
-            self.info = self._update_info()#更新价格信息
+            self.env_info = self._update_info()#更新价格信息
             self.state = self._update_state()
 
-        return self.state, self.reward, self.terminal, {}
+        return self.state, self.reward, self.terminal, False, {}
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
         if self.terminal:#训练或测试后重新初始化
             self.time_windows_point += 1#remove for test
             if self.time_windows_point >= len(self.time_window_start):
@@ -414,7 +416,7 @@ class StockTradingEnv(gym.Env):
         # self.covs = self.data['cov_list'].values[0]
 
         # 标准初始化
-        self.info = self._initiate_info()
+        self.env_info = self._initiate_info()
         self.state = self._initial_state()
         # 重置特征列表
         self.short_hidden_feature = []
@@ -427,14 +429,14 @@ class StockTradingEnv(gym.Env):
         # self.iteration=self.iteration
         self.rewards_memory = []
         self.actions_memory = []
-        self.amount_memory = []#[self.info[-self.stock_dim:]]
+        self.amount_memory = []#[self.env_info[-self.stock_dim:]]
         self.date_memory = [self._get_date()]
 
         print("=================================")
         print(self.mode, f"reset...")
         print("=================================")
 
-        return self.state
+        return self.state, {}
 
     def render(self, mode="human", close=False):
         return self.state
@@ -485,9 +487,9 @@ class StockTradingEnv(gym.Env):
     def _update_info(self):
             # for multiple stock
         info = (
-                [self.info[0]]
+                [self.env_info[0]]
                 + self.data.price.values.tolist()
-                + list(self.info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+                + list(self.env_info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
             )
         return info
 
@@ -524,8 +526,8 @@ class StockTradingEnv(gym.Env):
         month_day_feature = self.data['month_day'].values.reshape(self.stock_dim, 1)
         weekday_feature = self.data['weekday'].values.reshape(self.stock_dim, 1)
 
-        #holding_amount = np.array(self.info[-self.stock_dim : ]) # (stock_dim, 1)
-        #holding_amount_norm = ((holding_amount * np.array(self.info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
+        #holding_amount = np.array(self.env_info[-self.stock_dim : ]) # (stock_dim, 1)
+        #holding_amount_norm = ((holding_amount * np.array(self.env_info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
 
         state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature, month_day_feature), axis=-1)
         # print("Update: ",state.shape)
