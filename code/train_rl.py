@@ -1,4 +1,4 @@
-import this
+#import this
 import os
 import sys
 import time
