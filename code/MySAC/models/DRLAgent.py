@@ -290,7 +290,6 @@ class DRLAgent:
             total_timesteps=total_timesteps,
             tb_log_name=tb_log_name,
             callback = callback,
-            model_save_path = model_dir,
         )
         return model
 

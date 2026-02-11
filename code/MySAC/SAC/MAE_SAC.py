@@ -21,20 +21,12 @@ from MySAC.SAC.policy_transformer import policy_transformer_stock_atten2 as poli
 import pdb
 
 
-class SAC(OffPolicyAlgorithm):
+from stable_baselines3 import SAC as SAC_SB3
+
+class SAC(SAC_SB3):
     """
     Soft Actor-Critic (SAC)
-    Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor,
-    This implementation borrows code from original implementation (https://github.com/haarnoja/sac)
-    from OpenAI Spinning Up (https://github.com/openai/spinningup), from the softlearning repo
-    (https://github.com/rail-berkeley/softlearning/)
-    and from Stable Baselines (https://github.com/hill-a/stable-baselines)
-    Paper: https://arxiv.org/abs/1801.01290
-    Introduction to SAC: https://spinningup.openai.com/en/latest/algorithms/sac.html
-
-    Note: we use double q target and not value target as discussed
-    in https://github.com/hill-a/stable-baselines/issues/270
-
+    ...
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
     :param learning_rate: learning rate for adam optimizer,
@@ -123,35 +115,8 @@ class SAC(OffPolicyAlgorithm):
         critic_alpha=1,
         actor_alpha=0,
     ):
-
-        super(SAC, self).__init__(
-            policy,
-            env,
-            SACPolicy,
-            learning_rate,
-            buffer_size,
-            learning_starts,
-            batch_size,
-            tau,
-            gamma,
-            train_freq,
-            gradient_steps,
-            action_noise,
-            replay_buffer_class=replay_buffer_class,
-            replay_buffer_kwargs=replay_buffer_kwargs,
-            policy_kwargs=policy_kwargs,
-            tensorboard_log=tensorboard_log,
-            verbose=verbose,
-            device=device,
-            create_eval_env=create_eval_env,
-            seed=seed,
-            use_sde=use_sde,
-            sde_sample_freq=sde_sample_freq,
-            use_sde_at_warmup=use_sde_at_warmup,
-        )
-        
-        # 【关键修改】跨越包装器获取隐藏状态空间
-        # 官方 SB3 包装器不会直接透传自定义属性，需要通过 get_attr 获取
+        # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
+        # 否则父类初始化过程中调用 _setup_model 时会因找不到 hidden_state_space 报错
         self.hidden_state_space = None
         if hasattr(env, "hidden_state_space"):
             self.hidden_state_space = env.hidden_state_space
@@ -167,6 +132,34 @@ class SAC(OffPolicyAlgorithm):
                     self.hidden_state_space = self.env.get_attr("hidden_state_space")[0]
                 except Exception:
                     pass
+
+        super(SAC, self).__init__(
+            policy=policy,
+            env=env,
+            learning_rate=learning_rate,
+            buffer_size=buffer_size,
+            learning_starts=learning_starts,
+            batch_size=batch_size,
+            tau=tau,
+            gamma=gamma,
+            train_freq=train_freq,
+            gradient_steps=gradient_steps,
+            action_noise=action_noise,
+            replay_buffer_class=replay_buffer_class,
+            replay_buffer_kwargs=replay_buffer_kwargs,
+            policy_kwargs=policy_kwargs,
+            tensorboard_log=tensorboard_log,
+            verbose=verbose,
+            device=device,
+            seed=seed,
+            use_sde=use_sde,
+            sde_sample_freq=sde_sample_freq,
+            use_sde_at_warmup=use_sde_at_warmup,
+            optimize_memory_usage=optimize_memory_usage,
+            target_update_interval=target_update_interval,
+            target_entropy=target_entropy,
+            ent_coef=ent_coef,
+        )
 
         self.target_entropy = target_entropy
         self.log_ent_coef = None  # type: Optional[th.Tensor]
@@ -463,25 +456,18 @@ class SAC(OffPolicyAlgorithm):
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "SAC",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-        model_save_path: Optional[str] = None,
+        **kwargs,
     ) -> OffPolicyAlgorithm:
 
         return super(SAC, self).learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
             tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
+            **kwargs,
         )
 
     def predict(
