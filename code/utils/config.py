@@ -74,7 +74,7 @@ TRANSFORMER_PARAMS_DEFAULT = {
     "data_name": "CSI",                           #
     "data_type": "stock",                         # stock
     "root_path": "data/",                         # root path of the data file
-    "full_stock_path": "CSI/",                    # root path of the data file
+    "full_stock_path": version_name+"/",                    # root path of the data file
 
     # Experiment type
     "exp_type": "pred",                           # [mae|pred]
