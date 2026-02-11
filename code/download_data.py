@@ -15,7 +15,7 @@ def main():
     # 1. 确定目标目录 (项目根目录/data/CSI_new)
     project_root = os.path.dirname(current_dir)
     target_dir = os.path.join(project_root, "data", "CSI_new")
-    
+
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
         print(f"已创建目录: {target_dir}")
@@ -23,20 +23,26 @@ def main():
     # 2. 读取配置
     ticker_list = config.USE_CSI_300_TICKET
     start_date = config.START_DATE
+    # 将end_date设置为当天日期
     end_date = config.END_DATE
 
     print(f"准备下载 {len(ticker_list)} 只股票的数据...")
     print(f"时间范围: {start_date} 至 {end_date}")
 
+    # 初始化计数器
+    success_count = 0
+    failure_count = 0
+
     for tic in ticker_list:
-        print(f"正在处理 {tic}...")
         try:
             # 实例化下载器（逐个下载以便更好地处理错误）
+            print(f"正在处理{success_count+failure_count+1}: {tic}")
             downloader = YahooDownloader(start_date=start_date, end_date=end_date, ticker_list=[tic])
             df = downloader.fetch_data()
 
             if df is None or df.empty:
                 print(f"警告: 无法获取 {tic} 的数据，跳过。")
+                failure_count += 1
                 continue
 
             # 3. 计算模型所需的额外列 (保持与 data/CSI 老文件格式一致)
@@ -62,10 +68,15 @@ def main():
             output_path = os.path.join(target_dir, f"{tic}.csv")
             # index=True 会生成第一列无名索引，匹配老文件格式
             df_final.to_csv(output_path, index=True)
-            print(f"成功保存至: {output_path}")
+            
+            success_count += 1
 
         except Exception as e:
             print(f"处理 {tic} 时出错: {str(e)}")
+            failure_count += 1
+    
+    # 输出统计结果
+    print(f"\n下载完成！成功: {success_count} 只股票，失败: {failure_count} 只股票")
 
 if __name__ == "__main__":
     main()

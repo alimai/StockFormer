@@ -1,5 +1,6 @@
 import os
 import torch
+from datetime import datetime
 
 version_name = 'CSI'#'N100'#
 model_name='StockFormer'
@@ -8,7 +9,7 @@ TENSORBOARD_LOG_DIR = "log"
 RESULTS_DIR = "results"
 
 START_DATE = "2000-01-01"
-END_DATE = "2025-12-31"
+END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
 
 fix_seed = 2022
 INF = 1100
