@@ -51,6 +51,7 @@ class Stock_Data():
             temp_df['tic'] = ticket
             df = pd.concat((df, temp_df))
         df = df.sort_values(by=['date','tic'])
+        df['date'] = pd.to_datetime(df['date'])
 
         # Add time features
         # month_day: 12.15 for Dec 15th
@@ -66,6 +67,11 @@ class Stock_Data():
 
         print("generate technical indicator...")
         df = fe.preprocess_data(df)
+        
+        # 【关键修复】确保所有技术指标和时序特征都是数值类型，防止产生 object 数组
+        for col in self.attr + self.temporal_feature:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
         # add covariance matrix as states
         df=df.sort_values(['date','tic'],ignore_index=True)
@@ -116,6 +122,19 @@ class Stock_Data():
         self.boarder_end = [boarder1, boarder2, boarder3]
         self.boarder_start = [boarder1_, boarder2_, boarder3_]
 
+        # 检查并过滤掉不存在的列，但为了模型维度，必须确保 self.attr 的列数与 config 一致
+        original_attr_list = config.TECHNICAL_INDICATORS_LIST
+        for col in original_attr_list:
+            if col not in df.columns:
+                df[col] = 0.0  # 补全缺失列，解决维度不匹配的根本原因
+        
+        self.attr = original_attr_list
+        print(f"Attributes used (aligned to config): {self.attr}")
+
+        # 【关键修复】填充所有 NaN 为 0，防止全 NaN 列导致训练崩溃
+        df[self.attr] = df[self.attr].fillna(0)
+        df[self.temporal_feature] = df[self.temporal_feature].fillna(0)
+
         # 处理技术指标中的无穷值
         df[self.attr] = df[self.attr].replace([np.inf], config.INF)
         df[self.attr] = df[self.attr].replace([-np.inf], config.INF*(-1))
@@ -147,40 +166,33 @@ class Stock_Data():
 
             # --- Group A: 价格组 ---
             if valid_price_abs:
-                # 仅使用训练集数据的绝对价格计算参数
+                # 仅使用训练集数据的绝对价格计算参数 (只缩放，不平移)
                 train_price_vals = df.loc[train_mask, valid_price_abs].values.flatten()
-                min_price = np.min(train_price_vals)
-                max_price = np.max(train_price_vals)
-                range_price = max_price - min_price + 1e-8 # 防止除以0
+                max_price = np.max(train_price_vals) + 1e-8
                 
-                # 1. 绝对价格：(X - Min) / Range -> 缩放到 [0, 1]
-                df.loc[:, valid_price_abs] = (df[valid_price_abs] - min_price) / range_price
+                # 1. 绝对价格：X / Max -> 保持比例
+                df.loc[:, valid_price_abs] = df[valid_price_abs] / max_price
                 
-                # 2. 差分价格：X / Range (共享 Range，但不减 Min，保持相对变化比例)
+                # 2. 差分价格：也使用相同的 Max 缩放
                 if valid_price_diff:
-                    df.loc[:, valid_price_diff] = df[valid_price_diff] / range_price
+                    df.loc[:, valid_price_diff] = df[valid_price_diff] / max_price
 
             # --- Group B: 成交量组 ---
             if valid_vol_abs:
                 # 仅使用训练集数据的绝对成交量计算参数
                 train_vol_vals = df.loc[train_mask, valid_vol_abs].values.flatten()
-                min_vol = np.min(train_vol_vals)
-                max_vol = np.max(train_vol_vals)
-                range_vol = max_vol - min_vol + 1e-8
+                max_vol = np.max(train_vol_vals) + 1e-8
                 
-                # 1. 绝对成交量：(X - Min) / Range -> 缩放到 [0, 1]
-                df.loc[:, valid_vol_abs] = (df[valid_vol_abs] - min_vol) / range_vol
+                # 1. 绝对成交量：X / Max
+                df.loc[:, valid_vol_abs] = df[valid_vol_abs] / max_vol
                 
-                # 2. 差分成交量：X / Range (共享 Range，不减 Min)
+                # 2. 差分成交量：也使用相同的 Max 缩放
                 if valid_vol_diff:
-                    df.loc[:, valid_vol_diff] = df[valid_vol_diff] / range_vol
+                    df.loc[:, valid_vol_diff] = df[valid_vol_diff] / max_vol
 
-            # --- Group C: 时间特征组 (Unconditional Normalization) ---
-            # Min: 1.01 (Jan 1st), Max: 12.31 (Dec 31st) -> Range: 11.3
-            df['month_day'] = ((df['month_day'] - 1.01)/2).astype(int) / 5#11.3
-            
-            # Min: 0 (Mon), Max: 6 (Sun) -> Range: 6
-            df['weekday'] = df['weekday'] / 6.0
+            # --- Group C: 时间特征组 (缩放到7个台阶) ---
+            df['month_day'] = (df['month_day']/2).astype(int)# / 7.0
+            #df['weekday'] = df['weekday'] / 7.0
 
             # 提取最终归一化后的特征矩阵
             feature_list = df[self.temporal_feature].values
@@ -206,8 +218,13 @@ class Stock_Data():
         label_short_term = np.array(df['label_short_term'].values.tolist()).reshape(-1, stock_num)
         label_long_term = np.array(df['label_long_term'].values.tolist()).reshape(-1, stock_num)
 
-        self.data_all = np.concatenate((data_cov[:, 0, :, :], data_technical, data_feature), axis=-1) # [days, num_stocks, cov+technical_len+feature_len]
-        self.label_all = np.stack((label_short_term, label_long_term), axis=0) # [2, days, num_stocks, 1]
+        # 显式转换为 float32 确保类型统一
+        data_cov_part = data_cov[:, 0, :, :].astype(np.float32)
+        data_technical_part = data_technical.astype(np.float32)
+        data_feature_part = data_feature.astype(np.float32)
+
+        self.data_all = np.concatenate((data_cov_part, data_technical_part, data_feature_part), axis=-1) # [days, num_stocks, cov+technical_len+feature_len]
+        self.label_all = np.stack((label_short_term, label_long_term), axis=0).astype(np.float32) # [2, days, num_stocks, 1]
         self.dates = np.array(dates)
         self.data_close = data_close
         self.data_month_day = data_month_day
