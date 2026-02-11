@@ -45,26 +45,17 @@ class FinancialMetricsCallback(BaseCallback):
         super(FinancialMetricsCallback, self).__init__(verbose)
 
     def _on_step(self) -> bool:
-        # 安全地检测 episode 是否结束
-        # 不同的 SB3 版本或环境包装器可能使用 "done" (bool) 或 "dones" (list/array)
-        done = self.locals.get("done", False)
-        dones = self.locals.get("dones")
-        
-        # 如果 dones 是列表且第一个元素为 True，或者单变量 done 为 True
-        is_episode_finished = done or (dones is not None and dones[0])
-
-        if is_episode_finished:
-            # 获取 infos 列表
-            infos = self.locals.get("infos")
-            if infos is not None and len(infos) > 0:
-                info = infos[0]
-                # 记录到 TensorBoard
-                if "reward_ratio" in info:
-                    self.logger.record("finance/reward_ratio", info["reward_ratio"])
-                if "reward_step" in info:
-                    self.logger.record("finance/reward_step", info["reward_step"])
-                if "sharpe" in info:
-                    self.logger.record("finance/sharpe_ratio", info["sharpe"])
+        # 使用 VecMonitor 提供的 "episode" 信息作为 episode 结束的唯一信号
+        infos = self.locals.get("infos")
+        if infos is not None and len(infos) > 0 and "episode" in infos[0]:
+            info = infos[0]
+            # 记录到 TensorBoard
+            if "reward_ratio" in info:
+                self.logger.record("finance/reward_ratio", info["reward_ratio"])
+            if "reward_step" in info:
+                self.logger.record("finance/reward_step", info["reward_step"])
+            if "sharpe" in info:
+                self.logger.record("finance/sharpe_ratio", info["sharpe"])
         return True
 
 class CombinedCallback(BaseCallback):
@@ -89,11 +80,10 @@ class CombinedCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         # 检查episode是否结束，如果是则增加计数并考虑保存模型
-        done = self.locals.get("done", False)
-        dones = self.locals.get("dones")
-        is_episode_finished = done or (dones is not None and dones[0])
-
-        if is_episode_finished:
+        # 使用 VecMonitor 提供的 "episode" 信息作为 episode 结束的唯一信号
+        # 这比检查 done/dones 更可靠，能从根本上避免重复计数问题
+        infos = self.locals.get("infos")
+        if infos is not None and len(infos) > 0 and "episode" in infos[0]:
             self.episode_count += 1
             # 每2个episode保存一个备份
             if self.episode_count % 2 == 0:
@@ -111,7 +101,7 @@ class CombinedCallback(BaseCallback):
                 mean_reward = np.mean(y[-10:])
                 if self.verbose > 0:
                     print(f"Num timesteps: {self.num_timesteps}")
-                    print(f"Best mean reward: {self.best_mean_reward:.2f} - Last mean reward per episode: {mean_reward:.2f}")
+                    print(f"Best mean reward: {self.best_mean_reward:.2f} - new mean reward per episode: {mean_reward:.2f}")
 
                 # New best model, you could save the agent here
                 if mean_reward > self.best_mean_reward:
