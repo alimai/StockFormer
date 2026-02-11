@@ -44,6 +44,12 @@ class Stock_Data():
         for ticket in self.ticker_list:
             temp_df = pd.read_csv(os.path.join(full_stock_dir,ticket+'.csv'), usecols=['date', 'open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price'])
 
+            # 【关键修复】确保所有可能归一化的数值列在数据加载后立即转换为浮点类型
+            numeric_cols_to_float = ['open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price']
+            for col in numeric_cols_to_float:
+                if col in temp_df.columns:
+                    temp_df[col] = pd.to_numeric(temp_df[col], errors='coerce').astype(float)
+
             temp_df['date'] = temp_df['date'].apply(lambda x:str(x))
             temp_df['date'] = pd.to_datetime(temp_df['date'])
             temp_df['label_short_term'] = temp_df['close'].pct_change(periods=self.prediction_len[0]).shift(periods=(-1*self.prediction_len[0]))
@@ -191,8 +197,8 @@ class Stock_Data():
                     df.loc[:, valid_vol_diff] = df[valid_vol_diff] / max_vol
 
             # --- Group C: 时间特征组 (缩放到7个台阶) ---
-            df['month_day'] = (df['month_day']/2).astype(int)# / 7.0
-            #df['weekday'] = df['weekday'] / 7.0
+            df['month_day'] = (df['month_day']/2).astype(int) / 7.0
+            df['weekday'] = df['weekday'] / 7.0
 
             # 提取最终归一化后的特征矩阵
             feature_list = df[self.temporal_feature].values
