@@ -20,9 +20,6 @@ if __name__ == '__main__':
     short_prediction_model_path = working_path + '/../trained_models/'+version_name+'/Short/checkpoint.pth'
     long_prediction_model_path =  working_path + '/../trained_models/'+version_name+'/Long/checkpoint.pth'
     mae_model_path = working_path + '/../trained_models/'+version_name+'/mae/checkpoint.pth'
-    full_stock_dir = os.path.join('data', version_name)
-    ticker_list = config.use_ticker_dict[version_name]
-    prediction_len = [1,5]
 
 
     if not os.path.exists(config.TRAINED_MODEL_DIR):
@@ -33,11 +30,11 @@ if __name__ == '__main__':
         os.makedirs(config.RESULTS_DIR)
 
     # 使用 Stock_Data 统一处理所有数据（包括协方差计算和标准化）
+    full_stock_dir = os.path.join('data', version_name)
+    prediction_len = [1,5]
     data_manager = Stock_Data(
-        root_path='data/', 
-        dataset_name=version_name, 
-        full_stock_path=version_name+'/', 
-        size=[60, 1, 1], 
+        full_stock_path=full_stock_dir, 
+        size=[60, 1, 1], # size [seq_len, label_len, pred_len]
         prediction_len=prediction_len
     )
 

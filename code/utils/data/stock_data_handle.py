@@ -16,15 +16,14 @@ import datetime
 
 
 class Stock_Data():
-    def __init__(self, root_path, dataset_name, full_stock_path, size, attr = config.TECHNICAL_INDICATORS_LIST, temporal_feature = config.TEMPORAL_FEATURE, scale=True, prediction_len=[2,5]):
+    def __init__(self, full_stock_path, size, attr = config.TECHNICAL_INDICATORS_LIST, temporal_feature = config.TEMPORAL_FEATURE, scale=True, prediction_len=[2,5]):
         # size [seq_len, label_len, pred_len]
         self.scale = scale
         self.attr = attr
         self.temporal_feature = temporal_feature
-        self.root_path = root_path
-        self.full_stock = full_stock_path
-        self.ticker_list = config.use_ticker_dict[dataset_name]
-        self.border_dates = config.date_dict[dataset_name]
+        self.full_stock_dir = full_stock_path
+        self.ticker_list = config.USE_CSI_300_TICKET
+        self.border_dates = config.CSI_date_trans
         self.prediction_len = prediction_len
 
         self.seq_len = size[0] # seq_len
@@ -38,13 +37,11 @@ class Stock_Data():
         scaler = MinMaxScaler()
         stock_num = len(self.ticker_list)
 
-        full_stock_dir = os.path.join(self.root_path, self.full_stock)
-
         df = pd.DataFrame([], columns=['date','open','close','high','low','volume','dopen','dclose','dhigh','dlow','dvolume', 'price', 'tic'])
         # Track which stocks were successfully loaded
         successful_tickers = []
         for ticket in self.ticker_list:
-            temp_df = pd.read_csv(os.path.join(full_stock_dir,ticket+'.csv'), usecols=['date', 'open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price'])
+            temp_df = pd.read_csv(os.path.join(self.full_stock_dir,ticket+'.csv'), usecols=['date', 'open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price'])
 
             # 【关键修复】确保所有可能归一化的数值列在数据加载后立即转换为浮点类型
             numeric_cols_to_float = ['open', 'close', 'high', 'low', 'volume', 'dopen', 'dclose', 'dhigh', 'dlow', 'dvolume', 'price']

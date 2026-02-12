@@ -24,10 +24,10 @@ USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 if len(USE_CSI_300_TICKET) > 88:#如果大于88，取前88个
     USE_CSI_300_TICKET = USE_CSI_300_TICKET[:88]
-use_ticker_dict = {version_name:USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
 
-CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
-date_dict = {version_name: CSI_date_trans, 'TEST': CSI_date_trans}
+#`train`, `valid`, `test` 三个阶段
+#CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
+CSI_date_trans = ['20100930', '20220415', '20220630', '20250331',  '20220630', '20251231']
 
 step_len = 800  # 每个训练/测试阶段的时间步长度
 # 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
