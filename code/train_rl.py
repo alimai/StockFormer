@@ -46,10 +46,16 @@ if __name__ == '__main__':
     print(f"Train Date Range: {train['date'].min().date()} - {train['date'].max().date()}")
     print(f"Validation Date Range: {eval['date'].min().date()} - {eval['date'].max().date()}")
     print(f"Test Date Range: {test['date'].min().date()} - {test['date'].max().date()}")
-    print(f"Train length: {len(train)}, Eval length: {len(eval)}, Test length: {len(test)}")
+
+    # 各组数据时间步长度（日期长度）
+    # 注意：由于数据处理中包含了多只股票的数据，实际长度为交易日数量×股票数量
+    train_length = train['date'].nunique()  # 获取唯一日期数量
+    eval_length = eval['date'].nunique()    # 获取唯一日期数量
+    test_length = test['date'].nunique()    # 获取唯一日期数量    
+    print(f"Train length: {train_length}, Eval length: {eval_length}, Test length: {test_length}")
 
     stock_dimension = len(train.tic.unique())
-    state_space = stock_dimension
+    state_space = stock_dimension #卷积，二者相等
     print(f"Stock Dimension: {stock_dimension}, State Space: {state_space}")
 
     env_kwargs = {
@@ -66,7 +72,7 @@ if __name__ == '__main__':
         "figure_path":os.path.join(config.RESULTS_DIR, 'figures', version_name, model_name),
         "csv_path": os.path.join(config.RESULTS_DIR, 'csv', version_name, model_name),
         "mode":'train',
-        "time_window_start":[i for i in range(60, len(train) - config.step_len, config.stride)],
+        "time_window_start":[i for i in range(60, train_length - config.step_len, config.stride)],
         "step_len": config.step_len,
         "temporal_len": 60,
         "hidden_channel":128,
