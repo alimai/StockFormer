@@ -46,6 +46,7 @@ if __name__ == '__main__':
     print(f"Train Date Range: {train['date'].min().date()} - {train['date'].max().date()}")
     print(f"Validation Date Range: {eval['date'].min().date()} - {eval['date'].max().date()}")
     print(f"Test Date Range: {test['date'].min().date()} - {test['date'].max().date()}")
+    print(f"Train length: {len(train)}, Eval length: {len(eval)}, Test length: {len(test)}")
 
     stock_dimension = len(train.tic.unique())
     state_space = stock_dimension
@@ -65,7 +66,7 @@ if __name__ == '__main__':
         "figure_path":os.path.join(config.RESULTS_DIR, 'figures', version_name, model_name),
         "csv_path": os.path.join(config.RESULTS_DIR, 'csv', version_name, model_name),
         "mode":'train',
-        "time_window_start":config.time_window_start,
+        "time_window_start":[i for i in range(60, len(train) - config.step_len, config.stride)],
         "step_len": config.step_len,
         "temporal_len": 60,
         "hidden_channel":128,

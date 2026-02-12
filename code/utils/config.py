@@ -29,10 +29,8 @@ if len(USE_CSI_300_TICKET) > 88:#如果大于88，取前88个
 #CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
 CSI_date_trans = ['20100930', '20220415', '20220630', '20250331',  '20220630', '20251231']
 
-step_len = 800  # 每个训练/测试阶段的时间步长度
-# 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
-stride = int(step_len * 0.6) 
-time_window_start = [i for i in range(60, 1800 - int(step_len*0.6), stride)]
+step_len = 800  # 每个Episode的时间步长度
+stride = int(step_len * 0.6) # 滑动窗口步长,<step_len，确保相邻Episode之间有数据重叠
 
 ## stockstats technical indicator column names
 ## check https://pypi.org/project/stockstats/ for different names
@@ -240,7 +238,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
 TRANSFORMER_PARAMS_MAE = {
     "project_name": "transformer_CSI_mae",
     "exp_type": "mae",
-    "train_epochs": 10,
+    "train_epochs": 30,
     "itr": 1,
     "enc_in": ENCODER_INPUT_SIZE,#编码器输入维度（股票数88+技术指标数8）
     "dec_in": ENCODER_INPUT_SIZE,#解码器输入维度（股票数88+技术指标数8）
