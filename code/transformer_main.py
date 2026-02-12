@@ -21,18 +21,38 @@ class Args:
     def __init__(self, param_dict):
         for key, value in param_dict.items():
             setattr(self, key, value)
+    
+    def __str__(self):
+        attrs = []
+        for key, value in self.__dict__.items():
+            attrs.append(f"{key}={repr(value)}")
+        return f"Args({', '.join(attrs)})"
+    
+    def __repr__(self):
+        return self.__str__()
 
 working_path = os.path.dirname(os.path.abspath(__file__))
 # 将当前目录添加到模块搜索路径
 # sys.path.insert(0, working_path)
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Choose transformer parameters')
+    parser.add_argument('--params_type', type=int, default=2, choices=[0, 1, 2], 
+                        help='Type of transformer parameters: 0 for PRED_SHORT, 1 for PRED_LONG, 2 for MAE')
+    args_parsed = parser.parse_args()
+
     random.seed(fix_seed)
     torch.manual_seed(fix_seed)
     np.random.seed(fix_seed)
 
-    #TRANSFORMER_PARAMS_MAE,TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG
-    TRANSFORMER_PARAMS_TARGET = TRANSFORMER_PARAMS_MAE
+    # 根据命令行参数选择对应的参数配置
+    if args_parsed.params_type == 0:
+        TRANSFORMER_PARAMS_TARGET = TRANSFORMER_PARAMS_PRED_SHORT
+    elif args_parsed.params_type == 1:
+        TRANSFORMER_PARAMS_TARGET = TRANSFORMER_PARAMS_PRED_LONG
+    else:  # 默认为2，即MAE
+        TRANSFORMER_PARAMS_TARGET = TRANSFORMER_PARAMS_MAE
+
     # 先用TRANSFORMER_PARAMS_DEFAULT赋默认值，然后用TRANSFORMER_PARAMS_TARGET覆盖相应的值
     args = Args({**TRANSFORMER_PARAMS_DEFAULT, **TRANSFORMER_PARAMS_TARGET})
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
