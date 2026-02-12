@@ -19,4 +19,4 @@ stockformer_env/
 log/
 tensorboard_log/
 results/
-data/CSI_new/
+data/CSI_*/

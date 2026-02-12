@@ -2,15 +2,6 @@ import os
 import torch
 from datetime import datetime
 
-version_name = 'CSI'#'N100'#
-model_name='StockFormer'
-TRAINED_MODEL_DIR = "trained_models"
-TENSORBOARD_LOG_DIR = "log"
-RESULTS_DIR = "results"
-
-START_DATE = "2000-01-01"
-END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
-
 fix_seed = 2022
 INF = 1100
 
@@ -20,6 +11,74 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'
 
+version_name = 'CSI_2'#'N100'#
+model_name='StockFormer'
+TRAINED_MODEL_DIR = "trained_models"
+TENSORBOARD_LOG_DIR = "log"
+RESULTS_DIR = "results"
+
+START_DATE = "2000-01-01"
+END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
+
+USE_TICKET = os.listdir('data/'+ version_name)
+USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
+if len(USE_CSI_300_TICKET) > 88:#如果大于88，取前88个
+    USE_CSI_300_TICKET = USE_CSI_300_TICKET[:88]
+use_ticker_dict = {version_name:USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
+
+CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
+date_dict = {version_name: CSI_date_trans, 'TEST': CSI_date_trans}
+
+step_len = 800  # 每个训练/测试阶段的时间步长度
+# 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
+stride = int(step_len * 0.6) 
+time_window_start = [i for i in range(60, 1800 - int(step_len*0.6), stride)]
+
+## stockstats technical indicator column names
+## check https://pypi.org/project/stockstats/ for different names
+TECHNICAL_INDICATORS_LIST = [
+    "macd",
+    "boll_ub",
+    "boll_lb",
+    "rsi_30",
+    "cci_30",
+    "dx_30",
+    "close_30_sma",
+    "close_60_sma",
+    # "return_ratio",
+]
+
+TYPE_FEATURE = [
+    'label_short_term',
+    'label_long_term'
+]
+
+TEMPORAL_FEATURE = [
+    'open',
+    'close',
+    'high',
+    'low',
+    'volume',
+    'dopen',
+    'dclose',
+    'dhigh',
+    'dlow',
+    'dvolume'
+]
+
+NORMALIZED_TEMPORAL_FEATURE = [
+    'open', 
+    'close', 
+    'high', 
+    'low', 
+    'volume'
+]
+
+TICKET_SIZE = len(USE_CSI_300_TICKET)
+INDICATORS_SIZE = len(TECHNICAL_INDICATORS_LIST)
+TEMPORAL_FEATURE_SIZE = len(TEMPORAL_FEATURE)
+ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
+
 ##transformer Model Parameters
 MAESAC_PARAMS = {
     "batch_size": 128,#important,同时影响速度
@@ -27,9 +86,9 @@ MAESAC_PARAMS = {
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 1000,
     "ent_coef": 0.001,#"auto_0.001",#key--同时影响actor_loss/critic_loss
-    "enc_in": 96,#MAE编码器的输入维度#股票数88+技术指标数8
-    "dec_in": 96,#MAE解码器的输入维度
-    "c_out_construction": 96,#MAE模型的输出维度（只用来评估重建损失）
+    "enc_in": ENCODER_INPUT_SIZE,#MAE编码器的输入维度#股票数88+技术指标数8
+    "dec_in": ENCODER_INPUT_SIZE,#MAE解码器的输入维度
+    "c_out_construction": ENCODER_INPUT_SIZE,#MAE模型的输出维度（只用来评估重建损失）
     "d_model":128,#MAE模型的隐藏层维度（编码后，解码前，输入给SAC模型）
     "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络) in SAC Transformer,位于编码/解码block内
     "n_heads":4,#多头注意力机制的头数
@@ -49,8 +108,8 @@ MAESAC_PARAMS = {
 #     "learning_rate": 0.0001,
 #     "learning_starts": 100,
 #     "ent_coef": "auto_0.1",
-#     "enc_in":10,#时序特征数10
-#     "dec_in":10,
+#     "enc_in":TEMPORAL_FEATURE_SIZE,#时序特征数10
+#     "dec_in":TEMPORAL_FEATURE_SIZE,
 #     "c_out_prediction":1,#不同于MAESAC_PARAMS
 #     "d_model":128,
 #     "d_ff":256,
@@ -71,7 +130,7 @@ TRANSFORMER_PARAMS_DEFAULT = {
     "project_name": "baseline",                   # name of the experiment
 
     # Data settings
-    "data_name": "CSI",                           #
+    "data_name": version_name,                           #
     "data_type": "stock",                         # stock
     "root_path": "data/",                         # root path of the data file
     "full_stock_path": version_name+"/",                    # root path of the data file
@@ -85,9 +144,9 @@ TRANSFORMER_PARAMS_DEFAULT = {
     "pred_len": 1,                                # predict series length
 
     # Model dimensions
-    "enc_in": 96,                                 # encoder input size: cov+technical indicators
-    "dec_in": 96,                                 # decoder input size
-    "c_out": 96,                                  # output size[96|1](pred|mae)
+    "enc_in": ENCODER_INPUT_SIZE,                                 # encoder input size: cov+technical indicators
+    "dec_in": ENCODER_INPUT_SIZE,                                 # decoder input size
+    "c_out": ENCODER_INPUT_SIZE,                                  # output size[96|1](pred|mae)
 
     # Prediction settings
     "short_term_len": 1,                          # short term prediction len
@@ -131,8 +190,8 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
-    "enc_in": 10,#时序指标10个
-    "dec_in": 10,
+    "enc_in": TEMPORAL_FEATURE_SIZE,#时序指标10个
+    "dec_in": TEMPORAL_FEATURE_SIZE,
     "c_out": 1,
     "d_model": 128,
     "n_heads": 4,
@@ -160,8 +219,8 @@ TRANSFORMER_PARAMS_PRED_LONG = {
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
-    "enc_in": 10,
-    "dec_in": 10,
+    "enc_in": TEMPORAL_FEATURE_SIZE,#时序指标10个
+    "dec_in": TEMPORAL_FEATURE_SIZE,
     "c_out": 1,
     "d_model": 128,
     "n_heads": 4,
@@ -185,9 +244,9 @@ TRANSFORMER_PARAMS_MAE = {
     "exp_type": "mae",
     "train_epochs": 3,
     "itr": 1,
-    "enc_in": 96,
-    "dec_in": 96,
-    "c_out": 96,
+    "enc_in": ENCODER_INPUT_SIZE,#编码器输入维度（股票数88+技术指标数8）
+    "dec_in": ENCODER_INPUT_SIZE,#解码器输入维度（股票数88+技术指标数8）
+    "c_out": ENCODER_INPUT_SIZE,#输出维度（股票数88+技术指标数8）
     "d_model": 128,
     "n_heads": 4,
     "e_layers": 2,
@@ -202,48 +261,8 @@ TRANSFORMER_PARAMS_MAE = {
     "long_term_len": 5,
 }
 
-## stockstats technical indicator column names
-## check https://pypi.org/project/stockstats/ for different names
-TECHNICAL_INDICATORS_LIST = [
-    "macd",
-    "boll_ub",
-    "boll_lb",
-    "rsi_30",
-    "cci_30",
-    "dx_30",
-    "close_30_sma",
-    "close_60_sma",
-    # "return_ratio",
-]
-
-TYPE_FEATURE = [
-    'label_short_term',
-    'label_long_term'
-]
-
-TEMPORAL_FEATURE = [
-    'open',
-    'close',
-    'high',
-    'low',
-    'volume',
-    'dopen',
-    'dclose',
-    'dhigh',
-    'dlow',
-    'dvolume'
-]
-
-NORMALIZED_TEMPORAL_FEATURE = [
-    'open', 
-    'close', 
-    'high', 
-    'low', 
-    'volume'
-]
-
 # use CSI -300 ticker
-USE_CSI_300_TICKET = ['600519.SS',
+CSI_300_TICKET_download = ['600519.SS',
  '601318.SS',
  '600036.SS',
  '000858.SZ',
@@ -331,16 +350,3 @@ USE_CSI_300_TICKET = ['600519.SS',
  '000166.SZ',
  '002050.SZ',
  '002179.SZ']
-
-
-#USE_TICKET = os.listdir('data/'+ version_name)
-#USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
-use_ticker_dict = {'CSI':USE_CSI_300_TICKET, 'TEST': USE_CSI_300_TICKET[:5]}
-
-CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
-date_dict = {'CSI': CSI_date_trans, 'TEST': CSI_date_trans}
-
-step_len = 800  # 每个训练/测试阶段的时间步长度
-# 方案1：使用有序滑动窗口，步长<step_len，确保相邻 Episode 之间有数据重叠
-stride = int(step_len * 0.6) 
-time_window_start = [i for i in range(60, 1800 - int(step_len*0.6), stride)]

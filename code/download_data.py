@@ -3,27 +3,26 @@ import sys
 import pandas as pd
 import numpy as np
 
+from utils.yahoodownloader import YahooDownloader
+from utils import config
+
 # 将当前目录添加到路径以便导入 utils
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from utils.yahoodownloader import YahooDownloader
-from utils import config
-
 def main():
-    # 1. 确定目标目录 (项目根目录/data/CSI_new)
+    # 1. 确定目标目录 (项目根目录/data/CSI)
     project_root = os.path.dirname(current_dir)
-    target_dir = os.path.join(project_root, "data", "CSI_new")
+    target_dir = os.path.join(project_root, "data", config.version_name)
 
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
         print(f"已创建目录: {target_dir}")
 
     # 2. 读取配置
-    ticker_list = config.USE_CSI_300_TICKET
+    ticker_list = config.CSI_300_TICKET_download
     start_date = config.START_DATE
-    # 将end_date设置为当天日期
     end_date = config.END_DATE
 
     print(f"准备下载 {len(ticker_list)} 只股票的数据...")
