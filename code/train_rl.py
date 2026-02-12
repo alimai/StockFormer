@@ -44,6 +44,10 @@ if __name__ == '__main__':
     train = data_manager.get_split_df('train')
     eval = data_manager.get_split_df('valid')
     test = data_manager.get_split_df('test')
+    # 输出数据范围和维度信息，便于调试和验证
+    print(f"Train Date Range: {train['date'].min().date()} - {train['date'].max().date()}")
+    print(f"Validation Date Range: {eval['date'].min().date()} - {eval['date'].max().date()}")
+    print(f"Test Date Range: {test['date'].min().date()} - {test['date'].max().date()}")
 
     stock_dimension = len(train.tic.unique())
     state_space = stock_dimension
