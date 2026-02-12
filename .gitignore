@@ -20,3 +20,4 @@ log/
 tensorboard_log/
 results/
 data/CSI_*/
+trained_models/

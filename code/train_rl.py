@@ -13,6 +13,7 @@ from utils.data.stock_data_handle import Stock_Data
 
 
 if __name__ == '__main__':
+    
     version_name = config.version_name
     model_name = config.model_name
 
@@ -34,7 +35,7 @@ if __name__ == '__main__':
     prediction_len = [1,5]
     data_manager = Stock_Data(
         full_stock_path=full_stock_dir, 
-        size=[60, 1, 1], # size [seq_len, label_len, pred_len]
+        temporal_len=60,
         prediction_len=prediction_len
     )
 

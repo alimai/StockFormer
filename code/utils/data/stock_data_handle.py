@@ -16,8 +16,7 @@ import datetime
 
 
 class Stock_Data():
-    def __init__(self, full_stock_path, size, attr = config.TECHNICAL_INDICATORS_LIST, temporal_feature = config.TEMPORAL_FEATURE, scale=True, prediction_len=[2,5]):
-        # size [seq_len, label_len, pred_len]
+    def __init__(self, full_stock_path, temporal_len, attr = config.TECHNICAL_INDICATORS_LIST, temporal_feature = config.TEMPORAL_FEATURE, scale=True, prediction_len=[2,5]):
         self.scale = scale
         self.attr = attr
         self.temporal_feature = temporal_feature
@@ -26,7 +25,7 @@ class Stock_Data():
         self.border_dates = config.CSI_date_trans
         self.prediction_len = prediction_len
 
-        self.seq_len = size[0] # seq_len
+        self.seq_len = temporal_len
         self.type_map = {'train':0, 'valid':1, 'test':2}
         self.pred_type_map = {'label_short_term':0, 'label_long_term':1}
 
