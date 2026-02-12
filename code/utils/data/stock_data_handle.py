@@ -85,6 +85,25 @@ class Stock_Data():
 
         print("generate technical indicator...")
         df = fe.preprocess_data(df)
+
+        # 【核心修复】强制对齐所有日期和股票，确保每个日期都有 stock_num 行
+        # 1. 提取所有唯一的日期和股票代码
+        all_dates = sorted(df['date'].unique())
+        all_tics = successful_tickers
+        
+        # 2. 创建一个完整的 MultiIndex (date, tic)
+        full_index = pd.MultiIndex.from_product([all_dates, all_tics], names=['date', 'tic'])
+        
+        # 3. 重新索引 df
+        df = df.set_index(['date', 'tic']).reindex(full_index).reset_index()
+        
+        # 4. 填充缺失值
+        # 对于数值列（除了日期和股票名），进行前向填充和后向填充
+        fill_cols = [col for col in df.columns if col not in ['date', 'tic']]
+        # 按股票分组填充，防止股票间数据污染
+        df[fill_cols] = df.groupby('tic')[fill_cols].ffill().bfill()
+        # 如果还有 NaN（比如某只股票完全没数据），填 0
+        df[fill_cols] = df[fill_cols].fillna(0)
         
         # # 【关键修复】确保所有技术指标和时序特征都是数值类型，防止产生 object 数组
         # for col in self.attr + self.temporal_feature:
@@ -104,7 +123,8 @@ class Stock_Data():
 
         # 参照 preprocess.py 的方式：先 pivot 整个数据，再使用日期索引筛选
         price_pivot = df.pivot_table(index='date', columns='tic', values='close')
-        return_pivot = price_pivot.pct_change().dropna()
+        # 【修复】使用 fillna(0) 代替 dropna()，防止因为一只股票缺失数据导致全场日期被删
+        return_pivot = price_pivot.pct_change().fillna(0)
 
         unique_date = df.date.unique()
         for i in range(lookback, len(unique_date)):
@@ -144,7 +164,7 @@ class Stock_Data():
         for col in original_attr_list:
             if col not in df.columns:
                 print(f"Warning: Technical indicator column '{col}' not found in data. Filling with zeros.")
-                df[col] = 0.0  # 补全缺失列，解决维度不匹配的根本原因
+                sys.exit(1)#df[col] = 0.0  # 补全缺失列，解决维度不匹配的根本原因
         
         self.attr = original_attr_list
         print(f"Attributes used (aligned to config): {self.attr}")

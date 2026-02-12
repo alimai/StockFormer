@@ -154,7 +154,10 @@ class FeatureEngineer:
                     for s in range(1, 3):
                         stock[indicator + '_' + str(s)] = stock[indicator].shift(s)
                 except Exception:
-                    pass
+                    if indicator not in stock.columns:
+                        stock[indicator] = 0.0
+                        for s in range(1, 3):
+                            stock[indicator + '_' + str(s)] = 0.0
             
             res_df = pd.DataFrame(stock)
             if 'date' not in res_df.columns and res_df.index.name == 'date':
@@ -183,10 +186,14 @@ class FeatureEngineer:
             for indicator in self.tech_indicator_list:
                 try:
                     _ = stock[indicator]
-                except Exception:
-                    pass
+                except Exception as e:
+                    # 如果计算失败（如除零错误），确保列名存在并填充为0
+                    if indicator not in stock.columns:
+                        stock[indicator] = 0.0
             
             res_df = pd.DataFrame(stock)
+            if 'cci_30' not in res_df.columns:
+                print(f"Warning: cci_30 missing for {tic} after calculation. Columns: {res_df.columns.tolist()}")
             if 'date' not in res_df.columns and res_df.index.name == 'date':
                 res_df = res_df.reset_index()
             if 'tic' not in res_df.columns:
