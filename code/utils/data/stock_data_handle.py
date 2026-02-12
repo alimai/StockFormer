@@ -51,10 +51,8 @@ class Stock_Data():
             for col in numeric_cols_to_float:
                 if col in temp_df.columns:
                     temp_df[col] = pd.to_numeric(temp_df[col], errors='coerce').astype(float)
-                    # 使用线性插值填补NaN值
-                    temp_df[col] = temp_df[col].interpolate(method='linear')
-                    # 如果首行或末行仍有NaN值，使用前向填充或后向填充
-                    temp_df[col] = temp_df[col].ffill().bfill()
+                    # 统一逻辑：线性插值 -> 外推 -> 赋零
+                    temp_df[col] = temp_df[col].interpolate(method='linear', limit_direction='both').ffill().bfill().fillna(0)
 
             temp_df['date'] = temp_df['date'].apply(lambda x:str(x))
             temp_df['date'] = pd.to_datetime(temp_df['date'])
@@ -98,12 +96,10 @@ class Stock_Data():
         df = df.set_index(['date', 'tic']).reindex(full_index).reset_index()
         
         # 4. 填充缺失值
-        # 对于数值列（除了日期和股票名），进行前向填充和后向填充
+        # 统一逻辑：线性插值 -> 外推 -> 赋零
         fill_cols = [col for col in df.columns if col not in ['date', 'tic']]
         # 按股票分组填充，防止股票间数据污染
-        df[fill_cols] = df.groupby('tic')[fill_cols].ffill().bfill()
-        # 如果还有 NaN（比如某只股票完全没数据），填 0
-        df[fill_cols] = df[fill_cols].fillna(0)
+        df[fill_cols] = df.groupby('tic')[fill_cols].transform(lambda x: x.interpolate(method='linear', limit_direction='both').ffill().bfill().fillna(0))
         
         # # 【关键修复】确保所有技术指标和时序特征都是数值类型，防止产生 object 数组
         # for col in self.attr + self.temporal_feature:
@@ -164,14 +160,14 @@ class Stock_Data():
         for col in original_attr_list:
             if col not in df.columns:
                 print(f"Warning: Technical indicator column '{col}' not found in data. Filling with zeros.")
-                sys.exit(1)#df[col] = 0.0  # 补全缺失列，解决维度不匹配的根本原因
+                sys.exit(1)#df[col] = 0.0  # 缺失列
         
         self.attr = original_attr_list
         print(f"Attributes used (aligned to config): {self.attr}")
 
-        # 【关键修复】填充所有 NaN 为 0，防止全 NaN 列导致训练崩溃
-        df[self.attr] = df[self.attr].fillna(0)
-        df[self.temporal_feature] = df[self.temporal_feature].fillna(0)
+        # 【关键修复】统一逻辑：填充所有 NaN 为 0，作为最后一道防线
+        #df[self.attr] = df[self.attr].fillna(0)
+        #df[self.temporal_feature] = df[self.temporal_feature].fillna(0)
 
         # 处理技术指标中的无穷值
         df[self.attr] = df[self.attr].replace([np.inf], config.INF)

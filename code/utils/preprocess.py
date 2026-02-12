@@ -101,8 +101,10 @@ class FeatureEngineer:
             df = self.add_user_defined_feature(df)
             print("Successfully added user defined features")
 
-        # fill the missing values at the beginning and the end
-        df = df.ffill().bfill()
+        # fill the missing values: linear interpolation -> extrapolation -> zero
+        # 仅对数值列进行操作，避免 object 类型（如 date, tic）导致报错
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].interpolate(method='linear', limit_direction='both').ffill().bfill().fillna(0)
         return df
 
     def clean_data(self, data):
@@ -124,10 +126,8 @@ class FeatureEngineer:
         # 只对数值型列进行插值
         numeric_cols = merged_closes.select_dtypes(include=[np.number]).columns
         if len(numeric_cols) > 0:
-            # 对nan值做线性插值处理，而不是直接删除
-            merged_closes[numeric_cols] = merged_closes[numeric_cols].interpolate(method='linear', axis=0)  # 沿时间轴插值
-            # 填充剩余的NaN值（首行或末行可能无法插值）
-            merged_closes[numeric_cols] = merged_closes[numeric_cols].ffill().bfill()#ffill()（前向填充）和bfill()（后向填充）
+            # 统一逻辑：线性插值 -> 外推 -> 赋零
+            merged_closes[numeric_cols] = merged_closes[numeric_cols].interpolate(method='linear', axis=0, limit_direction='both').ffill().bfill().fillna(0)
 
         #merged_closes = merged_closes.dropna(axis=1)
 
@@ -155,11 +155,18 @@ class FeatureEngineer:
                         stock[indicator + '_' + str(s)] = stock[indicator].shift(s)
                 except Exception:
                     if indicator not in stock.columns:
-                        stock[indicator] = 0.0
-                        for s in range(1, 3):
-                            stock[indicator + '_' + str(s)] = 0.0
+                        # 采用统一逻辑的回退方案：赋 NaN 后进行插值/外推/补零
+                        stock[indicator] = np.nan
             
+            # 对单个股票的技术指标进行填充
             res_df = pd.DataFrame(stock)
+            # 强制转换为数值类型，确保插值不会报错
+            cols_to_fill = [c for c in res_df.columns if c not in ['date', 'tic']]
+            for col in cols_to_fill:
+                res_df[col] = pd.to_numeric(res_df[col], errors='coerce')
+            
+            res_df[cols_to_fill] = res_df[cols_to_fill].interpolate(method='linear', limit_direction='both').ffill().bfill().fillna(0)
+
             if 'date' not in res_df.columns and res_df.index.name == 'date':
                 res_df = res_df.reset_index()
             if 'tic' not in res_df.columns:
@@ -187,13 +194,18 @@ class FeatureEngineer:
                 try:
                     _ = stock[indicator]
                 except Exception as e:
-                    # 如果计算失败（如除零错误），确保列名存在并填充为0
+                    # 如果计算失败，确保列名存在以便后续统一填充
                     if indicator not in stock.columns:
-                        stock[indicator] = 0.0
+                        stock[indicator] = np.nan
             
             res_df = pd.DataFrame(stock)
-            if 'cci_30' not in res_df.columns:
-                print(f"Warning: cci_30 missing for {tic} after calculation. Columns: {res_df.columns.tolist()}")
+            # 统一逻辑：线性插值 -> 外推 -> 赋零
+            cols_to_fill = [c for c in res_df.columns if c not in ['date', 'tic']]
+            for col in cols_to_fill:
+                res_df[col] = pd.to_numeric(res_df[col], errors='coerce')
+                
+            res_df[cols_to_fill] = res_df[cols_to_fill].interpolate(method='linear', limit_direction='both').ffill().bfill().fillna(0)
+
             if 'date' not in res_df.columns and res_df.index.name == 'date':
                 res_df = res_df.reset_index()
             if 'tic' not in res_df.columns:
