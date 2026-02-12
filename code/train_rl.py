@@ -17,9 +17,9 @@ if __name__ == '__main__':
     model_name = config.model_name
 
     working_path = os.path.dirname(os.path.abspath(__file__))
-    short_prediction_model_path = working_path + '/Transformer/pretrained/csi/Short/checkpoint.pth'
-    long_prediction_model_path =  working_path + '/Transformer/pretrained/csi/Long/checkpoint.pth'
-    mae_model_path = working_path + '/Transformer/pretrained/csi/mae/checkpoint.pth'
+    short_prediction_model_path = working_path + '/../trained_models/'+version_name+'/Short/checkpoint.pth'
+    long_prediction_model_path =  working_path + '/../trained_models/'+version_name+'/Long/checkpoint.pth'
+    mae_model_path = working_path + '/../trained_models/'+version_name+'/mae/checkpoint.pth'
     full_stock_dir = os.path.join('data', version_name)
     ticker_list = config.use_ticker_dict[version_name]
     prediction_len = [1,5]

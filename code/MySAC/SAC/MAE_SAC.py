@@ -186,10 +186,18 @@ class SAC(SAC_SB3):
 
         if transformer_path is not None:
             state_dict = th.load(transformer_path, map_location=transformer_device)
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                name = k[7:]
-                new_state_dict[name] = v
+            
+            # 检查是否为DataParallel保存的模型（键名带有"module."前缀）
+            if any(k.startswith('module.') for k in state_dict.keys()):
+                # 移除"module."前缀
+                new_state_dict = OrderedDict()
+                for k, v in state_dict.items():
+                    name = k[7:]  # 移除"module."前缀
+                    new_state_dict[name] = v
+            else:
+                # 如果没有"module."前缀，则直接使用原始state_dict
+                new_state_dict = state_dict
+            
             self.state_transformer.load_state_dict(new_state_dict)
             print("Successfully load pretrained model...", transformer_path)
         else:
