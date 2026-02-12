@@ -60,6 +60,13 @@ class Stock_Data():
             temp_df['label_long_term'] = temp_df['close'].pct_change(periods=self.prediction_len[1]).shift(periods=(-1*self.prediction_len[1]))
             temp_df['tic'] = ticket
             
+            # 【核心新增】检查每只股票的原始数据列是否全空
+            raw_cols_to_check = ['open', 'close', 'high', 'low', 'volume']
+            for col in raw_cols_to_check:
+                if temp_df[col].isna().all():
+                    print(f"Error: Column '{col}' for ticker '{ticket}' is entirely empty in CSV. Program exiting.")
+                    sys.exit(1)
+
             df = pd.concat((df, temp_df))
             successful_tickers.append(ticket)
         df = df.sort_values(by=['date','tic'])
@@ -95,6 +102,14 @@ class Stock_Data():
         # 3. 重新索引 df
         df = df.set_index(['date', 'tic']).reindex(full_index).reset_index()
         
+        # 【核心新增】在补全前检查是否存在全空列
+        fill_cols = [col for col in df.columns if col not in ['date', 'tic']]
+        for tic, tic_df in df.groupby('tic'):
+            for col in fill_cols:
+                if tic_df[col].isna().all():
+                    print(f"Error: Column '{col}' for ticker '{tic}' is entirely empty after alignment but before filling. Program exiting.")
+                    sys.exit(1)
+
         # 4. 填充缺失值
         # 统一逻辑：线性插值 -> 外推 -> 赋零
         fill_cols = [col for col in df.columns if col not in ['date', 'tic']]

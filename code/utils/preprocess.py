@@ -1,5 +1,5 @@
 import datetime
-
+import sys
 import numpy as np
 import pandas as pd
 from utils.yahoodownloader import YahooDownloader
@@ -123,6 +123,12 @@ class FeatureEngineer:
         # 确保数据是数值类型后再进行插值
         merged_closes = merged_closes.apply(pd.to_numeric, errors='coerce')
 
+        # 【核心新增】检查补全前是否存在全空列
+        for col in merged_closes.columns:
+            if merged_closes[col].isna().all():
+                print(f"Error: Column '{col}' is entirely empty (all NaN) before completion. Please check your data source.")
+                sys.exit(1)
+
         # 只对数值型列进行插值
         numeric_cols = merged_closes.select_dtypes(include=[np.number]).columns
         if len(numeric_cols) > 0:
@@ -194,11 +200,33 @@ class FeatureEngineer:
                 try:
                     _ = stock[indicator]
                 except Exception as e:
-                    # 如果计算失败，确保列名存在以便后续统一填充
-                    if indicator not in stock.columns:
-                        stock[indicator] = np.nan
+                    if 'division by zero' in str(e).lower() and indicator.startswith('cci'):
+                        # 手动分步计算 CCI 以处理局部除零问题
+                        try:
+                            # CCI = (Typical Price - 30-period SMA of TP) / (.015 * Mean Deviation)
+                            tp = (tic_df['high'] + tic_df['low'] + tic_df['close']) / 3
+                            tp_sma = tp.rolling(window=30).mean()
+                            tp_mad = tp.rolling(window=30).apply(lambda x: np.abs(x - x.mean()).mean(), raw=False)
+                            # 只有在 mad 不为 0 时才进行除法，否则填 0
+                            stock[indicator] = (tp - tp_sma) / (0.015 * tp_mad.replace(0, np.inf))
+                            stock[indicator] = stock[indicator].replace([np.inf, -np.inf], 0).fillna(0)
+                        except Exception as inner_e:
+                            print(f"Manual calculation also failed for {indicator} on {tic}: {inner_e}")
+                            if indicator not in stock.columns:
+                                stock[indicator] = np.nan
+                    else:
+                        print(f"Error calculating {indicator} for {tic}: {e}")
+                        if indicator not in stock.columns:
+                            stock[indicator] = np.nan
             
             res_df = pd.DataFrame(stock)
+            # 【核心新增】检查计算后是否存在全空列
+            cols_to_check = [c for c in res_df.columns if c not in ['date', 'tic']]
+            for col in cols_to_check:
+                if res_df[col].isna().all():
+                    print(f"Error: Technical indicator column '{col}' for ticker '{tic}' is entirely empty. Calculation failed and no data available.")
+                    sys.exit(1)
+
             # 统一逻辑：线性插值 -> 外推 -> 赋零
             cols_to_fill = [c for c in res_df.columns if c not in ['date', 'tic']]
             for col in cols_to_fill:
