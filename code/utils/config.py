@@ -165,7 +165,7 @@ TRANSFORMER_PARAMS_DEFAULT = {
     "rank_alpha": 0.1,                            # weight of rank loss - adjust
     "itr": 2,                                     # each params run iteration
     "train_epochs": 3,                            # train epochs
-    "batch_size": 32,                             # input data batch size
+    "batch_size": 64,                             # input data batch size
     "patience": 3,                                # early stopping patience
     "learning_rate": 0.0001,                      # optimizer learning rate
     "adjust_interval": 1,                         # lr adjust interval
@@ -186,7 +186,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "exp_type": "pred",
     "train_epochs": 3,
     "itr": 1,
-    "batch_size": 32,
+    "batch_size": 64,
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
@@ -215,7 +215,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
     "exp_type": "pred",
     "train_epochs": 3,
     "itr": 1,
-    "batch_size": 32,
+    "batch_size": 64,
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,

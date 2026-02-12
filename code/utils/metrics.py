@@ -25,10 +25,22 @@ def RMSE(pred, true):
     return np.sqrt(MSE(pred, true))
 
 def MAPE(pred, true):
-    return np.mean(np.abs((pred - true) / true))
+    # 避免除零错误
+    mask = np.abs(true) < 1e-8  # 创建掩码，标记接近0的值
+    numerator = np.abs(pred - true)
+    denominator = np.abs(true)
+    # 将接近0的值替换为一个小的常数，避免除零
+    denominator = np.where(mask, 1.0, denominator)
+    return np.mean(np.where(mask, numerator, numerator / denominator))
 
 def MSPE(pred, true):
-    return np.mean(np.square((pred - true) / true))
+    # 避免除零错误
+    mask = np.abs(true) < 1e-8  # 创建掩码，标记接近0的值
+    numerator = np.square(pred - true)
+    denominator = np.square(np.abs(true))
+    # 将接近0的值替换为一个小的常数，避免除零
+    denominator = np.where(mask, 1.0, denominator)
+    return np.mean(np.where(mask, numerator, numerator / denominator))
 
 def metric(pred, true):
     mae = MAE(pred, true)
