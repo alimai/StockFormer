@@ -126,17 +126,15 @@ MAESAC_PARAMS = {
 # Transformer Default Parameters
 TRANSFORMER_PARAMS_DEFAULT = {
     # Model and experiment settings
-    "model": "Transformer",                        # model of the experiment
+    "model": "Transformer",                       # model of the experiment
     "project_name": "baseline",                   # name of the experiment
+    "exp_type": "mae",                            # [mae|pred]
+
 
     # Data settings
-    "data_name": version_name,                           #
-    "data_type": "stock",                         # stock
-    "root_path": "data/",                         # root path of the data file
-    "full_stock_path": version_name+"/",                    # root path of the data file
-
-    # Experiment type
-    "exp_type": "pred",                           # [mae|pred]
+    "data_name": version_name,                    #
+    "data_type": "stock",                         # stock|crypto
+    "full_stock_path": "data/"+version_name+"/",  # root path of the data file
 
     # Sequence lengths
     "seq_len": 60,                                # input series length
@@ -144,14 +142,14 @@ TRANSFORMER_PARAMS_DEFAULT = {
     "pred_len": 1,                                # predict series length
 
     # Model dimensions
-    "enc_in": ENCODER_INPUT_SIZE,                                 # encoder input size: cov+technical indicators
-    "dec_in": ENCODER_INPUT_SIZE,                                 # decoder input size
-    "c_out": ENCODER_INPUT_SIZE,                                  # output size[96|1](pred|mae)
+    "enc_in": 96,                                 # encoder input size: cov+technical indicators
+    "dec_in": 96,                                 # decoder input size
+    "c_out": 96,                                  # output size[96|1](pred|mae)
 
     # Prediction settings
+    "pred_type": "label_long_term",               # [label_long_term|label_short_term]
     "short_term_len": 1,                          # short term prediction len
     "long_term_len": 5,                           # long term prediction len
-    "pred_type": "label_long_term",               # [label_long_term|label_short_term]
     "d_model": 128,                               # dimension of model
     "n_heads": 4,                                 # num of heads
     "e_layers": 2,                                # num of encoder layers
@@ -184,7 +182,7 @@ TRANSFORMER_PARAMS_DEFAULT = {
 TRANSFORMER_PARAMS_PRED_SHORT = {
     "project_name": "transformer_CSI_predShort",
     "exp_type": "pred",
-    "train_epochs": 3,
+    "train_epochs": 5,
     "itr": 1,
     "batch_size": 64,
     "seq_len": 60,
@@ -213,7 +211,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
 TRANSFORMER_PARAMS_PRED_LONG = {
     "project_name": "transformer_CSI_predLong",
     "exp_type": "pred",
-    "train_epochs": 3,
+    "train_epochs": 5,
     "itr": 1,
     "batch_size": 64,
     "seq_len": 60,
@@ -242,7 +240,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
 TRANSFORMER_PARAMS_MAE = {
     "project_name": "transformer_CSI_mae",
     "exp_type": "mae",
-    "train_epochs": 3,
+    "train_epochs": 10,
     "itr": 1,
     "enc_in": ENCODER_INPUT_SIZE,#编码器输入维度（股票数88+技术指标数8）
     "dec_in": ENCODER_INPUT_SIZE,#解码器输入维度（股票数88+技术指标数8）

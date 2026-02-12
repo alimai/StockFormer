@@ -69,10 +69,8 @@ if __name__ == '__main__':
     data_type_dict = {'stock': Stock_Data}
     Exp = exp_dict[args.exp_type]
     data =  data_type_dict[args.data_type](
-            root_path=args.root_path,
-            dataset_name=args.data_name,
             full_stock_path=args.full_stock_path,
-            size=[args.seq_len, args.label_len, args.pred_len],
+            temporal_len=args.seq_len,
             prediction_len=[args.short_term_len, args.long_term_len]
             )
 

@@ -200,7 +200,7 @@ class Exp_mae(Exp_Basic):
             for name, value in all_logs.items():
                 self.writer.add_scalar(name, value.mean(), global_step=epoch)
 
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Valid Loss: {3:.7f} Test Loss: {3:.7f}".format(
+            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Valid Loss: {3:.7f} Test Loss: {4:.7f}".format(
                 epoch + 1, train_steps, train_loss, valid_loss, test_loss))
             
             torch.save(self.model.state_dict(), path+'/'+'checkpoint_{0}.pth'.format(epoch+1))
