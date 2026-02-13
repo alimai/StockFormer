@@ -28,9 +28,11 @@ def main():
     print(f"准备下载 {len(ticker_list)} 只股票的数据...")
     print(f"时间范围: {start_date} 至 {end_date}")
 
-    # 初始化计数器
+    # 初始化计数器和记录列表
     success_count = 0
     failure_count = 0
+    failed_tickers = []  # 记录下载失败的股票代码
+    success_data_info = {}  # 记录成功下载的股票数据信息 {'ticker': {'length': int, 'start_date': str, 'end_date': str}}
 
     for tic in ticker_list:
         try:
@@ -42,6 +44,7 @@ def main():
             if df is None or df.empty:
                 print(f"警告: 无法获取 {tic} 的数据，跳过。")
                 failure_count += 1
+                failed_tickers.append(tic)
                 continue
 
             # 3. 计算模型所需的额外列 (保持与 data/CSI 老文件格式一致)
@@ -67,15 +70,53 @@ def main():
             output_path = os.path.join(target_dir, f"{tic}.csv")
             # index=True 会生成第一列无名索引，匹配老文件格式
             df_final.to_csv(output_path, index=True)
-            
+
+            # 记录成功下载的股票数据信息
+            if not df_final.empty:
+                date_col = df_final['date']
+                success_data_info[tic] = {
+                    'length': len(df_final),
+                    'start_date': date_col.min(),
+                    'end_date': date_col.max()
+                }
+
             success_count += 1
 
         except Exception as e:
             print(f"处理 {tic} 时出错: {str(e)}")
             failure_count += 1
-    
+            failed_tickers.append(tic)
+
     # 输出统计结果
     print(f"\n下载完成！成功: {success_count} 只股票，失败: {failure_count} 只股票")
+
+    # 输出下载异常股票代码列表
+    if failed_tickers:
+        print(f"\n下载异常股票代码列表 ({len(failed_tickers)} 只):")
+        for i, ticker in enumerate(failed_tickers, 1):
+            print(f"  {i}. {ticker}")
+    else:
+        print("\n所有股票均下载成功！")
+
+    # 输出正常下载的股票数据中日期数目最长和最短的股票代码和起止日期
+    if success_data_info:
+        # 找到日期数目最短和最长的股票
+        shortest_ticker = min(success_data_info, key=lambda k: success_data_info[k]['length'])
+        longest_ticker = max(success_data_info, key=lambda k: success_data_info[k]['length'])
+        shortest_info = success_data_info[shortest_ticker]
+        longest_info = success_data_info[longest_ticker]
+        
+        print(f"\n日期数目最短的股票: {shortest_ticker}")
+        print(f"  日期数目: {shortest_info['length']}")
+        print(f"  起始日期: {shortest_info['start_date']}")
+        print(f"  结束日期: {shortest_info['end_date']}")
+        
+        print(f"\n日期数目最长的股票: {longest_ticker}")
+        print(f"  日期数目: {longest_info['length']}")
+        print(f"  起始日期: {longest_info['start_date']}")
+        print(f"  结束日期: {longest_info['end_date']}")
+    else:
+        print("\n没有成功下载任何股票数据。")
 
 if __name__ == "__main__":
     main()

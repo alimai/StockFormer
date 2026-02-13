@@ -17,7 +17,7 @@ TRAINED_MODEL_DIR = "trained_models"
 TENSORBOARD_LOG_DIR = "log"
 RESULTS_DIR = "results"
 
-START_DATE = "2000-01-01"
+START_DATE = "2010-01-01"
 END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
 
 USE_TICKET = os.listdir('data/'+ version_name)
@@ -27,7 +27,7 @@ if len(USE_CSI_300_TICKET) > 88:#如果大于88，取前88个
 
 #`train`, `valid`, `test` 三个阶段
 #CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
-CSI_date_trans = ['20100930', '20220415', '20220630', '20250331',  '20220630', '20251231']
+CSI_date_trans = ['20110419', '20220415', '20220630', '20250331',  '20220630', '20251231']
 
 step_len = 800  # 每个Episode的时间步长度
 stride = int(step_len * 0.6) # 滑动窗口步长,<step_len，确保相邻Episode之间有数据重叠
@@ -157,7 +157,7 @@ TRANSFORMER_PARAMS_DEFAULT = {
     # Training settings
     "dropout": 0.05,                              # dropout
     "activation": "gelu",                         # activation
-    "num_workers": 10,                            # data loader num workers
+    "num_workers": 10,                             # data loader num workers
     "rank_alpha": 0.1,                            # weight of rank loss - adjust
     "itr": 2,                                     # each params run iteration
     "train_epochs": 3,                            # train epochs
@@ -198,7 +198,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "rank_alpha": 1.0,
     "learning_rate": 0.0001,
     "adjust_interval": 10,
-    "num_workers": 10,
+    "num_workers": 0,
     "devices": 0,
     "short_term_len": 1,
     "long_term_len": 5,
@@ -227,7 +227,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
     "rank_alpha": 0.5,
     "learning_rate": 0.0001,
     "adjust_interval": 10,
-    "num_workers": 10,
+    "num_workers": 0,
     "devices": 0,
     "short_term_len": 1,
     "long_term_len": 5,
@@ -251,7 +251,7 @@ TRANSFORMER_PARAMS_MAE = {
     "dropout": 0.05,
     "learning_rate": 0.0001,
     "adjust_interval": 10,
-    "num_workers": 10,
+    "num_workers": 0,
     "devices": 0,
     "short_term_len": 1,
     "long_term_len": 5,
