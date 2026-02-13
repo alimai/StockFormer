@@ -159,6 +159,7 @@ class SAC(SAC_SB3):
             target_update_interval=target_update_interval,
             target_entropy=target_entropy,
             ent_coef=ent_coef,
+            _init_setup_model=False,
         )
 
         self.target_entropy = target_entropy

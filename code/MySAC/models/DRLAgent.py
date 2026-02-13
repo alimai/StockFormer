@@ -101,7 +101,7 @@ class CombinedCallback(BaseCallback):
                 mean_reward = np.mean(y[-10:])
                 if self.verbose > 0:
                     print(f"Num timesteps: {self.num_timesteps}")
-                    print(f"Best mean reward: {self.best_mean_reward:.2f} - new mean reward per episode: {mean_reward:.2f}")
+                    print(f"Best mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
 
                 # New best model, you could save the agent here
                 if mean_reward > self.best_mean_reward:
@@ -310,10 +310,11 @@ class DRLAgent:
             raise NotImplementedError("NotImplementedError")
         try:
             # load agent
-            model = MODELS[model_name].load(cwd)
+            model = MODELS[model_name].load(cwd, env=test_env)
             print("Successfully load model", cwd)
-        except BaseException:
-            raise ValueError("Fail to load agent!")
+        except Exception as e:
+            print(f"Error loading agent from {cwd}: {e}")
+            raise e
 
         # test on the testing env
         state = test_env.reset()
