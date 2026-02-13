@@ -4,6 +4,7 @@ from datetime import datetime
 
 fix_seed = 2022
 INF = 1100
+SCALE_A = 1.2
 
 # 检测GPU可用性并决定使用GPU还是CPU
 if torch.cuda.is_available():
@@ -182,7 +183,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "exp_type": "pred",
     "train_epochs": 5,
     "itr": 1,
-    "batch_size": 32,
+    "batch_size": 64,
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
@@ -198,7 +199,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "rank_alpha": 1.0,
     "learning_rate": 0.0001,
     "adjust_interval": 10,
-    "num_workers": 0,
+    "num_workers": 10,
     "devices": 0,
     "short_term_len": 1,
     "long_term_len": 5,
@@ -211,7 +212,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
     "exp_type": "pred",
     "train_epochs": 5,
     "itr": 1,
-    "batch_size": 32,
+    "batch_size": 64,
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
@@ -227,7 +228,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
     "rank_alpha": 0.5,
     "learning_rate": 0.0001,
     "adjust_interval": 10,
-    "num_workers": 0,
+    "num_workers": 10,
     "devices": 0,
     "short_term_len": 1,
     "long_term_len": 5,
