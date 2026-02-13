@@ -84,7 +84,7 @@ MAESAC_PARAMS = {
     "buffer_size": 50000,
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 1000,
-    "ent_coef": 0.001,#"auto_0.001",#key--同时影响actor_loss/critic_loss
+    "ent_coef": "auto_0.1",#0.001,#key--同时影响actor_loss/critic_loss
     "enc_in": ENCODER_INPUT_SIZE,#MAE编码器的输入维度#股票数88+技术指标数8
     "dec_in": ENCODER_INPUT_SIZE,#MAE解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE模型的输出维度（只用来评估重建损失）
@@ -183,7 +183,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "exp_type": "pred",
     "train_epochs": 5,
     "itr": 1,
-    "batch_size": 64,
+    "batch_size": 32,
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
@@ -212,7 +212,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
     "exp_type": "pred",
     "train_epochs": 5,
     "itr": 1,
-    "batch_size": 64,
+    "batch_size": 32,
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
@@ -252,7 +252,7 @@ TRANSFORMER_PARAMS_MAE = {
     "dropout": 0.05,
     "learning_rate": 0.0001,
     "adjust_interval": 10,
-    "num_workers": 0,
+    "num_workers": 10,
     "devices": 0,
     "short_term_len": 1,
     "long_term_len": 5,

@@ -73,7 +73,7 @@ if __name__ == '__main__':
         "figure_path":os.path.join(config.RESULTS_DIR, 'figures', version_name, model_name),
         "csv_path": os.path.join(config.RESULTS_DIR, 'csv', version_name, model_name),
         "mode":'train',
-        "time_window_start":[i for i in range(60, train_length - config.step_len, config.stride)],
+        "time_window_start":[i for i in range(60, train_length - config.stride, config.stride)],
         "step_len": config.step_len,
         "temporal_len": 60,
         "hidden_channel":128,
