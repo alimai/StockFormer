@@ -43,6 +43,11 @@ if __name__ == '__main__':
     train = data_manager.get_split_df('train')
     eval = data_manager.get_split_df('valid')
     test = data_manager.get_split_df('test')
+
+    train_data = data_manager.get_split_data('train')
+    eval_data = data_manager.get_split_data('valid')
+    test_data = data_manager.get_split_data('test')
+
     # 输出数据范围和维度信息，便于调试和验证
     print(f"Train Date Range: {train['date'].min().date()} - {train['date'].max().date()}")
     print(f"Validation Date Range: {eval['date'].min().date()} - {eval['date'].max().date()}")
@@ -99,13 +104,13 @@ if __name__ == '__main__':
     if train_mode:
         env_name = "train"
         env_kwargs["mode"] = env_name
-        train_trade_gym = Env(df = train, **env_kwargs)
+        train_trade_gym = Env(df = train, data_all = train_data, **env_kwargs)
         env_train, _ = train_trade_gym.get_sb_env()
 
         env_name = "eval"
         env_kwargs["mode"] = env_name
         env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
-        eval_trade_gym = Env(df = eval, **env_kwargs)
+        eval_trade_gym = Env(df = eval, data_all = eval_data, **env_kwargs)
         env_eval, _ = eval_trade_gym.get_sb_env()
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
@@ -156,7 +161,7 @@ if __name__ == '__main__':
     env_name = "test"
     env_kwargs["mode"] = env_name
     env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
-    test_trade_gym = Env(df = test, **env_kwargs)
+    test_trade_gym = Env(df = test, data_all = test_data, **env_kwargs)
     env_test, _ = test_trade_gym.get_sb_env()
     # 测试阶段：使用原始环境
     start = time.time()

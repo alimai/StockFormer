@@ -50,6 +50,7 @@ class StockTradingEnv(gym.Env):
         iteration="",
         device=None,
         print_additional_flag=0,
+        data_all=None, # 新增参数
     ):
         super().__init__()
         # start time
@@ -66,6 +67,7 @@ class StockTradingEnv(gym.Env):
         os.makedirs(csv_path, exist_ok=True)
 
         self.df = df
+        self.data_all = data_all # 保存全量数据矩阵
         self.stock_dim = stock_dim
         self.initial_amount = initial_amount
         self.hmax = hmax
@@ -91,7 +93,7 @@ class StockTradingEnv(gym.Env):
         print("observation_space shape: ",self.observation_space.shape)
         print("hidden_state_space shape: ",self.hidden_state_space.shape)
 
-        self.data = self.df.loc[self.day, :]
+        self.data = self.data_all[self.day] # 使用 numpy 索引
         self.tic = self.df.tic.unique()
         self.terminal = False
         self.make_plots = make_plots
@@ -221,9 +223,8 @@ class StockTradingEnv(gym.Env):
         if future_day > max_day:
             future_day = max_day
 
-        # 获取未来第N天的价格数据
-        future_data = self.df.loc[future_day, :]
-        future_prices = future_data.price.values.tolist()
+        # 使用高效索引获取价格
+        future_prices = self.df.loc[future_day, 'price'].values.tolist()
 
         return future_prices
 
@@ -232,7 +233,7 @@ class StockTradingEnv(gym.Env):
         if self.mode == 'train':
             self.terminal = (self.day - self.start_day) >= self.step_len + 1
         if not self.terminal:
-            self.terminal = self.day >= self.df.index.unique().max()#len(self.df.index.unique()) - 1
+            self.terminal = self.day >= self.df.index.unique().max()
 
         if self.terminal:
             self.end_total_asset = self.env_info[0] + sum(
@@ -243,9 +244,8 @@ class StockTradingEnv(gym.Env):
             tot_reward_ratio = tot_reward/(self.initial_amount*1.0)
 
             # 计算所有股票持仓数为1时，从start_day到当前day的市值增长系数
-            start_day_data = self.df.loc[self.start_day, :]
-            start_day_prices = start_day_data.price.values  # start_day时所有股票价格
-            current_day_prices = self.data.price.values     # 当前day所有股票价格
+            start_day_prices = self.df.loc[self.start_day, 'price'].values
+            current_day_prices = self.df.loc[self.day, 'price'].values
             start_market_value = np.sum(start_day_prices)   # 持仓数为1的起始市值
             current_market_value = np.sum(current_day_prices)  # 持仓数为1的当前市值
             market_value_growth_ratio = current_market_value / start_market_value - 1.0  # 市值增长系数
@@ -387,7 +387,7 @@ class StockTradingEnv(gym.Env):
 
             # state: s -> s+1 #更新日期和价格信息
             self.day += 1
-            self.data = self.df.loc[self.day, :]#更新日期
+            self.data = self.data_all[self.day] # 使用 numpy 索引
             self.env_info = self._update_info()#更新价格信息
             self.state = self._update_state()
 
@@ -412,7 +412,7 @@ class StockTradingEnv(gym.Env):
 
 
         self.day = self.start_day
-        self.data = self.df.loc[self.day, :]
+        self.data = self.data_all[self.day] # 使用 numpy 索引
         # self.covs = self.data['cov_list'].values[0]
 
         # 标准初始化
@@ -442,60 +442,59 @@ class StockTradingEnv(gym.Env):
         return self.state
 
     def _initiate_info(self):
-        # if len(self.df.tic.unique()) > 1:
+        # 使用 Pandas 高效获取当天所有股票价格
+        prices = self.df.loc[self.day, 'price'].values.tolist()
         info = (
                     [self.initial_amount]
-                    + self.data.price.values.tolist()
+                    + prices
                     + [0] * self.stock_dim
             )
         return info
 
     def _initial_state(self):
-        covs = np.array(self.data['cov_list'].values[0]) # (stock_dim, stock_dim)
-        technical_indicators = np.array(self.data[self.tech_indicator_list].values.tolist()) # (stock_dim, len(technical_list))
-
-        # 注释掉原始的hidden feature生成部分，用伪数据代替
-        # temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
-        # temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes=bs, days, feature_list_len)
-        # enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
-        # dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
-
-        # _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
-        # _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
-
+        # 提取协方差矩阵 (前 stock_dim 列)
+        covs = self.data[:, :self.stock_dim]
+        
+        # 提取技术指标
+        tech_start = self.stock_dim
+        tech_end = tech_start + len(self.tech_indicator_list)
+        technical_indicators = self.data[:, tech_start:tech_end]
 
         # 生成伪hidden feature数据
-        hidden_feature_dim = self.hidden_channel  # 假设hidden_channel是隐藏特征维度
+        hidden_feature_dim = self.hidden_channel
         hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
         hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
 
         self.short_hidden_feature.append(hidden_np1)
         self.long_hidden_feature.append(hidden_np2)
 
-        # Extract normalized date features
-        # self.data contains all stocks for the current day, so we can reshape the columns directly
-        month_day_feature = self.data['month_day'].values.reshape(self.stock_dim, 1)
-        weekday_feature = self.data['weekday'].values.reshape(self.stock_dim, 1)
+        # 提取日期特征 (最后两列)
+        date_features = self.data[:, -2:]
 
-        # pdb.set_trace()
-        #holding_amount = np.zeros((self.stock_dim,1), dtype=int)
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature, month_day_feature), axis=-1)
-        # print("Initial: ",state.shape)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         return state
 
 
     def _update_info(self):
-            # for multiple stock
+        prices = self.df.loc[self.day, 'price'].values.tolist()
         info = (
                 [self.env_info[0]]
-                + self.data.price.values.tolist()
+                + prices
                 + list(self.env_info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
             )
         return info
 
     def _update_state(self):
-        covs = np.array(self.data['cov_list'].values[0]) # (stock_dim, stock_dim)
-        technical_indicators = np.array(self.data[self.tech_indicator_list].values.tolist()) # (stock_dim, len(technical_list))
+        covs = self.data[:, :self.stock_dim]
+        
+        tech_start = self.stock_dim
+        tech_end = tech_start + len(self.tech_indicator_list)
+        technical_indicators = self.data[:, tech_start:tech_end]
+
+        # 生成伪hidden feature数据
+        hidden_feature_dim = self.hidden_channel
+        hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
 
         # 注释掉原始的hidden feature生成部分，用伪数据代替
         # temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
@@ -522,23 +521,18 @@ class StockTradingEnv(gym.Env):
         self.short_hidden_feature.append(hidden_np1)
         self.long_hidden_feature.append(hidden_np2)
 
-        # Extract normalized date features
-        month_day_feature = self.data['month_day'].values.reshape(self.stock_dim, 1)
-        weekday_feature = self.data['weekday'].values.reshape(self.stock_dim, 1)
+        # 提取日期特征 (最后两列)
+        date_features = self.data[:, -2:]
 
-        #holding_amount = np.array(self.env_info[-self.stock_dim : ]) # (stock_dim, 1)
-        #holding_amount_norm = ((holding_amount * np.array(self.env_info[1: 1+self.stock_dim]))/self.end_total_asset).reshape(self.stock_dim, 1)
-
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, weekday_feature, month_day_feature), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         # print("Update: ",state.shape)
         return state
 
     def _get_date(self):
-        if len(self.df.tic.unique()) > 1:
-            date = self.data.date.unique()[0]
-        else:
-            date = self.data.date
-        return date
+        # 由于 data_all 已经通过日期 factorize，我们可以通过索引从 df 获取日期
+        # 或者在 Stock_Data 中维护一个日期列表。
+        # 这里为了兼容，从 df 获取
+        return self.df.loc[self.day, 'date'].iloc[0]
 
     def save_asset_memory(self):
         date_list = self.date_memory
@@ -565,7 +559,7 @@ class StockTradingEnv(gym.Env):
 
         amount_list = self.amount_memory
         df_amount = pd.DataFrame(amount_list)
-        df_amount.columns = self.data.tic.values
+        df_amount.columns = self.tic
         return df_amount
 
 
@@ -578,7 +572,7 @@ class StockTradingEnv(gym.Env):
 
             action_list = self.actions_memory
             df_actions = pd.DataFrame(action_list)
-            df_actions.columns = self.data.tic.values
+            df_actions.columns = self.tic
             df_actions.index = df_date.date
             # df_actions = pd.DataFrame({'date':date_list,'actions':action_list})
         else:

@@ -173,12 +173,15 @@ class Stock_Data():
         data_tech = df[self.attr].values.reshape(num_days, stock_num, -1).astype(np.float32)
         data_temp = df[self.temporal_feature].values.reshape(num_days, stock_num, -1).astype(np.float32)
         
+        # 增加日期特征到 data_all
+        data_date = df[['month_day', 'weekday']].values.reshape(num_days, stock_num, -1).astype(np.float32)
+
         if self.exp_type == 'mae':
             cov_data = np.array(df['cov_list'].values.tolist()).reshape(num_days, stock_num, stock_num, stock_num)
-            self.data_all = np.concatenate((cov_data[:, 0, :, :].astype(np.float32), data_tech, data_temp), axis=-1)
+            self.data_all = np.concatenate((cov_data[:, 0, :, :].astype(np.float32), data_tech, data_temp, data_date), axis=-1)
             del cov_data
         else:
-            # 预转置布局：彻底解决内存拷贝导致的训练缓慢
+            # 预转置布局
             self.data_all = data_temp.transpose(1, 0, 2) 
 
         self.label_all = np.stack([
@@ -213,6 +216,12 @@ class Stock_Data():
         temp_df.index = temp_df.date.factorize()[0]
 
         return temp_df
+
+    def get_split_data(self, type_str):
+        if type_str not in self.type_map:
+            raise ValueError(f"Invalid type: {type_str}")
+        pos = self.type_map[type_str]
+        return self.data_all[self.boarder_start[pos] : self.boarder_end[pos]+1]
 
 class DatasetStock_PRED(Dataset):
     def __init__(self, stock: Stock_Data, type='train', feature=config.TEMPORAL_FEATURE, pred_type='label_short_term'):
