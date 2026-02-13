@@ -49,6 +49,14 @@ class Stock_Data():
             temp_df['label_short_term'] = temp_df['close'].pct_change(periods=self.prediction_len[0]).shift(-self.prediction_len[0])
             temp_df['label_long_term'] = temp_df['close'].pct_change(periods=self.prediction_len[1]).shift(-self.prediction_len[1])
             temp_df['tic'] = ticket
+
+            # 恢复安全检查：检查每只股票的原始数据列是否全空
+            raw_cols_to_check = ['open', 'close', 'high', 'low', 'volume']
+            for col in raw_cols_to_check:
+                if temp_df[col].isna().all():
+                    print(f"Error: Column '{col}' for ticker '{ticket}' is entirely empty in CSV. Program exiting.")
+                    sys.exit(1)
+
             df_list.append(temp_df)
             
         df = pd.concat(df_list, ignore_index=True)
@@ -64,13 +72,24 @@ class Stock_Data():
         df = df.set_index(['date', 'tic']).reindex(full_index).reset_index()
         df = df.sort_values(['date','tic'], ignore_index=True)
         
-        fill_cols = [c for c in df.columns if c not in ['date', 'tic']]
+        # 恢复安全检查：在补全前检查是否存在全空列
+        fill_cols = [col for col in df.columns if col not in ['date', 'tic']]
+        for tic, tic_df in df.groupby('tic'):
+            for col in fill_cols:
+                if tic_df[col].isna().all():
+                    print(f"Error: Column '{col}' for ticker '{tic}' is entirely empty after alignment but before filling. Program exiting.")
+                    sys.exit(1)
+
         df[fill_cols] = df.groupby('tic')[fill_cols].transform(lambda x: x.interpolate().ffill().bfill().fillna(0))
         df['date_str'] = df['date'].dt.strftime('%Y%m%d')
 
         # 恢复日期特征
         df['month_day'] = df['date'].dt.month + df['date'].dt.day / 100.0
         df['weekday'] = df['date'].dt.dayofweek
+
+        # 恢复：处理技术指标中的无穷大值，防止梯度爆炸
+        df[self.attr] = df[self.attr].replace([np.inf], config.INF)
+        df[self.attr] = df[self.attr].replace([-np.inf], config.INF * (-1))
 
         # 修改 1：按需生成协方差
         lookback = 252
@@ -92,12 +111,49 @@ class Stock_Data():
             print("Pred Mode: Skipping expensive covariance matrices...")
             df = df[df['date'] >= unique_date[lookback]]
 
-        # 标准化 (保留原始逻辑)
+        # 恢复精细化缩放逻辑
         if self.scale:
+            # 标准化只在训练集上 fit，避免测试集信息泄露
             scaler = MinMaxScaler()
-            df[self.attr] = scaler.fit_transform(df[self.attr].values)
-            for group in [config.NORMALIZED_TEMPORAL_FEATURE]:
-                df[group] = df[group] / (df[group].max().max() + 1e-8)
+            # 获取训练集的范围
+            train_mask = (df['date_str'] >= self.border_dates[0]) & (df['date_str'] <= self.border_dates[1])
+
+            # 1. 归一化技术指标 (Tech Indicators)
+            train_data_for_scaler = df.loc[train_mask, self.attr]
+            scaler.fit(train_data_for_scaler.values)
+            df[self.attr] = scaler.transform(df[self.attr].values)
+
+            # 2. 归一化时序特征 (Temporal Features) - 分组比例缩放
+            price_abs_cols = ['open', 'close', 'high', 'low']
+            price_diff_cols = ['dopen', 'dclose', 'dhigh', 'dlow']
+            vol_abs_cols = ['volume']
+            vol_diff_cols = ['dvolume']
+
+            # 筛选当前存在的列
+            valid_price_abs = [c for c in price_abs_cols if c in self.temporal_feature]
+            valid_price_diff = [c for c in price_diff_cols if c in self.temporal_feature]
+            valid_vol_abs = [c for c in vol_abs_cols if c in self.temporal_feature]
+            valid_vol_diff = [c for c in vol_diff_cols if c in self.temporal_feature]
+
+            # --- Group A: 价格组 (保持价格间比例) ---
+            if valid_price_abs:
+                train_price_vals = df.loc[train_mask, valid_price_abs].values.flatten()
+                max_price = np.max(train_price_vals) + 1e-8
+                df[valid_price_abs] = df[valid_price_abs] / max_price
+                if valid_price_diff:
+                    df[valid_price_diff] = df[valid_price_diff] / max_price
+
+            # --- Group B: 成交量组 (保持成交量比例) ---
+            if valid_vol_abs:
+                train_vol_vals = df.loc[train_mask, valid_vol_abs].values.flatten()
+                max_vol = np.max(train_vol_vals) + 1e-8
+                df[valid_vol_abs] = df[valid_vol_abs] / max_vol
+                if valid_vol_diff:
+                    df[valid_vol_diff] = df[valid_vol_diff] / max_vol
+
+            # --- Group C: 时间特征组 (恢复离散化逻辑) ---
+            df['month_day'] = (df['month_day'] / 2).astype(int) / 7.0
+            df['weekday'] = df['weekday'] / 7.0
 
         # 优化 2：预转置内存布局 (Stocks, Days, Feats)
         dates_final = df['date_str'].unique()
