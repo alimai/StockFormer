@@ -11,7 +11,7 @@ from utils.config import TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_
 import utils.tools as tools
 
 import time
-import pdb
+import gc
 import random
 import torch
 import numpy as np
@@ -30,10 +30,6 @@ class Args:
     
     def __repr__(self):
         return self.__str__()
-
-working_path = os.path.dirname(os.path.abspath(__file__))
-# 将当前目录添加到模块搜索路径
-# sys.path.insert(0, working_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Choose transformer parameters')
@@ -68,13 +64,16 @@ if __name__ == '__main__':
     exp_dict = {'pred': Exp_pred, 'mae': Exp_mae}
     data_type_dict = {'stock': Stock_Data}
     Exp = exp_dict[args.exp_type]
+    
+    print(f"Loading {args.exp_type} dataset...")
     data =  data_type_dict[args.data_type](
             full_stock_path=args.full_stock_path,
             temporal_len=args.seq_len,
-            prediction_len=[args.short_term_len, args.long_term_len]
+            prediction_len=[args.short_term_len, args.long_term_len],
+            exp_type=args.exp_type
             )
-
-    # pdb.set_trace()
+    
+    gc.collect()
 
     for ii in range(args.itr):
         id = tools.generate_id()

@@ -1,6 +1,6 @@
 from cgi import test
 from torch.utils.data.dataset import Dataset
-from utils.data.stock_data_handle import Stock_Data,DatasetStock,DatasetStock_MAE
+from utils.data.stock_data_handle import Stock_Data, DatasetStock_MAE
 from Transformer.exp.exp_basic import Exp_Basic
 from Transformer.models.transformer import Transformer_base as Transformer
 
@@ -142,6 +142,7 @@ class Exp_mae(Exp_Basic):
         valid_loss_global = np.inf
         best_model_index = -1
 
+        print(f"Starting training loop... ({train_steps} steps per epoch)")
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
