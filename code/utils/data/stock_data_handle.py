@@ -12,8 +12,9 @@ from utils.preprocess import FeatureEngineer
 from utils import config
 
 class Stock_Data():
-    def __init__(self, full_stock_path, temporal_len, attr = config.TECHNICAL_INDICATORS_LIST, temporal_feature = config.TEMPORAL_FEATURE, scale=True, prediction_len=[2,5], exp_type='mae'):
+    def __init__(self, full_stock_path, temporal_len, attr = config.TECHNICAL_INDICATORS_LIST, temporal_feature = config.TEMPORAL_FEATURE, scale=True, prediction_len=[2,5], exp_type='mae', a=1.2):
         self.scale = scale
+        self.a = a
         self.attr = attr
         self.temporal_feature = temporal_feature
         self.full_stock_dir = full_stock_path
@@ -117,10 +118,19 @@ class Stock_Data():
             scaler = MinMaxScaler()
             # 获取训练集的范围
             train_mask = (df['date_str'] >= self.border_dates[0]) & (df['date_str'] <= self.border_dates[1])
+            
+            # 修改：找到训练集中最新的 250 组日期进行 fit
+            train_dates = sorted(df.loc[train_mask, 'date'].unique())
+            fit_dates = train_dates[-min(len(train_dates), 250):]
+            fit_mask = df['date'].isin(fit_dates)
 
             # 1. 归一化技术指标 (Tech Indicators)
-            train_data_for_scaler = df.loc[train_mask, self.attr]
+            train_data_for_scaler = df.loc[fit_mask, self.attr]
             scaler.fit(train_data_for_scaler.values)
+            # 修改：将获取的最大值乘以系数 a
+            scaler.data_max_ *= self.a
+            scaler.scale_ = 1.0 / (scaler.data_max_ - scaler.data_min_ + 1e-8)
+            scaler.min_ = -scaler.data_min_ * scaler.scale_
             df[self.attr] = scaler.transform(df[self.attr].values)
 
             # 2. 归一化时序特征 (Temporal Features) - 分组比例缩放
@@ -137,16 +147,18 @@ class Stock_Data():
 
             # --- Group A: 价格组 (保持价格间比例) ---
             if valid_price_abs:
-                train_price_vals = df.loc[train_mask, valid_price_abs].values.flatten()
-                max_price = np.max(train_price_vals) + 1e-8
+                # 修改：使用 fit_mask 并乘以系数 a
+                train_price_vals = df.loc[fit_mask, valid_price_abs].values.flatten()
+                max_price = np.max(train_price_vals) * self.a + 1e-8
                 df[valid_price_abs] = df[valid_price_abs] / max_price
                 if valid_price_diff:
                     df[valid_price_diff] = df[valid_price_diff] / max_price
 
             # --- Group B: 成交量组 (保持成交量比例) ---
             if valid_vol_abs:
-                train_vol_vals = df.loc[train_mask, valid_vol_abs].values.flatten()
-                max_vol = np.max(train_vol_vals) + 1e-8
+                # 修改：使用 fit_mask 并乘以系数 a
+                train_vol_vals = df.loc[fit_mask, valid_vol_abs].values.flatten()
+                max_vol = np.max(train_vol_vals) * self.a + 1e-8
                 df[valid_vol_abs] = df[valid_vol_abs] / max_vol
                 if valid_vol_diff:
                     df[valid_vol_diff] = df[valid_vol_diff] / max_vol

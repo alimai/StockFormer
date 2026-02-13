@@ -5,7 +5,7 @@ from Transformer.exp.exp_pred import Exp_pred
 from Transformer.exp.exp_mae import Exp_mae
 
 from utils.data.stock_data_handle import Stock_Data
-from utils.config import fix_seed
+from utils.config import fix_seed, SCALE_A
 from utils.config import TRANSFORMER_PARAMS_DEFAULT
 from utils.config import TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
 import utils.tools as tools
@@ -70,7 +70,8 @@ if __name__ == '__main__':
             full_stock_path=args.full_stock_path,
             temporal_len=args.seq_len,
             prediction_len=[args.short_term_len, args.long_term_len],
-            exp_type=args.exp_type
+            exp_type=args.exp_type,
+            a=SCALE_A
             )
     
     gc.collect()

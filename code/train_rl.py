@@ -36,7 +36,8 @@ if __name__ == '__main__':
     data_manager = Stock_Data(
         full_stock_path=full_stock_dir, 
         temporal_len=60,
-        prediction_len=prediction_len
+        prediction_len=prediction_len,
+        a=config.SCALE_A
     )
 
     train = data_manager.get_split_df('train')
