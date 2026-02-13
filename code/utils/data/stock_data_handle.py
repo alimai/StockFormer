@@ -173,8 +173,8 @@ class Stock_Data():
         data_tech = df[self.attr].values.reshape(num_days, stock_num, -1).astype(np.float32)
         data_temp = df[self.temporal_feature].values.reshape(num_days, stock_num, -1).astype(np.float32)
         
-        # 增加日期特征到 data_all
-        data_date = df[['month_day', 'weekday']].values.reshape(num_days, stock_num, -1).astype(np.float32)
+        # 增加日期特征到 data_all，保持与 Env 原始顺序一致 [weekday, month_day]
+        data_date = df[['weekday', 'month_day']].values.reshape(num_days, stock_num, -1).astype(np.float32)
 
         if self.exp_type == 'mae':
             cov_data = np.array(df['cov_list'].values.tolist()).reshape(num_days, stock_num, stock_num, stock_num)
@@ -235,11 +235,14 @@ class DatasetStock_PRED(Dataset):
         
         label_idx = stock.pred_type_map[pred_type]
         self.label = stock.label_all[label_idx, self.start_pos : self.end_pos]
+        
+        # 修正切片位置：temporal 特征在倒数第 12 到 倒数第 2 位
+        self.feat_len = len(feature)
 
     def __getitem__(self, index):
         p = self.start_pos + index
-        # 预转置切片效率提升 10 倍以上
-        seq_x = self.data[:, p - self.seq_len + 1 : p + 1, :]
+        # 排除最后的 2 列日期特征，取 10 列时序特征
+        seq_x = self.data[:, p - self.seq_len + 1 : p + 1, -(self.feat_len + 2) : -2]
         return seq_x, seq_x[:, -1:, :], self.label[index, :]
 
     def __len__(self):
@@ -250,10 +253,11 @@ class DatasetStock_MAE(Dataset):
         super().__init__()
         pos = stock.type_map[type]
         self.data = stock.data_all[stock.boarder_start[pos] : stock.boarder_end[pos]+1]
-        self.feature_len = len(feature)
+        self.exclude_len = len(feature) + 2 # 排除时序特征和日期特征
 
     def __getitem__(self, index):
-        return self.data[index, :, :-self.feature_len]
+        # 仅返回 Cov + Technical 部分
+        return self.data[index, :, :-self.exclude_len]
 
     def __len__(self):
         return len(self.data)

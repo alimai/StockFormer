@@ -69,6 +69,12 @@ class StockTradingEnv(gym.Env):
         self.df = df
         self.data_all = data_all # 保存全量数据矩阵
         self.stock_dim = stock_dim
+        
+        # 优化：预先提取价格和日期，避免 step 中的 Pandas 索引
+        self.prices_all = self.df['price'].values.reshape(-1, self.stock_dim).astype(np.float32)
+        self.dates_all = self.df['date'].unique()
+        self.max_day = len(self.dates_all) - 1
+        
         self.initial_amount = initial_amount
         self.hmax = hmax
         self.transaction_cost_pct = transaction_cost_pct
@@ -122,7 +128,8 @@ class StockTradingEnv(gym.Env):
         self.short_hidden_feature = []
         self.long_hidden_feature = []
 
-        # initalize state and info
+        # 优化：env_info 初始化为 Numpy 数组 [cash, prices..., shares...]
+        self.env_info = np.zeros(1 + 2 * self.stock_dim, dtype=np.float32)
         self.env_info = self._initiate_info()
         self.state = self._initial_state()
 
@@ -210,65 +217,40 @@ class StockTradingEnv(gym.Env):
         plt.close()
 
     def _get_future_price(self, days_ahead=5):
-        """
-        获取未来第N天的价格（用于计算 end_total_asset）
-
-        :param days_ahead: 向前看的天数，默认5天
-        :return: 未来第N天的价格列表，如果超出数据范围则返回最后一天的价格
-        """
-        max_day = len(self.df.index.unique()) - 1
-        future_day = self.day + days_ahead
-
-        # 如果未来第N天超出数据范围，使用最后一天的价格
-        if future_day > max_day:
-            future_day = max_day
-
-        # 使用高效索引获取价格
-        future_prices = self.df.loc[future_day, 'price'].values.tolist()
-
-        return future_prices
+        future_day = min(self.day + days_ahead, self.max_day)
+        return self.prices_all[future_day]
 
     def step(self, actions):
         self.terminal = False
         if self.mode == 'train':
             self.terminal = (self.day - self.start_day) >= self.step_len + 1
         if not self.terminal:
-            self.terminal = self.day >= self.df.index.unique().max()
+            self.terminal = self.day >= self.max_day
 
         if self.terminal:
-            self.end_total_asset = self.env_info[0] + sum(
-                np.array(self.env_info[1 : (self.stock_dim + 1)])
-                * np.array(self.env_info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
-            )
+            # 使用 Numpy 快速计算总资产
+            prices = self.env_info[1 : 1 + self.stock_dim]
+            shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
+            self.end_total_asset = self.env_info[0] + np.sum(prices * shares)
+            
             tot_reward = (self.end_total_asset - self.initial_amount)
-            tot_reward_ratio = tot_reward/(self.initial_amount*1.0)
+            tot_reward_ratio = tot_reward / self.initial_amount
 
-            # 计算所有股票持仓数为1时，从start_day到当前day的市值增长系数
-            start_day_prices = self.df.loc[self.start_day, 'price'].values
-            current_day_prices = self.df.loc[self.day, 'price'].values
-            start_market_value = np.sum(start_day_prices)   # 持仓数为1的起始市值
-            current_market_value = np.sum(current_day_prices)  # 持仓数为1的当前市值
-            market_value_growth_ratio = current_market_value / start_market_value - 1.0  # 市值增长系数
+            # 计算市场增长基准 (Numpy 快速切片)
+            start_prices = self.prices_all[self.start_day]
+            curr_prices = self.prices_all[self.day]
+            market_value_growth_ratio = np.sum(curr_prices) / np.sum(start_prices) - 1.0
 
-            df_total_value = pd.DataFrame(self.asset_memory)
-            df_total_value.columns = ["account_value"]
-            df_total_value["date"] = self.date_memory
-            df_total_value["daily_return"] = df_total_value["account_value"].pct_change(1)
+            # Numpy 计算 Sharpe
+            assets = np.array(self.asset_memory)
+            returns = np.diff(assets) / (assets[:-1] + 1e-8)
             sharpe = 0.0
-            if df_total_value["daily_return"].std() != 0:
-                sharpe = (
-                    (252 ** 0.5)
-                    * df_total_value["daily_return"].mean()
-                    / df_total_value["daily_return"].std()
-                )
+            if len(returns) > 1 and np.std(returns) != 0:
+                sharpe = np.sqrt(252) * np.mean(returns) / np.std(returns)
 
-            #avg_step_reward = np.mean(self.rewards_memory) if self.rewards_memory else 0.0
-            self.reward = tot_reward_ratio + (tot_reward_ratio - market_value_growth_ratio) * 1.5#0.5-1.5
-            self.reward /= (self.day - self.start_day+1)
+            self.reward = tot_reward_ratio + (tot_reward_ratio - market_value_growth_ratio) * 1.5
+            self.reward /= (self.day - self.start_day + 1)
             self.reward *= self.reward_scaling
-            df_rewards = pd.DataFrame(self.rewards_memory)
-            df_rewards.columns = ["account_rewards"]
-            df_rewards["date"] = self.date_memory[:-1]
 
             if self.episode % self.print_verbosity == 0:
                 print(self.mode, f"episode: {self.episode}")
@@ -281,114 +263,69 @@ class StockTradingEnv(gym.Env):
                 print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
 
-                # f1 = open(self.log_name, 'a')
-                # f1.write(str(self.end_total_asset)+'\t'+str(self.reward)+ '\t'
-                #     + str(np.sum(self.rewards_memory)) + '\t' + str(sharpe) + '\t'
-                #     + str((self.end_total_asset-self.initial_amount)/self.initial_amount) + '\n')
-                # f1.close()
+            if self.make_plots and self.model_name != "" and self.mode != "":
+                self._make_plot()
                 
-            if self.make_plots:
-                if (self.model_name != "") and (self.mode != ""):
-                    self._make_plot()
-                    # plt.plot(self.asset_memory, "r")
-                    # plt.savefig(
-                    #     self.figure_path+"/account_value_{}_{}.png".format(
-                    #         self.mode, self.episode
-                    #     )
-                    # )
-                    # plt.close()
+                df_total_value = self.save_asset_memory()
+                df_rewards = pd.DataFrame(self.rewards_memory, columns=["account_rewards"])
+                
+                df_actions = self.save_action_memory()
+                df_actions.to_csv(self.csv_path+"/actions_{}_{}.csv".format(self.mode, self.episode))
+                df_stock_amount = self.save_holding_amount()
+                df_stock_amount.to_csv(self.csv_path+"/amount_{}_{}.csv".format(self.mode, self.episode))
+                df_total_value.to_csv(self.csv_path+"/account_value_{}_{}.csv".format(self.mode, self.episode), index=False)
+                df_rewards.to_csv(self.csv_path+"/account_rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
 
-                    df_actions = self.save_action_memory()
-                    df_actions.to_csv(
-                        self.csv_path+"/actions_{}_{}.csv".format(
-                            self.mode, self.episode
-                        )
-                    )
-                    df_stock_amount = self.save_holding_amount()
-                    df_stock_amount.to_csv(
-                        self.csv_path+"/amount_{}_{}.csv".format(
-                            self.mode, self.episode
-                        )
-                    )
-                    df_total_value.to_csv(
-                        self.csv_path+"/account_value_{}_{}.csv".format(
-                            self.mode, self.episode
-                        ),
-                        index=False,
-                    )
-                    df_rewards.to_csv(
-                        self.csv_path+"/account_rewards_{}_{}.csv".format(
-                            self.mode, self.episode
-                        ),
-                        index=False,
-                    )
-
-            # 在 info 中返回 memory 数据（避免被 DummyVecEnv 自动 reset 清空）
+            # 最终返回
             return self.state, self.reward, self.terminal, False, {
                 'reward_ratio': tot_reward_ratio,
-                'reward_step':np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
+                'reward_step': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
                 'sharpe': sharpe,
-                'account_memory': df_total_value,
-                'actions_memory': self.save_action_memory(),
             }
 
         else:
-            #self.env_info： 当前现金[0] + 所有股票价格[1 : (self.stock_dim + 1)]
-            #  + 所有股票持仓数量[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)]
-            # pdb.set_trace()
-            zero_day_prices = np.array(self.env_info[1 : (self.stock_dim + 1)])
-            first_day_prices = np.array(self._get_future_price(days_ahead=1))
-            fifth_day_prices = np.array(self._get_future_price(days_ahead=5))
+            # 正常交易逻辑步进
+            zero_day_prices = self.env_info[1 : 1 + self.stock_dim]
+            first_day_prices = self._get_future_price(days_ahead=1)
+            fifth_day_prices = self._get_future_price(days_ahead=5)
 
-            begin_total_asset = self.env_info[0] + sum(
-                zero_day_prices * np.array(self.env_info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
-            )#初始总资产=现金+股票价格*股票数量
+            shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
+            begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
 
-            actions = (actions + 1) * self.hmax / 2  # actions initially is scaled between -1 to 1
+            actions = (actions + 1) * self.hmax / 2
             actions = actions.astype(int)
-            actions = actions - np.array(self.env_info[self.stock_dim+1:self.stock_dim*2+1])
+            actions = actions - shares
 
             argsort_actions = np.argsort(actions)
             sell_index = argsort_actions[: np.where(actions < 0)[0].shape[0]]
             buy_index = argsort_actions[::-1][: np.where(actions > 0)[0].shape[0]]
 
-            #更新现金和持仓信息
             for index in sell_index:
-                # print(f"Num shares before: {self.state[index+self.stock_dim+1]}")
-                # print(f'take sell action before : {actions[index]}')
                 actions[index] = self._sell_stock(index, actions[index]) * (-1)
-                # print(f'take sell action after : {actions[index]}')
-                # print(f"Num shares after: {self.state[index+self.stock_dim+1]}")
 
             for index in buy_index:
-                # print('take buy action: {}'.format(actions[index]))
                 actions[index] = self._buy_stock(index, actions[index])
 
-            #需要在持仓信息更新后
-            self.end_total_asset = self.env_info[0] + sum(
-                first_day_prices * np.array(self.env_info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
-            )
+            # 更新后计算
+            self.end_total_asset = self.env_info[0] + np.sum(first_day_prices * shares)
 
-            # 使用第一天和第五天价格的平均值计算 reward
-            avg_prices = first_day_prices *0.3 + fifth_day_prices * 0.7#first_day_prices#
-            asset_for_reward_new = self.env_info[0] + sum(
-                avg_prices * np.array(self.env_info[(self.stock_dim + 1): (self.stock_dim * 2 + 1)])
-            )
+            avg_prices = first_day_prices * 0.3 + fifth_day_prices * 0.7
+            asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
+            
             market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
             self.reward = asset_for_reward_new / begin_total_asset - 1.0
-            self.reward = self.reward + (self.reward - market_value_growth_ratio)*1.5#0.5-1.5
+            self.reward = self.reward + (self.reward - market_value_growth_ratio) * 1.5
             self.reward *= self.reward_scaling
 
             self.actions_memory.append(actions)
             self.asset_memory.append(self.end_total_asset)
             self.date_memory.append(self._get_date())
             self.rewards_memory.append(self.reward)
-            self.amount_memory.append(self.env_info[-self.stock_dim:])
+            self.amount_memory.append(shares.copy())
 
-            # state: s -> s+1 #更新日期和价格信息
             self.day += 1
-            self.data = self.data_all[self.day] # 使用 numpy 索引
-            self.env_info = self._update_info()#更新价格信息
+            self.data = self.data_all[self.day]
+            self.env_info = self._update_info()
             self.state = self._update_state()
 
         return self.state, self.reward, self.terminal, False, {}
@@ -442,13 +379,11 @@ class StockTradingEnv(gym.Env):
         return self.state
 
     def _initiate_info(self):
-        # 使用 Pandas 高效获取当天所有股票价格
-        prices = self.df.loc[self.day, 'price'].values.tolist()
-        info = (
-                    [self.initial_amount]
-                    + prices
-                    + [0] * self.stock_dim
-            )
+        # env_info: [cash, prices..., shares...]
+        info = np.zeros(1 + 2 * self.stock_dim, dtype=np.float32)
+        info[0] = self.initial_amount
+        info[1 : 1 + self.stock_dim] = self.prices_all[self.day]
+        info[1 + self.stock_dim : ] = 0
         return info
 
     def _initial_state(self):
@@ -476,13 +411,9 @@ class StockTradingEnv(gym.Env):
 
 
     def _update_info(self):
-        prices = self.df.loc[self.day, 'price'].values.tolist()
-        info = (
-                [self.env_info[0]]
-                + prices
-                + list(self.env_info[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
-            )
-        return info
+        # 原位更新价格部分，保持 Numpy 数组性质
+        self.env_info[1 : 1 + self.stock_dim] = self.prices_all[self.day]
+        return self.env_info
 
     def _update_state(self):
         covs = self.data[:, :self.stock_dim]
@@ -529,10 +460,8 @@ class StockTradingEnv(gym.Env):
         return state
 
     def _get_date(self):
-        # 由于 data_all 已经通过日期 factorize，我们可以通过索引从 df 获取日期
-        # 或者在 Stock_Data 中维护一个日期列表。
-        # 这里为了兼容，从 df 获取
-        return self.df.loc[self.day, 'date'].iloc[0]
+        # 使用缓存的日期数组，秒回
+        return self.dates_all[self.day]
 
     def save_asset_memory(self):
         date_list = self.date_memory
