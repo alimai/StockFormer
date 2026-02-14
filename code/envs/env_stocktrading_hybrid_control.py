@@ -90,7 +90,9 @@ class StockTradingEnv(gym.Env):
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day + weekday#88+8+2*128+2
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
+        # Modified: Removed 2*self.hidden_channel from observation_space as they are not used
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2))
+        #self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
         self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel))
         # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
         # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)
@@ -400,18 +402,20 @@ class StockTradingEnv(gym.Env):
         tech_end = tech_start + len(self.tech_indicator_list)
         technical_indicators = self.data[:, tech_start:tech_end]
 
+        # Removed pseudo hidden feature generation
         # 生成伪hidden feature数据
-        hidden_feature_dim = self.hidden_channel
-        hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-        hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        # hidden_feature_dim = self.hidden_channel
+        # hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        # hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
 
-        self.short_hidden_feature.append(hidden_np1)
-        self.long_hidden_feature.append(hidden_np2)
+        # self.short_hidden_feature.append(hidden_np1)
+        # self.long_hidden_feature.append(hidden_np2)
 
         # 提取日期特征 (最后两列)
         date_features = self.data[:, -2:]
 
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
+        state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
+        #state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         return state
 
 
@@ -452,13 +456,14 @@ class StockTradingEnv(gym.Env):
         # self.short_hidden_feature.append(hidden_np1)
         # self.long_hidden_feature.append(hidden_np2)
         #取最后一个时间步的hidden feature作为当前状态输入
-        hidden_np1 = self.short_hidden_feature[-1]
-        hidden_np2 = self.long_hidden_feature[-1]
+        # hidden_np1 = self.short_hidden_feature[-1]
+        # hidden_np2 = self.long_hidden_feature[-1]
 
         # 提取日期特征 (最后两列)
         date_features = self.data[:, -2:]
 
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
+        state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
+        #state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         # print("Update: ",state.shape)
         return state
 
@@ -481,7 +486,8 @@ class StockTradingEnv(gym.Env):
         return self.initial_amount
 
     def save_additional_info(self):
-        temp_dict = {"short_hidden_feature":self.short_hidden_feature, "long_hidden_feature": self.long_hidden_feature}
+        # temp_dict = {"short_hidden_feature":self.short_hidden_feature, "long_hidden_feature": self.long_hidden_feature}
+        temp_dict = {"short_hidden_feature":[], "long_hidden_feature": []}
         return temp_dict
 
     def save_holding_amount(self):

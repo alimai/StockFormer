@@ -324,10 +324,14 @@ class DRLAgent:
         episode_total_assets.append(initial_amount)
         done = False
         final_info = None
+        
         while not done:
             # 正确解包 predict 返回的元组 (action, states)
             action, _states = model.predict(state, deterministic=deterministic)
-            state, reward, done, info = test_env.step(action)
+            state, reward, dones, info = test_env.step(action)
+            
+            # DummyVecEnv returns a list/array of done booleans
+            done = dones[0]
 
             # 通过 env_method 获取原始环境的资产信息
             total_asset = test_env.env_method(method_name="get_end_total_asset")[0]

@@ -668,20 +668,31 @@ class SAC(SAC_SB3):
             loss = th.tensor(0.0, device=x.device)
 
             # 提前返回，跳过其他模式的处理
-            hidden_channel = enc_out.shape[-1]
-            temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
-            temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
+            # hidden_channel = enc_out.shape[-1]
+            # temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
+            # temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
 
-            additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+            # additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+            
+            # Modified: directly slice additional features after feat_dim
+            temporal_feature_short = None
+            temporal_feature_long = None
+            additional_feature = x[:, :, feat_dim:]
             return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss
 
         loss = self.transformer_criteria(pred, true)
 
-        hidden_channel = enc_out.shape[-1]
-        temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
-        temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
+        # hidden_channel = enc_out.shape[-1]
+        # temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
+        # temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
 
-        additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+        # additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+        
+        # Modified: directly slice additional features after feat_dim
+        temporal_feature_short = None
+        temporal_feature_long = None
+        additional_feature = x[:, :, feat_dim:]
+        
         #各元素维度：[bs, stock_num, d_model]， [bs, stock_num, hidden_channel]， [bs, stock_num, hidden_channel]，
         # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2]， loss (标量)
         return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss

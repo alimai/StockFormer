@@ -56,6 +56,12 @@ data_manager = Stock_Data(
 
 ## 3️⃣ 训练环境与监控链
 
+### 状态空间 (State Space) 优化 (v2026.02)
+为了加速训练和减少内存占用，自 v2026.02 起，状态空间移除了冗余的隐藏层特征占位符。
+- **旧版**: `[Covariances, Technical Indicators, Hidden_NP1, Hidden_NP2, Date_Features]`
+- **新版**: `[Covariances, Technical Indicators, Date_Features]`
+- **变更影响**: `Hidden_NP1/2` (伪随机噪声) 被移除，`MAE_SAC` 内部也不再对其进行切片提取，显著降低了内存带宽压力。
+
 训练环境采用多层包装以确保日志记录和维度适配：
 1. **StockTradingEnv (gymnasium.Env)**: 基础交易环境。
 2. **DummyVecEnv**: 将单环境包装为向量化环境，满足 SB3 算法输入要求。
