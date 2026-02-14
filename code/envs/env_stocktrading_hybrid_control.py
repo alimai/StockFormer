@@ -93,7 +93,7 @@ class StockTradingEnv(gym.Env):
         # Modified: Removed 2*self.hidden_channel from observation_space as they are not used
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2))
         #self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
-        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel))
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel + 1))
         # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
         # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)
 
