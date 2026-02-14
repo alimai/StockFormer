@@ -23,7 +23,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 投影层：将 (d_model + 5) 维特征压缩到 32 维，减轻后续 MLP 压力
         self.out_dim = 32
         self.projection = nn.Sequential(
-            nn.Linear(d_model + 5, self.out_dim),
+            nn.Linear(d_model + 0, self.out_dim),
             nn.GELU(),
             nn.LayerNorm(self.out_dim)
         )
@@ -71,14 +71,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
         hybrid_feature = self.norm(temporal_feature)
 
-        # 2. 提取日期特征 (根据 env 定义，最后 12 维是日期信息)        
-        monthday_feature = additional_feature[:, :, :7]# 提取月份信息 (前 7 列)
-        weekday_feature = additional_feature[:, :, -5:]# 提取星期信息 (最后 5 列)
-        # 3. 组合逻辑与降维
-        combined_feature = torch.cat((hybrid_feature, monthday_feature, weekday_feature), dim=-1) # [B, N, 128+7+5]
+        # # 2. 提取日期特征 (根据 env 定义，最后 12 维是日期信息)        
+        # monthday_feature = additional_feature[:, :, :7]# 提取月份信息 (前 7 列)
+        # weekday_feature = additional_feature[:, :, -5:]# 提取星期信息 (最后 5 列)
+        # # 3. 组合逻辑与降维
+        # combined_feature = torch.cat((hybrid_feature, monthday_feature, weekday_feature), dim=-1) # [B, N, 128+7+5]
         
         # 通过投影层降维到 32 维
-        output_feature = self.projection(combined_feature) # [B, N, 32]
+        output_feature = self.projection(hybrid_feature) # [B, N, 32]
         
         return output_feature
 
