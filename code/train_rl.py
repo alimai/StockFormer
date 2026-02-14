@@ -81,7 +81,7 @@ if __name__ == '__main__':
         "time_window_start":[i for i in range(60, train_length - config.stride, config.stride)],
         "step_len": config.step_len,
         "temporal_len": 60,
-        "hidden_channel":128,
+        "hidden_channel":config.MAESAC_PARAMS["d_model"],#128
         "model_name":model_name,
         "short_prediction_model_path": short_prediction_model_path,
         "long_prediction_model_path": long_prediction_model_path,

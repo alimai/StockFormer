@@ -200,9 +200,9 @@ class SAC(SAC_SB3):
                 new_state_dict = state_dict
             
             self.state_transformer.load_state_dict(new_state_dict)
-            print("Successfully load pretrained model...", transformer_path)
+            print("Successfully load pretrained MAE model...", transformer_path)
         else:
-            print("Successfully initialize transformer model...")
+            print("Successfully initialize MAE model...")
 
         self.transformer_device = transformer_device
         self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=1e-5, weight_decay=1e-4)

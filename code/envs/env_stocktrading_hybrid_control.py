@@ -89,13 +89,13 @@ class StockTradingEnv(gym.Env):
         self.hidden_channel = hidden_channel
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
+        tech_dim = len(self.tech_indicator_list)#8
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
         # Modified: date features now take 12 dimensions (One-hot)
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+12))
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
         
         # Modified: Update hidden_state_space to strictly include MAE output (128) + Tech + Date
         # This excludes redundant Covariance data from the SAC input stream
-        tech_dim = len(self.tech_indicator_list)
         self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel + tech_dim + 12))
         
         # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
