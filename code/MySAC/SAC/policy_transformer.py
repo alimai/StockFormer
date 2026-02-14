@@ -20,10 +20,20 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.LayerNorm(d_model)
 
-        # 投影层：将 (d_model + 5) 维特征压缩到 32 维，减轻后续 MLP 压力
-        self.out_dim = 32
+        # 1. Input Adapter: 由于 upstream state_transformer 是冻结的，
+        # 这里的 input_projection 允许 policy_transformer 学习如何将固定的 embeddings 
+        # 映射到适合当前任务的注意力空间。这对于打破“结果差不多”的僵局至关重要。
+        self.input_projection = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.LayerNorm(d_model),
+            nn.GELU()
+        )
+
+        # 2. Remove Bottleneck: 原来的 32 维投影太小，可能导致信息丢失。
+        # 将输出维度提升回 d_model (128)，保留更多特征信息。
+        self.out_dim = d_model 
         self.projection = nn.Sequential(
-            nn.Linear(d_model + 0, self.out_dim),
+            nn.Linear(d_model, self.out_dim),
             nn.GELU(),
             nn.LayerNorm(self.out_dim)
         )
@@ -40,10 +50,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature shape [B, N, D]
-        # temporal_feature_short=temporal_feature_long shape [B, N, D]
-        # holding shape [B, N，x] or None
+        # additional_feature shape [B, N, x]
         # return feature shape [B, N, D+x]
-
 
         # temporal_hybrid_feature, attn = self.attention(
         #     temporal_feature_long, temporal_feature_short, temporal_feature_short,
@@ -63,6 +71,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # return combined_feature
 
         # note: use without MAE update 
+        # 0. Input Adaptation (Crucial for frozen upstream)
+        relational_feature = self.input_projection(relational_feature)
+
         # 1. 处理关系特征 (Relational Hybrid)
         relational_hybrid_feature, attn = self.attention(
             relational_feature, relational_feature, relational_feature,
@@ -71,16 +82,19 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
         hybrid_feature = self.norm(temporal_feature)
 
-        # # 2. 提取日期特征 (根据 env 定义，最后 12 维是日期信息)        
-        # monthday_feature = additional_feature[:, :, :7]# 提取月份信息 (前 7 列)
-        # weekday_feature = additional_feature[:, :, -5:]# 提取星期信息 (最后 5 列)
-        # # 3. 组合逻辑与降维
-        # combined_feature = torch.cat((hybrid_feature, monthday_feature, weekday_feature), dim=-1) # [B, N, 128+7+5]
+        # 2. 提取日期特征 (根据 env 定义，最后 12 维是日期信息)        
+        monthday_feature = additional_feature[:, :, :7]# 提取月份信息 (前 7 列)
+        weekday_feature = additional_feature[:, :, -5:]# 提取星期信息 (最后 5 列)
         
-        # 通过投影层降维到 32 维
-        output_feature = self.projection(hybrid_feature) # [B, N, 32]
+        # 3. 组合逻辑与降维
+        # 先对 hybrid feature 进行投影 (保持 d_model 维度)
+        output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
         
-        return output_feature
+        # 拼接所有特征：Hybrid(128) + Month(7) + Week(5) = 140 dim
+        # 这样 Actor/Critic 可以同时利用 复杂的股票关系特征 和 简单的日历特征
+        combined_feature = torch.cat((output_hybrid, monthday_feature, weekday_feature), dim=-1) 
+        
+        return combined_feature
 
 
 
