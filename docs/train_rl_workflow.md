@@ -60,7 +60,8 @@ data_manager = Stock_Data(
 为了加速训练和减少内存占用，自 v2026.02 起，状态空间移除了冗余的隐藏层特征占位符。
 - **旧版**: `[Covariances, Technical Indicators, Hidden_NP1, Hidden_NP2, Date_Features]`
 - **新版**: `[Covariances, Technical Indicators, Date_Features]`
-- **变更影响**: `Hidden_NP1/2` (伪随机噪声) 被移除，`MAE_SAC` 内部也不再对其进行切片提取，显著降低了内存带宽压力。
+- **日期特征顺序**: `[month_day, weekday]`（星期信息在最后一列）。
+- **变更影响**: `Hidden_NP1/2` (伪随机噪声) 被移除，`MAE_SAC` 内部也不再对其进行切片提取，显著降低了内存带宽压力。同时，`policy_transformer` 仅提取最后一列（星期信息）进行融合。
 
 训练环境采用多层包装以确保日志记录和维度适配：
 1. **StockTradingEnv (gymnasium.Env)**: 基础交易环境。

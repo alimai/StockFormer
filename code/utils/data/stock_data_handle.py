@@ -173,8 +173,8 @@ class Stock_Data():
         data_tech = df[self.attr].values.reshape(num_days, stock_num, -1).astype(np.float32)
         data_temp = df[self.temporal_feature].values.reshape(num_days, stock_num, -1).astype(np.float32)
         
-        # 增加日期特征到 data_all，保持与 Env 原始顺序一致 [weekday, month_day]
-        data_date = df[['weekday', 'month_day']].values.reshape(num_days, stock_num, -1).astype(np.float32)
+        # 增加日期特征到 data_all，保持顺序为 [month_day, weekday]
+        data_date = df[['month_day', 'weekday']].values.reshape(num_days, stock_num, -1).astype(np.float32)
 
         if self.exp_type == 'mae':
             cov_data = np.array(df['cov_list'].values.tolist()).reshape(num_days, stock_num, stock_num, stock_num)
