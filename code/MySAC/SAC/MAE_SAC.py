@@ -185,7 +185,7 @@ class SAC(SAC_SB3):
                                              n_heads=n_heads, e_layers=e_layers, d_layers=d_layers,
                                              d_model=d_model, d_ff=d_ff, dropout=dropout).to(transformer_device)
 
-        if transformer_path is not None:
+        if transformer_path is not None and transformer_path != '':
             state_dict = th.load(transformer_path, map_location=transformer_device)
             
             # 检查是否为DataParallel保存的模型（键名带有"module."前缀）
@@ -212,8 +212,13 @@ class SAC(SAC_SB3):
         self.actor_alpha = actor_alpha
 
 
-        self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device).to(transformer_device)
-        self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device).to(transformer_device)
+        # 【优化】向 Policy Transformer 传递纯净信号维度 (Tech + Date)
+        # self.in_feat (enc_in) = stock_num + tech_dim
+        # additional_dim = tech_dim + 12
+        stock_num = env.observation_space.shape[0]
+        additional_dim = (enc_in - stock_num) + 12
+        self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
 
         self.in_feat = enc_in
 
@@ -384,21 +389,6 @@ class SAC(SAC_SB3):
             # Compute critic loss
             # pdb.set_trace() # get critic loss item value
             critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
-            # 调试：处理异常大的critic_loss
-            # loss_gate = 100000.0*np.mean(ent_coefs)+1000
-            # if critic_loss.item() > loss_gate:  # 阈值设为50
-            #     print(f"WARNING: Large critic_loss at step {self.num_timesteps}: {critic_loss.item():.4f}")
-            #     print(f"  current_q_values range: {current_q_values[0].min().item():.4f} to {current_q_values[0].max().item():.4f}")
-            #     print(f"  next_q_values range: {next_q_values.min().item():.4f} to {next_q_values.max().item():.4f}")
-            #     print(f"  replay_data.rewards range: {replay_data.rewards.min().item():.4f} to {replay_data.rewards.max().item():.4f}")
-            #     print(f"  target_q_values range: {target_q_values.min().item():.4f} to {target_q_values.max().item():.4f}")
-            #     print(f"  done ratio: {replay_data.dones.float().mean().item():.3f}")
-            #     # 检查是否有NaN或Inf
-            #     if th.isnan(critic_loss) or th.isinf(critic_loss):
-            #         print("  CRITICAL: NaN or Inf detected in critic_loss!")
-            #         print()
-            #     # 裁剪 critic_loss 值以防止发散
-            #     critic_loss = th.clamp(critic_loss, min=-loss_gate, max=loss_gate)
             critic_losses.append(critic_loss.item())
 
             # 检查 replay_data.rewards 最大值是否大于50
@@ -549,7 +539,7 @@ class SAC(SAC_SB3):
         :return: 编码后的状态、时序特征、附加特征、重建损失
         """
         bs, stock_num = x.shape[0], x.shape[1]
-        feat_dim = self.in_feat  # 特征维度 (96)
+        feat_dim = self.in_feat  # 特征维度 (96，stock_num + tech_dim)
 
         batch_enc1 = x[:, :, :feat_dim]  # [bs, stock_num, feat_dim] 包含 cov+technical_list
 
@@ -583,6 +573,7 @@ class SAC(SAC_SB3):
 
             pred = th.gather(output, 1, gather_idx)  # [bs, num_mask, feat_dim]
             true = th.gather(batch_enc1, 1, gather_idx)  # [bs, num_mask, feat_dim]
+            loss = self.transformer_criteria(pred, true)
 
         elif mask_mode == 'feature':
             # ==================== 模式2: 屏蔽技术指标 - 最快版 ====================
@@ -610,10 +601,10 @@ class SAC(SAC_SB3):
 
             pred = th.gather(output, 2, gather_idx)  # [bs, stock_num, num_mask]
             true = th.gather(batch_enc1, 2, gather_idx)  # [bs, stock_num, num_mask]
+            loss = self.transformer_criteria(pred, true)
 
         elif mask_mode == 'mixed':
             # ==================== 模式3: 混合模式，同时屏蔽股票和特征  - 优化版 ====================
-            # 优化版本：减少重复计算，提高性能
             num_stock_mask = max(1, int(stock_num * 0.5))
             num_feat_mask = max(1, int(feat_dim * 0.1))
             if seed is not None:
@@ -657,41 +648,28 @@ class SAC(SAC_SB3):
             # 优化：使用flatten替代reshape以提高性能
             pred = th.cat([stock_pred.flatten(), feat_pred.flatten()], dim=0)
             true = th.cat([stock_true.flatten(), feat_true.flatten()], dim=0)
+            loss = self.transformer_criteria(pred, true)
 
         else:  # if mask_mode == 'nope':
             # ==================== 模式4: 不屏蔽任何特征或股票 ====================
-            # 直接使用完整的输入数据，不进行任何掩码操作
             enc_inp = batch_enc1
             enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
 
             # 由于没有进行掩码，无法计算重建损失，返回零损失
             loss = th.tensor(0.0, device=x.device)
 
-            # 提前返回，跳过其他模式的处理
-            # hidden_channel = enc_out.shape[-1]
-            # temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
-            # temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
-
-            # additional_feature = x[:, :, hidden_channel*2+feat_dim:]
-            
-            # Modified: directly slice additional features after feat_dim
-            temporal_feature_short = None
-            temporal_feature_long = None
-            additional_feature = x[:, :, feat_dim:]
-            return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss
-
-        loss = self.transformer_criteria(pred, true)
-
-        # hidden_channel = enc_out.shape[-1]
-        # temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
-        # temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
-
-        # additional_feature = x[:, :, hidden_channel*2+feat_dim:]
+        # 【精准特征切片：仅包含技术指标和日期】
+        # 1. 提取技术指标 (位于协方差矩阵之后)
+        # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)] [Date (12)]
+        tech_features = x[:, :, stock_num : feat_dim] 
+        # 2. 提取日期特征 (最后 12 列)
+        date_features = x[:, :, feat_dim:]
         
-        # Modified: directly slice additional features after feat_dim
+        # 3. 合并为纯净的 additional_feature (排除协方差数据)
+        additional_feature = th.cat((tech_features, date_features), dim=-1)
+
         temporal_feature_short = None
         temporal_feature_long = None
-        additional_feature = x[:, :, feat_dim:]
         
         #各元素维度：[bs, stock_num, d_model]， [bs, stock_num, hidden_channel]， [bs, stock_num, hidden_channel]，
         # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2]， loss (标量)
