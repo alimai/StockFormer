@@ -29,7 +29,7 @@ class StockTradingEnv(gym.Env):
         initial_amount,
         transaction_cost_pct,
         reward_scaling,
-        state_space,
+        state_space,#state_space = stock_num
         action_space,
         tech_indicator_list,
         temporal_feature_list,
@@ -42,7 +42,7 @@ class StockTradingEnv(gym.Env):
         figure_path='results/',
         csv_path = 'results/',
         mode="train",
-        hidden_channel=4,
+        hidden_channel=128,
         make_plots=True,
         print_verbosity=1,
         initial=True,

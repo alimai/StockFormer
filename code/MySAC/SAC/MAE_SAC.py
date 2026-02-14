@@ -214,9 +214,9 @@ class SAC(SAC_SB3):
 
         # 【优化】向 Policy Transformer 传递纯净信号维度 (Tech + Date)
         # self.in_feat (enc_in) = stock_num + tech_dim
-        # additional_dim = tech_dim + 12
-        stock_num = env.observation_space.shape[0]
-        additional_dim = (enc_in - stock_num) + 12
+        # stock_num = env.observation_space.shape[0]
+        # additional_dim = (enc_in - stock_num) + 12
+        additional_dim = env.hidden_state_space.shape[1] - env.hidden_channel
         self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
         self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
 
