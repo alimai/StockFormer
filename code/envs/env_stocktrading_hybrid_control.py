@@ -89,11 +89,11 @@ class StockTradingEnv(gym.Env):
         self.hidden_channel = hidden_channel
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
-        # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day + weekday#88+8+2*128+2
-        # Modified: Removed 2*self.hidden_channel from observation_space as they are not used
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2))
+        # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
+        # Modified: date features now take 12 dimensions (One-hot)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+12))
         #self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
-        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel + 1))
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel + 5))
         # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
         # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)
 
@@ -411,8 +411,8 @@ class StockTradingEnv(gym.Env):
         # self.short_hidden_feature.append(hidden_np1)
         # self.long_hidden_feature.append(hidden_np2)
 
-        # 提取日期特征 (最后两列)
-        date_features = self.data[:, -2:]
+        # 提取日期特征 (最后 12 列)
+        date_features = self.data[:, -12:]
 
         state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
         #state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
@@ -459,8 +459,8 @@ class StockTradingEnv(gym.Env):
         # hidden_np1 = self.short_hidden_feature[-1]
         # hidden_np2 = self.long_hidden_feature[-1]
 
-        # 提取日期特征 (最后两列)
-        date_features = self.data[:, -2:]
+        # 提取日期特征 (最后 12 列)
+        date_features = self.data[:, -12:]
 
         state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
         #state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)

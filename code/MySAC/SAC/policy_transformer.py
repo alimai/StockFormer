@@ -62,9 +62,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
         hybrid_feature = self.norm(temporal_feature)
 
-        # 仅提取 additional_feature 的最后一列（星期信息）
-        weekday_feature = additional_feature[:, :, -1:]
-        combined_feature = torch.cat((hybrid_feature, weekday_feature), dim=-1) # [B, N, D+1]
+        # 仅提取 additional_feature 的最后 5 列（星期信息的 One-hot 编码）
+        weekday_feature = additional_feature[:, :, -5:]
+        combined_feature = torch.cat((hybrid_feature, weekday_feature), dim=-1) # [B, N, D+5]
 
         return combined_feature
 

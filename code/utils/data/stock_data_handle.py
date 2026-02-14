@@ -163,26 +163,37 @@ class Stock_Data():
                 if valid_vol_diff:
                     df[valid_vol_diff] = df[valid_vol_diff] / max_vol
 
-            # --- Group C: 时间特征组 (恢复离散化逻辑) ---
-            df['month_day'] = (df['month_day'] / 2).astype(int) / 7.0
-            df['weekday'] = df['weekday'] / 7.0
-
         # 优化 2：预转置内存布局 (Stocks, Days, Feats)
         dates_final = df['date_str'].unique()
         num_days = len(dates_final)
         data_tech = df[self.attr].values.reshape(num_days, stock_num, -1).astype(np.float32)
         data_temp = df[self.temporal_feature].values.reshape(num_days, stock_num, -1).astype(np.float32)
         
-        # 增加日期特征到 data_all，保持顺序为 [month_day, weekday]
-        data_date = df[['month_day', 'weekday']].values.reshape(num_days, stock_num, -1).astype(np.float32)
+        # 生成 One-hot 日期特征
+        # 月份 7 个状态 (0-6): (month // 2)
+        month_states = (df['date'].dt.month // 2).astype(int).values
+        month_onehot = np.eye(7)[month_states]
+        
+        # 星期 5 个状态 (1-5): 对应 dt.dayofweek 的 0-4 (Mon-Fri)
+        weekday_states = (df['date'].dt.dayofweek).clip(0, 4).astype(int).values
+        weekday_onehot = np.eye(5)[weekday_states]
+
+        # 增加日期特征到 data_all，保持顺序为 [month_onehot, weekday_onehot]
+        # 总维度: 7 + 5 = 12
+        data_date = np.concatenate([month_onehot, weekday_onehot], axis=-1).reshape(num_days, stock_num, 12).astype(np.float32)
 
         if self.exp_type == 'mae':
             cov_data = np.array(df['cov_list'].values.tolist()).reshape(num_days, stock_num, stock_num, stock_num)
             self.data_all = np.concatenate((cov_data[:, 0, :, :].astype(np.float32), data_tech, data_temp, data_date), axis=-1)
             del cov_data
         else:
-            # 预转置布局
-            self.data_all = data_temp.transpose(1, 0, 2) 
+            # Pred 模式：也需要拼接 data_date 保证 Dataset 切片正确
+            # data_temp: [Days, Stocks, 10] -> [Stocks, Days, 10]
+            # data_date: [Days, Stocks, 12] -> [Stocks, Days, 12]
+            self.data_all = np.concatenate((data_temp.transpose(1, 0, 2), data_date.transpose(1, 0, 2)), axis=-1).astype(np.float32)
+
+        # 注意：['month_day', 'weekday', 'date_str']，保留 date_str，因为 get_split_df 筛选日期区间时需要它
+        df = df.drop(columns=['month_day', 'weekday'])
 
         self.label_all = np.stack([
             df['label_short_term'].values.reshape(num_days, stock_num),
@@ -241,8 +252,8 @@ class DatasetStock_PRED(Dataset):
 
     def __getitem__(self, index):
         p = self.start_pos + index
-        # 排除最后的 2 列日期特征，取 10 列时序特征
-        seq_x = self.data[:, p - self.seq_len + 1 : p + 1, -(self.feat_len + 2) : -2]
+        # 排除最后的 12 列日期特征，取 10 列时序特征
+        seq_x = self.data[:, p - self.seq_len + 1 : p + 1, -(self.feat_len + 12) : -12]
         return seq_x, seq_x[:, -1:, :], self.label[index, :]
 
     def __len__(self):
@@ -253,7 +264,7 @@ class DatasetStock_MAE(Dataset):
         super().__init__()
         pos = stock.type_map[type]
         self.data = stock.data_all[stock.boarder_start[pos] : stock.boarder_end[pos]+1]
-        self.exclude_len = len(feature) + 2 # 排除时序特征和日期特征
+        self.exclude_len = len(feature) + 12 # 排除时序特征和日期特征
 
     def __getitem__(self, index):
         # 仅返回 Cov + Technical 部分

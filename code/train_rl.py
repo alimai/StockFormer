@@ -128,7 +128,7 @@ if __name__ == '__main__':
         policy_kwargs = {"optimizer_kwargs": {"weight_decay": 1e-4},
                          "net_arch": [128, 128], # 与 d_model 保持一致，默认[256,256]
                          "use_sde": False
-                        }#for MlpPolicy
+                        }#策略网络参数(MlpPolicy Policy Network,包括act/critic/critic_target)
         if load_pretrain:
             print(f"load: {final_model_path}...")
             model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
