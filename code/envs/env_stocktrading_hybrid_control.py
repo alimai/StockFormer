@@ -276,11 +276,13 @@ class StockTradingEnv(gym.Env):
                 df_total_value.to_csv(self.csv_path+"/account_value_{}_{}.csv".format(self.mode, self.episode), index=False)
                 df_rewards.to_csv(self.csv_path+"/account_rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
 
-            # 最终返回
+            # 在 info 中返回 memory 数据
             return self.state, self.reward, self.terminal, False, {
                 'reward_ratio': tot_reward_ratio,
                 'reward_step': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
                 'sharpe': sharpe,
+                'account_memory': df_total_value if self.make_plots else None,
+                'actions_memory': df_actions if self.make_plots else None,
             }
 
         else:
@@ -297,8 +299,11 @@ class StockTradingEnv(gym.Env):
             actions = actions - shares
 
             argsort_actions = np.argsort(actions)
-            sell_index = argsort_actions[: np.where(actions < 0)[0].shape[0]]
-            buy_index = argsort_actions[::-1][: np.where(actions > 0)[0].shape[0]]
+            
+            sell_num = (actions < 0).sum()
+            buy_num = (actions > 0).sum()            
+            sell_index = argsort_actions[:sell_num]
+            buy_index = argsort_actions[::-1][:buy_num]
 
             for index in sell_index:
                 actions[index] = self._sell_stock(index, actions[index]) * (-1)
@@ -422,11 +427,6 @@ class StockTradingEnv(gym.Env):
         tech_end = tech_start + len(self.tech_indicator_list)
         technical_indicators = self.data[:, tech_start:tech_end]
 
-        # 生成伪hidden feature数据
-        hidden_feature_dim = self.hidden_channel
-        hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-        hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-
         # 注释掉原始的hidden feature生成部分，用伪数据代替
         # temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
         # temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
@@ -438,19 +438,22 @@ class StockTradingEnv(gym.Env):
         # _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
 
 
-        # 生成伪hidden feature数据
-        hidden_feature_dim = self.hidden_channel  # 假设hidden_channel是隐藏特征维度
-        hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-        hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        # # 生成伪hidden feature数据---伪数据不再重复生成，直接用初始状态数据
+        # hidden_feature_dim = self.hidden_channel  # 假设hidden_channel是隐藏特征维度
+        # hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        # hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
 
-        # 优化：限制hidden feature列表的最大长度，避免内存累积
-        max_hidden_length = 30  # 最多保存最近50个时间步的特征
-        if len(self.short_hidden_feature) >= max_hidden_length:
-            self.short_hidden_feature.pop(0)
-            self.long_hidden_feature.pop(0)
+        # # 优化：限制hidden feature列表的最大长度，避免内存累积
+        # max_hidden_length = 30  # 最多保存最近50个时间步的特征
+        # if len(self.short_hidden_feature) >= max_hidden_length:
+        #     self.short_hidden_feature.pop(0)
+        #     self.long_hidden_feature.pop(0)
 
-        self.short_hidden_feature.append(hidden_np1)
-        self.long_hidden_feature.append(hidden_np2)
+        # self.short_hidden_feature.append(hidden_np1)
+        # self.long_hidden_feature.append(hidden_np2)
+        #取最后一个时间步的hidden feature作为当前状态输入
+        hidden_np1 = self.short_hidden_feature[-1]
+        hidden_np2 = self.long_hidden_feature[-1]
 
         # 提取日期特征 (最后两列)
         date_features = self.data[:, -2:]
