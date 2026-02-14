@@ -63,7 +63,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         hybrid_feature = self.norm(temporal_feature)
 
         # 仅提取 additional_feature 的最后 5 列（星期信息的 One-hot 编码）
-        weekday_feature = additional_feature[:, :, -5:]
+        weekday_feature = additional_feature[:, :, -12:-5]
         combined_feature = torch.cat((hybrid_feature, weekday_feature), dim=-1) # [B, N, D+5]
 
         return combined_feature
