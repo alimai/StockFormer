@@ -20,6 +20,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.LayerNorm(d_model)
 
+        # 投影层：将 (d_model + 5) 维特征压缩到 32 维，减轻后续 MLP 压力
+        self.out_dim = 32
+        self.projection = nn.Sequential(
+            nn.Linear(d_model + 5, self.out_dim),
+            nn.GELU(),
+            nn.LayerNorm(self.out_dim)
+        )
+
         # 检测GPU可用性并决定使用GPU还是CPU
         if device is None:
             if torch.cuda.is_available():
@@ -27,7 +35,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             else:
                 device = 'cpu'
 
-        self.optimizer = torch.optim.Adam(itertools.chain(self.attention.parameters(), self.attention2.parameters()), lr=1e-5, weight_decay=1e-4)#lr)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
         self.device = device
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
@@ -55,6 +63,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # return combined_feature
 
         # note: use without MAE update 
+        # 1. 处理关系特征 (Relational Hybrid)
         relational_hybrid_feature, attn = self.attention(
             relational_feature, relational_feature, relational_feature,
             attn_mask=mask
@@ -62,11 +71,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_feature = relational_feature + self.dropout(relational_hybrid_feature)
         hybrid_feature = self.norm(temporal_feature)
 
-        # 仅提取 additional_feature 的最后 5 列（星期信息的 One-hot 编码）
-        weekday_feature = additional_feature[:, :, -12:-5]
-        combined_feature = torch.cat((hybrid_feature, weekday_feature), dim=-1) # [B, N, D+5]
-
-        return additional_feature #combined_feature
+        # 2. 提取日期特征 (根据 env 定义，最后 12 维是日期信息)        
+        monthday_feature = additional_feature[:, :, :7]# 提取月份信息 (前 7 列)
+        weekday_feature = additional_feature[:, :, -5:]# 提取星期信息 (最后 5 列)
+        # 3. 组合逻辑与降维
+        combined_feature = torch.cat((hybrid_feature, monthday_feature, weekday_feature), dim=-1) # [B, N, 128+7+5]
+        
+        # 通过投影层降维到 32 维
+        output_feature = self.projection(combined_feature) # [B, N, 32]
+        
+        return output_feature
 
 
 
