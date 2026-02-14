@@ -66,7 +66,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         weekday_feature = additional_feature[:, :, -12:-5]
         combined_feature = torch.cat((hybrid_feature, weekday_feature), dim=-1) # [B, N, D+5]
 
-        return combined_feature
+        return additional_feature #combined_feature
 
 
 
