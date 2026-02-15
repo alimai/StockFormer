@@ -31,7 +31,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 2. Output Projection: 
         self.out_dim = d_model 
         self.projection = nn.Sequential(
-            nn.Linear(d_model, self.out_dim),
+            nn.Linear(additional_dim, self.out_dim),#(d_model, self.out_dim),
             nn.GELU(),
             nn.LayerNorm(self.out_dim)
         )
@@ -68,7 +68,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         hybrid_feature = self.norm(temporal_feature)
 
         # Output Processing
-        output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
+        output_hybrid = self.projection(additional_feature)#(hybrid_feature) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
