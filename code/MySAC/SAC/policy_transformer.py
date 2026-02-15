@@ -57,7 +57,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 投影回 d_model
         relational_feature_adapted = self.input_projection(fused_input) # [B, N, 128]
 
-        # 1. 处理关系特征 (Relational Hybrid) with Context
+        # 处理关系特征 (Relational Hybrid) with Context
         relational_hybrid_feature, attn = self.attention(
             relational_feature_adapted, relational_feature_adapted, relational_feature_adapted,
             attn_mask=mask
@@ -67,17 +67,12 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_feature = relational_feature_adapted + self.dropout(relational_hybrid_feature)
         hybrid_feature = self.norm(temporal_feature)
 
-        # 2. Output Processing
+        # Output Processing
         output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
         
-        # 3. Late Fusion (Skip Connection with Clean Context)
+        # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((output_hybrid, additional_feature), dim=-1) 
-        
-        return combined_feature
-
-
-
-
+        # combined_feature = torch.cat((output_hybrid, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        return output_hybrid#combined_feature
 
 
