@@ -84,16 +84,16 @@ MAESAC_PARAMS = {
     "buffer_size": 50000,
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 1000,
-    "ent_coef": "auto_0.1",#0.001,#key--同时影响actor_loss/critic_loss
+    "ent_coef": 0.001,#"auto_0.1",#key--同时影响actor_loss/critic_loss
     "enc_in": ENCODER_INPUT_SIZE,#MAE编码器的输入维度#股票数88+技术指标数8
     "dec_in": ENCODER_INPUT_SIZE,#MAE解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE模型的输出维度（只用来评估重建损失）
     "d_model":128,#MAE模型的隐藏层维度（编码后，解码前，输入给SAC模型）
-    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络) in SAC Transformer,位于编码/解码block内
+    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络) in SAC Transformer,位于SAC编码/解码block内
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "dropout":0.2,
+    "dropout":0.05,
     "gamma": 0.99,#折扣因子,越小越重视短期奖励，最大为1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
