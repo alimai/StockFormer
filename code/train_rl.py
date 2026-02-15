@@ -136,7 +136,7 @@ if __name__ == '__main__':
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
             model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed, policy_kwargs=policy_kwargs)
 
-        timestamp = datetime.datetime.now().strftime("%H%M%S")
+        timestamp = datetime.datetime.now().strftime("%m%d%H%M%S")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
 
         print('Start training...')

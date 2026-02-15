@@ -51,7 +51,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
         # 0. Early Fusion & Adaptation
-        # 拼接股票特征与纯净上下文（Tech + Date）
+        # 拼接股票特征与附加上下文（Tech + Date）
         fused_input = torch.cat([relational_feature, additional_feature], dim=-1) 
         
         # 投影回 d_model
@@ -71,7 +71,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
         
         # 3. Late Fusion (Skip Connection with Clean Context)
-        # 拼接: Processed Context (128) + Clean Signals (Tech+Date)
+        # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
         combined_feature = torch.cat((output_hybrid, additional_feature), dim=-1) 
         
         return combined_feature
