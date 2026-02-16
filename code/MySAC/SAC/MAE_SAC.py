@@ -313,6 +313,14 @@ class SAC(SAC_SB3):
         actor_losses, critic_losses = [], []
         transformer_losses = []
 
+        # 老大，动态判断设备。只有 CUDA 模式才使用 GradScaler
+        device_type = self.device.type
+        use_amp = (device_type == "cuda")
+        scaler = getattr(self, "scaler", None)
+        if scaler is None and use_amp:
+            self.scaler = th.amp.GradScaler('cuda')
+            scaler = self.scaler
+
         for gradient_step in range(gradient_steps):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
@@ -321,124 +329,128 @@ class SAC(SAC_SB3):
             if self.use_sde:
                 self.actor.reset_noise()
 
-            # Action by the current actor for the sampled state
-            # pdb.set_trace()
-            # 【论文一致性修复】根据论文 Table 7 消融实验：
-            # - Critic 梯度需要传播到 relation inference module（state_transformer）
-            # - Actor 梯度不需要传播到 relation inference module
-            # 使用随机数作为种子，确保同一个 batch 的 state 和 next_state 使用相同的 mask 模式
+            # 批次融合在 CPU 上也能大幅减少算子调用开销
+            combined_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
             seed = random.randint(0, 2**31 - 1)
-            # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
-            state, temporal_feature_short, temporal_feature_long, additional_feature, loss_s = self._state_transfer(
-                replay_data.observations, seed=seed,mask_mode = 'mixed')#
-            # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
-            state_for_actor = state.detach()
-            actions_pi, log_prob = self.actor.action_log_prob(self.actor_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, additional_feature))
-            log_prob = log_prob.reshape(-1, 1)
+            
+            # 只有在最后一步或特定间隔才计算 reconstruction loss
+            should_compute_loss = (gradient_step == gradient_steps - 1)
+            
+            # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
+            with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                combined_out, _, _, combined_additional, combined_loss = self._state_transfer(
+                    combined_obs, seed=seed, mask_mode='mixed', compute_loss=should_compute_loss)
+                
+                state, next_state = th.chunk(combined_out, 2, dim=0)
+                additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
+                
+                state_for_actor = state.detach()
+                
+                combined_policy_input = th.cat([state_for_actor, next_state.detach()], dim=0)
+                combined_additional_input = th.cat([additional_feature, next_additional_feature], dim=0)
+                
+                combined_policy_embed = self.actor_transformer(combined_policy_input, None, None, combined_additional_input)
+                policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
 
-            ent_coef_loss = None
-            if self.ent_coef_optimizer is not None:
-                # Important: detach the variable from the graph
-                # so we don't change it with other losses
-                # see https://github.com/rail-berkeley/softlearning/issues/60
-                ent_coef = th.exp(self.log_ent_coef.detach())
-                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
-                ent_coef_losses.append(ent_coef_loss.item())
-            else:
-                ent_coef = self.ent_coef_tensor
+                actions_pi, log_prob = self.actor.action_log_prob(policy_embed)
+                log_prob = log_prob.reshape(-1, 1)
 
-            ent_coefs.append(ent_coef.item())
+                ent_coef_loss = None
+                if self.ent_coef_optimizer is not None:
+                    ent_coef = th.exp(self.log_ent_coef.detach())
+                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
+                    ent_coef_losses.append(ent_coef_loss.item())
+                else:
+                    ent_coef = self.ent_coef_tensor
 
-            # Optimize entropy coefficient, also called
-            # entropy temperature or alpha in the paper
+                ent_coefs.append(ent_coef.item())
+
+            # Optimize entropy coefficient
             if ent_coef_loss is not None:
                 self.ent_coef_optimizer.zero_grad()
-                ent_coef_loss.backward()
-                self.ent_coef_optimizer.step()
+                if scaler is not None:
+                    scaler.scale(ent_coef_loss).backward()
+                    scaler.step(self.ent_coef_optimizer)
+                else:
+                    ent_coef_loss.backward()
+                    self.ent_coef_optimizer.step()
 
-            # pdb.set_trace()
-            # 计算 next_state 时使用 detach，确保状态表示稳定
-            # 这样可以避免 state_transformer 更新导致的状态表示突然变化影响 target_q_values
-            # 使用相同的随机 seed，确保 state 和 next_state 使用相同的 mask 模式
-            # 这样可以避免随机 mask 导致的状态表示不一致，从而减少 critic_loss 的异常峰值            
-            # mask_mode 控制屏蔽方式: 'stock'(屏蔽股票) 或 'feature'(屏蔽技术指标) 或 'mixed' 或 'nope'(默认，不屏蔽)
-            next_state, next_temporal_feature_short, next_temporal_feature_long, next_additional_feature, loss_ns = self._state_transfer(
-                replay_data.next_observations, seed=seed,mask_mode = 'mixed')
-            # 使用 detach 确保状态表示稳定，避免 state_transformer 更新影响 target 计算
-            next_state = next_state.detach()
+            # Target Q-values calculation
             with th.no_grad():
-                # Select action according to policy
-                next_actions, next_log_prob = self.actor.action_log_prob(self.actor_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long, next_additional_feature))
+                with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                    next_actions, next_log_prob = self.actor.action_log_prob(next_policy_embed)
+                    
+                    next_critic_embed = self.critic_transformer(next_state.detach(), None, None, next_additional_feature)
+                    next_q_values = th.cat(self.critic_target(next_critic_embed, next_actions), dim=1)
+                    next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
+                    next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
+                    target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
 
-                # next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
-                # Compute the next Q values: min over all critics targets
-                next_q_values = th.cat(self.critic_target(self.critic_transformer(next_state, next_temporal_feature_short, next_temporal_feature_long, next_additional_feature), next_actions), dim=1)
-                next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
-                # add entropy term
-                next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
-
-                # td error + entropy term
-                target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
-
-            # Get current Q-values estimates for each critic network
-            # using action from the replay buffer
-            # 【论文一致性】Critic 使用原始 state（不 detach），允许梯度传播到 state_transformer
-            #current_q_values = self.critic(self.critic_transformer(state, temporal_feature_short, temporal_feature_long, additional_feature), replay_data.actions)
-            current_q_values = self.critic(self.critic_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, additional_feature), replay_data.actions)
-
-            # Compute critic loss
-            # pdb.set_trace() # get critic loss item value
-            critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
+            # Optimize critic
+            with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
+                current_q_values = self.critic(current_critic_embed, replay_data.actions)
+                critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
+            
             critic_losses.append(critic_loss.item())
 
-            # 检查 replay_data.rewards 最大值是否大于50
-            if replay_data.rewards.max().item() > 50.0:
-                print(f"WARNING: Large reward detected at step {self.num_timesteps}")
-                print(f"  replay_data.rewards max: {replay_data.rewards.max().item():.4f}")
-                print(f"  replay_data.rewards range: {replay_data.rewards.min().item():.4f} to {replay_data.rewards.max().item():.4f}")
-                print(f"  done ratio: {replay_data.dones.float().mean().item():.3f}")
-                print()
-
-            # pdb.set_trace()
-            # 【论文一致性】Optimize the critic，同时更新 state_transformer（relation inference module）
-            # 根据论文："propagates the analytic gradients of state values back into the relation inference module"
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
-            # self.transformer_optim.zero_grad()  # 【论文一致性】包含 state_transformer
-            critic_loss.backward()
+            
+            if scaler is not None:
+                scaler.scale(critic_loss).backward()
+                scaler.step(self.critic.optimizer)
+                scaler.step(self.critic_transformer.optimizer)
+            else:
+                critic_loss.backward()
+                self.critic.optimizer.step()
+                self.critic_transformer.optimizer.step()
 
-            self.critic.optimizer.step()
-            self.critic_transformer.optimizer.step()
-            # self.transformer_optim.step()  # 【论文一致性】Critic 梯度更新 state_transformer
-
-            # Compute actor loss
-            # Alternative: actor_loss = th.mean(log_prob - qf1_pi)
-            # Mean over all critic networks
-            alpha = 0
-            # 【论文一致性】Actor 使用 detach 后的 state，防止 Actor 梯度传播到 state_transformer
-            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_feature_short, temporal_feature_long, additional_feature), actions_pi), dim=1)
-
-            min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
-            actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
+            # Optimize actor
+            with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, None, None, additional_feature), actions_pi), dim=1)
+                min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
+                
+                alpha = 0
+                actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
+            
             actor_losses.append(actor_loss.item())
 
-
-            # Optimize the actor
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
-            actor_loss.backward()
+            
+            if scaler is not None:
+                scaler.scale(actor_loss).backward()
+                scaler.step(self.actor.optimizer)
+                scaler.step(self.actor_transformer.optimizer)
+                # 在每个梯度步结束时必须调用 update()，否则下次 step() 会报错
+                scaler.update()
+            else:
+                actor_loss.backward()
+                self.actor.optimizer.step()
+                self.actor_transformer.optimizer.step()
 
-            self.actor.optimizer.step()
-            self.actor_transformer.optimizer.step()
-
-            # 【论文一致性】MAE reconstruction loss 仅用于监控，不再单独更新 state_transformer
-            # 因为 state_transformer 已经通过 Critic 梯度进行联合训练（论文 Section 4.2）
-            transformerloss = (loss_s + loss_ns)/2
-            transformer_losses.append(transformerloss.item())
+            if should_compute_loss:
+                transformer_losses.append(combined_loss.item())
 
             # Update target networks
             if gradient_step % self.target_update_interval == 0:
                 polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
+
+        # 步进 scaler - 移出循环以防万一
+        # if scaler is not None:
+        #     scaler.update()
+
+        self._n_updates += gradient_steps
+
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/ent_coef", np.mean(ent_coefs))
+        self.logger.record("train/actor_loss", np.mean(actor_losses))
+        self.logger.record("train/critic_loss", np.mean(critic_losses))
+        if transformer_losses:
+            self.logger.record("train/transformer_loss", np.mean(transformer_losses))
+        if len(ent_coef_losses) > 0:
+            self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
 
         self._n_updates += gradient_steps
 
@@ -488,7 +500,7 @@ class SAC(SAC_SB3):
         try:
             with th.no_grad():
                 obs = th.FloatTensor(test_obs).to(self.transformer_device)
-                obs_tensor, temporal_short, temporal_long, additional_feature,_ = self._state_transfer(obs)
+                obs_tensor, temporal_short, temporal_long, additional_feature,_ = self._state_transfer(obs, compute_loss=False)
                 state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long, additional_feature)
                 obs_array = state_tensor.detach().cpu().numpy()
 
@@ -524,7 +536,7 @@ class SAC(SAC_SB3):
 
         return state_dicts, saved_pytorch_variables
 
-    def _state_transfer(self, x, seed=None, mask_mode='nope'):
+    def _state_transfer(self, x, seed=None, mask_mode='nope', compute_loss=True):
         """
         状态转换方法，使用 MAE Transformer 进行状态编码
         为每个模式应用其最快速的实现
@@ -536,6 +548,7 @@ class SAC(SAC_SB3):
             - 'feature': 屏蔽技术指标，随机选择部分特征，对所有股票屏蔽这些特征
             - 'mixed': 混合模式，同时随机屏蔽部分股票和部分特征
             - 'nope': 不进行任何屏蔽，保留所有特征和股票
+        :param compute_loss: 是否计算重建损失。如果不计算，将跳过 Decoder 以加速。
         :return: 编码后的状态、时序特征、附加特征、重建损失
         """
         bs, stock_num = x.shape[0], x.shape[1]
@@ -563,17 +576,25 @@ class SAC(SAC_SB3):
             mask = stock_mask.unsqueeze(2).expand(-1, -1, feat_dim)
 
             enc_inp = mask * batch_enc1
-            # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
-            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
-            enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
+            
+            # 按需计算 Decoder 部分，提速核心
+            if compute_loss:
+                # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
+                # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
+                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
 
-            # 计算被屏蔽股票的重建损失
-            # mask_stock_indices: [bs, num_mask] -> 扩展为 [bs, num_mask, feat_dim]
-            gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_mask, feat_dim]
+                # 计算被屏蔽股票的重建损失
+                # mask_stock_indices: [bs, num_mask] -> 扩展为 [bs, num_mask, feat_dim]
+                gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_mask, feat_dim]
 
-            pred = th.gather(output, 1, gather_idx)  # [bs, num_mask, feat_dim]
-            true = th.gather(batch_enc1, 1, gather_idx)  # [bs, num_mask, feat_dim]
-            loss = self.transformer_criteria(pred, true)
+                pred = th.gather(output, 1, gather_idx)  # [bs, num_mask, feat_dim]
+                true = th.gather(batch_enc1, 1, gather_idx)  # [bs, num_mask, feat_dim]
+                loss = self.transformer_criteria(pred, true)
+            else:
+                # 只运行 Encoder 部分，跳过 Decoder
+                enc_out = self.state_transformer.enc_embedding(enc_inp)
+                enc_out, _ = self.state_transformer.encoder(enc_out)
+                loss = th.tensor(0.0, device=x.device)
 
         elif mask_mode == 'feature':
             # ==================== 模式2: 屏蔽技术指标 - 最快版 ====================
@@ -593,15 +614,22 @@ class SAC(SAC_SB3):
             mask = feat_mask.unsqueeze(1).expand(-1, stock_num, -1)
 
             enc_inp = mask * batch_enc1
-            enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
+            
+            if compute_loss:
+                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
 
-            # 计算被屏蔽特征的重建损失
-            # mask_feat_indices: [bs, num_mask] -> 扩展为 [bs, stock_num, num_mask]
-            gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_mask]
+                # 计算被屏蔽特征的重建损失
+                # mask_feat_indices: [bs, num_mask] -> 扩展为 [bs, stock_num, num_mask]
+                gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_mask]
 
-            pred = th.gather(output, 2, gather_idx)  # [bs, stock_num, num_mask]
-            true = th.gather(batch_enc1, 2, gather_idx)  # [bs, stock_num, num_mask]
-            loss = self.transformer_criteria(pred, true)
+                pred = th.gather(output, 2, gather_idx)  # [bs, stock_num, num_mask]
+                true = th.gather(batch_enc1, 2, gather_idx)  # [bs, stock_num, num_mask]
+                loss = self.transformer_criteria(pred, true)
+            else:
+                # 只运行 Encoder 部分
+                enc_out = self.state_transformer.enc_embedding(enc_inp)
+                enc_out, _ = self.state_transformer.encoder(enc_out)
+                loss = th.tensor(0.0, device=x.device)
 
         elif mask_mode == 'mixed':
             # ==================== 模式3: 混合模式，同时屏蔽股票和特征  - 优化版 ====================
@@ -630,33 +658,45 @@ class SAC(SAC_SB3):
             mask = stock_mask_expanded * feat_mask_expanded
 
             enc_inp = mask * batch_enc1
-            enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
+            
+            if compute_loss:
+                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
 
-            # 计算被屏蔽股票的重建损失
-            # mask_stock_indices: [bs, num_stock_mask] -> 扩展为 [bs, num_stock_mask, feat_dim]
-            stock_gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_stock_mask, feat_dim]
-            stock_pred = th.gather(output, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
-            stock_true = th.gather(batch_enc1, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
+                # 计算被屏蔽股票的重建损失
+                # mask_stock_indices: [bs, num_stock_mask] -> 扩展为 [bs, num_stock_mask, feat_dim]
+                stock_gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_stock_mask, feat_dim]
+                stock_pred = th.gather(output, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
+                stock_true = th.gather(batch_enc1, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
 
-            # 计算被屏蔽特征的重建损失
-            # mask_feat_indices: [bs, num_feat_mask] -> 扩展为 [bs, stock_num, num_feat_mask]
-            feat_gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_feat_mask]
-            feat_pred = th.gather(output, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
-            feat_true = th.gather(batch_enc1, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
+                # 计算被屏蔽特征的重建损失
+                # mask_feat_indices: [bs, num_feat_mask] -> 扩展为 [bs, stock_num, num_feat_mask]
+                feat_gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_feat_mask]
+                feat_pred = th.gather(output, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
+                feat_true = th.gather(batch_enc1, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
 
-            # 组合损失：股票mask损失 + 特征mask损失
-            # 优化：使用flatten替代reshape以提高性能
-            pred = th.cat([stock_pred.flatten(), feat_pred.flatten()], dim=0)
-            true = th.cat([stock_true.flatten(), feat_true.flatten()], dim=0)
-            loss = self.transformer_criteria(pred, true)
+                # 组合损失：股票mask损失 + 特征mask损失
+                # 优化：使用flatten替代reshape以提高性能
+                pred = th.cat([stock_pred.flatten(), feat_pred.flatten()], dim=0)
+                true = th.cat([stock_true.flatten(), feat_true.flatten()], dim=0)
+                loss = self.transformer_criteria(pred, true)
+            else:
+                # 只运行 Encoder 部分
+                enc_out = self.state_transformer.enc_embedding(enc_inp)
+                enc_out, _ = self.state_transformer.encoder(enc_out)
+                loss = th.tensor(0.0, device=x.device)
 
         else:  # if mask_mode == 'nope':
             # ==================== 模式4: 不屏蔽任何特征或股票 ====================
             enc_inp = batch_enc1
-            enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
-
-            # 由于没有进行掩码，无法计算重建损失，返回零损失
-            loss = th.tensor(0.0, device=x.device)
+            if compute_loss:
+                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
+                # 由于没有进行掩码，无法计算重建损失，返回零损失
+                loss = th.tensor(0.0, device=x.device)
+            else:
+                # 只运行 Encoder 部分
+                enc_out = self.state_transformer.enc_embedding(enc_inp)
+                enc_out, _ = self.state_transformer.encoder(enc_out)
+                loss = th.tensor(0.0, device=x.device)
 
         # 【精准特征切片：仅包含技术指标和日期】
         # 1. 提取技术指标 (位于协方差矩阵之后)

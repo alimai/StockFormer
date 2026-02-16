@@ -16,6 +16,8 @@ code/results/
 code/Transformer/checkpoints
 checkpoints/
 stockformer_env/
+stockformer_env_2/
+stockformer_env_3/
 log/
 tensorboard_log/
 results/
