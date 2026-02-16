@@ -98,7 +98,7 @@ MAESAC_PARAMS = {
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
     "train_freq": 249,  # 每x步训练一次
-    "gradient_steps": 50,  # 每次训练进行x个梯度更新
+    "gradient_steps": 100,  # 每次训练进行x个梯度更新
 }
 
 # MAESAC_PARAMS_PRED = {

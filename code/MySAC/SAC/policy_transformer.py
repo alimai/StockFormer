@@ -28,15 +28,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.GELU()
         )
 
-        # 2. Output Projection (Enhanced FFN-style): 
-        # 将原有的单层投影增强为两层 MLP 结构，类似于 Transformer 中的 FFN。
-        # 增加中间层维度 (d_model * 2) 以提升特征表达能力，使其能更好地“消化”注意力层的输出。
+        # 2. Output Projection: 
         self.out_dim = d_model 
         self.projection = nn.Sequential(
-            nn.Linear(d_model, d_model * 2),
+            nn.Linear(d_model, self.out_dim),
             nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_model * 2, self.out_dim),
             nn.LayerNorm(self.out_dim)
         )
 
