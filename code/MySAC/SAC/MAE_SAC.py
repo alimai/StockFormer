@@ -300,7 +300,7 @@ class SAC(SAC_SB3):
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
-        # self.state_transformer.train()
+        self.state_transformer.train() # 开启 MAE 训练模式
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer, self.critic.optimizer, self.actor_transformer.optimizer, self.critic_transformer.optimizer, self.transformer_optim]
         if self.ent_coef_optimizer is not None:
@@ -344,7 +344,11 @@ class SAC(SAC_SB3):
                 state, next_state = th.chunk(combined_out, 2, dim=0)
                 additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
                 
-                state_for_actor = state.detach()
+                # state_for_actor = state.detach()
+                # 使用 actor_alpha 动态控制回传给 MAE 的梯度
+                state_for_actor = state * self.actor_alpha + state.detach() * (1 - self.actor_alpha)
+                # 使用 critic_alpha 动态控制回传给 MAE 的梯度
+                state_for_critic = state * self.critic_alpha + state.detach() * (1 - self.critic_alpha)
                 
                 combined_policy_input = th.cat([state_for_actor, next_state.detach()], dim=0)
                 combined_additional_input = th.cat([additional_feature, next_additional_feature], dim=0)
@@ -388,7 +392,9 @@ class SAC(SAC_SB3):
 
             # Optimize critic
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
+                #使用带梯度控制的状态state_for_critic
+                # current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
+                current_critic_embed = self.critic_transformer(state_for_critic, None, None, additional_feature)
                 current_q_values = self.critic(current_critic_embed, replay_data.actions)
                 critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
             
@@ -396,15 +402,18 @@ class SAC(SAC_SB3):
 
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
+            self.transformer_optim.zero_grad() # 重置 MAE 优化器
             
             if scaler is not None:
-                scaler.scale(critic_loss).backward()
+                scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 和 MAE 更新
                 scaler.step(self.critic.optimizer)
                 scaler.step(self.critic_transformer.optimizer)
+                # scaler.step(self.transformer_optim) # 暂时不更新 MAE，等待梯度累积
             else:
-                critic_loss.backward()
+                critic_loss.backward(retain_graph=True) # 保留计算图
                 self.critic.optimizer.step()
                 self.critic_transformer.optimizer.step()
+                # self.transformer_optim.step() # 暂时不更新 MAE
 
             # Optimize actor
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
@@ -418,28 +427,39 @@ class SAC(SAC_SB3):
 
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
+            # self.transformer_optim.zero_grad() # 不要重置，因为要累积来自 Critic 的梯度
             
             if scaler is not None:
-                scaler.scale(actor_loss).backward()
+                scaler.scale(actor_loss).backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
                 scaler.step(self.actor.optimizer)
                 scaler.step(self.actor_transformer.optimizer)
+                # scaler.step(self.transformer_optim) # 暂时不更新 MAE
                 # 在每个梯度步结束时必须调用 update()，否则下次 step() 会报错
-                scaler.update()
+                # scaler.update() # 移到最后统一步进
             else:
-                actor_loss.backward()
+                actor_loss.backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
                 self.actor.optimizer.step()
                 self.actor_transformer.optimizer.step()
+                # self.transformer_optim.step() # 暂时不更新 MAE
 
             if should_compute_loss:
+                # 正式更新 MAE 模型（自监督部分）
+                # self.transformer_optim.zero_grad() # 不要重置，累积之前的梯度
+                if scaler is not None:
+                    scaler.scale(combined_loss).backward()
+                    # scaler.step(self.transformer_optim)
+                    # scaler.update()
+                else:
+                    combined_loss.backward()
+                    # self.transformer_optim.step()
                 transformer_losses.append(combined_loss.item())
-
-            # Update target networks
-            if gradient_step % self.target_update_interval == 0:
-                polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
-
-        # 步进 scaler - 移出循环以防万一
-        # if scaler is not None:
-        #     scaler.update()
+            
+            # 老大，最后统一步进 MAE 优化器，避免 inplace 错误
+            if scaler is not None:
+                scaler.step(self.transformer_optim)
+                scaler.update()
+            else:
+                self.transformer_optim.step()
 
         self._n_updates += gradient_steps
 
@@ -449,16 +469,6 @@ class SAC(SAC_SB3):
         self.logger.record("train/critic_loss", np.mean(critic_losses))
         if transformer_losses:
             self.logger.record("train/transformer_loss", np.mean(transformer_losses))
-        if len(ent_coef_losses) > 0:
-            self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
-
-        self._n_updates += gradient_steps
-
-        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        self.logger.record("train/ent_coef", np.mean(ent_coefs))
-        self.logger.record("train/actor_loss", np.mean(actor_losses))
-        self.logger.record("train/critic_loss", np.mean(critic_losses))
-        self.logger.record("train/transformer_loss", np.mean(transformer_losses))
         if len(ent_coef_losses) > 0:
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
 

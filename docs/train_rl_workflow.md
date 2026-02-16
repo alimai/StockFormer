@@ -98,6 +98,12 @@ env_train_vm = VecMonitor(env_train, log_path_train)
 
 ## 5️⃣ 模型训练与评估
 
+### 5.1 MAE 模型反向梯度更新 (v2026.02 新增)
+为了实现“混合交易机器”的端到端优化，本版本开启了 MAE 模型的反向梯度更新：
+- **梯度控制**: 通过 `actor_alpha` 和 `critic_alpha` 参数控制 RL 损失对 MAE 编码器的影响强度。
+- **混合训练**: MAE 模型在强化学习过程中同时接受来自 Actor 损失、Critic 损失以及自身重建损失（自监督）的梯度。
+- **配置开关**: 在 `config.py` 的 `MAESAC_PARAMS` 中通过设置 `actor_alpha` 和 `critic_alpha` 为非零值来开启。
+
 ```python
 agent = DRLAgent(env = env_train_vm)
 # 获取并训练模型
