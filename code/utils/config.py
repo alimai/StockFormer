@@ -97,8 +97,8 @@ MAESAC_PARAMS = {
     "gamma": 0.99,#折扣因子,越小越重视短期奖励，最大为1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
-    "train_freq": 249,  # 每x步训练一次
-    "gradient_steps": 100,  # 每次训练进行x个梯度更新
+    "train_freq": step_len,  # 每x步训练一次
+    "gradient_steps": step_len,  # 每次训练进行x个梯度更新
 }
 
 # MAESAC_PARAMS_PRED = {
