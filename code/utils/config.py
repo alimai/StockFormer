@@ -183,7 +183,7 @@ TRANSFORMER_PARAMS_DEFAULT = {
 TRANSFORMER_PARAMS_PRED_SHORT = {
     "project_name": "transformer_CSI_predShort",
     "exp_type": "pred",
-    "train_epochs": 5,
+    "train_epochs": 15,
     "itr": 1,
     "batch_size": 32,
     "seq_len": 60,
@@ -212,7 +212,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
 TRANSFORMER_PARAMS_PRED_LONG = {
     "project_name": "transformer_CSI_predLong",
     "exp_type": "pred",
-    "train_epochs": 5,
+    "train_epochs": 15,
     "itr": 1,
     "batch_size": 32,
     "seq_len": 60,
