@@ -235,7 +235,7 @@ class Exp_pred(Exp_Basic):
             adjust_learning_rate(model_optim, epoch+1, self.args)
             
         best_model_path = path+'/'+'checkpoint_{0}.pth'.format(best_model_index)
-        self.model.load_state_dict(torch.load(best_model_path))
+        self.model.load_state_dict(torch.load(best_model_path, weights_only=True))
         print('best model index: ', best_model_index)
         
         return self.model
@@ -251,7 +251,7 @@ class Exp_pred(Exp_Basic):
             metrics_object.MIRRTop1,
             metrics_object.RankIC
         ]
-        metric_objs = [builder('test') for builder in metric_builders]
+        metric_objs = [builder('test') for builder in metrics_builders]
         
         with torch.no_grad():
             for i, (batch_x1, batch_x2, batch_y) in enumerate(test_loader):
