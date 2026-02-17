@@ -123,8 +123,8 @@ class StockTradingEnv(gym.Env):
             else:
                 device = 'cpu'
         self.device = device
-        # self.short_prediction_model = self.load_model(short_prediction_model_path).to(self.device)
-        # self.long_prediction_model = self.load_model(long_prediction_model_path).to(self.device)
+        self.short_prediction_model = self.load_model(short_prediction_model_path).to(self.device)
+        self.long_prediction_model = self.load_model(long_prediction_model_path).to(self.device)
         # self.short_prediction_model.eval()
         # self.long_prediction_model.eval()
 
