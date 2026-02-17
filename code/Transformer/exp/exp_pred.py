@@ -91,8 +91,8 @@ class Exp_pred(Exp_Basic):
         total_loss = []
         metric_objs = [builder(stage) for builder in metric_builders]
         
-        # 显存优化：提升子批次大小到 2048 (约 4x 之前的 512)
-        sub_batch_size = 2048 
+        # 显存优化：子批次大小提升到 4096
+        sub_batch_size = 4096
 
         with torch.no_grad():
             for i, (batch_x1, batch_x2, batch_y) in enumerate(vali_loader):
@@ -172,8 +172,8 @@ class Exp_pred(Exp_Basic):
                 
                 total_iter_loss = 0
                 
-                # 性能优化：从逐日处理改为每 4 天处理一次 (4x 显存利用)
-                accum_days = 4
+                # 性能优化：每 8 天并行处理一次 (对比最初的 1 天，提升巨大)
+                accum_days = 8
                 for day_idx in range(0, bs, accum_days):
                     end_day = min(day_idx + accum_days, bs)
                     num_days = end_day - day_idx
@@ -244,8 +244,8 @@ class Exp_pred(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         self.model.eval()
         
-        # 提升子批次大小到 2048
-        sub_batch_size = 2048
+        # 提升子批次大小到 4096
+        sub_batch_size = 4096
 
         metrics_builders = [
             metrics_object.MIRRTop1,
