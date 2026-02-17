@@ -99,8 +99,8 @@ MAESAC_PARAMS = {
     "transformer_device": device,
     "train_freq": 249,  # 每x步训练一次
     "gradient_steps": 100,  # 每次训练进行x个梯度更新
-    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic端，1.0）
-    "actor_alpha": 0.0,  # MAE 反向梯度更新的权重（Actor端，0.0）
+    "critic_alpha": 0.0, # MAE 反向梯度更新的权重（Critic端，1.0）
+    "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor端，0.0）
 }
 
 # MAESAC_PARAMS_PRED = {
