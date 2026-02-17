@@ -91,8 +91,8 @@ class Exp_pred(Exp_Basic):
         total_loss = []
         metric_objs = [builder(stage) for builder in metric_builders]
         
-        # 显存优化：子批次大小提升到 4096
-        sub_batch_size = 4096
+        # 平衡模式：提升子批次大小到 6000 (约 20 天数据)
+        sub_batch_size = 6000
 
         with torch.no_grad():
             for i, (batch_x1, batch_x2, batch_y) in enumerate(vali_loader):
@@ -123,7 +123,6 @@ class Exp_pred(Exp_Basic):
                     metric.update(output, batch_y_gpu)
                 
                 del batch_x1, batch_x2, batch_y_gpu, output, outputs
-                torch.cuda.empty_cache()
 
         total_loss = np.average(total_loss)
         self.model.train()
@@ -172,8 +171,8 @@ class Exp_pred(Exp_Basic):
                 
                 total_iter_loss = 0
                 
-                # 性能优化：每 8 天并行处理一次 (对比最初的 1 天，提升巨大)
-                accum_days = 8
+                # 性能优化：每 16 天并行处理一次 (针对显存富余的平衡点)
+                accum_days = 16
                 for day_idx in range(0, bs, accum_days):
                     end_day = min(day_idx + accum_days, bs)
                     num_days = end_day - day_idx
@@ -205,9 +204,10 @@ class Exp_pred(Exp_Basic):
                     print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
+                    # 仅在日志输出时回收缓存，减少同步频率
+                    torch.cuda.empty_cache()
 
                 del batch_x1, batch_x2, batch_y_gpu
-                torch.cuda.empty_cache()
 
             train_loss = np.average(train_loss_accum)
             valid_loss, valid_metrics = self.vali(vali_data, vali_loader, criterion, metrics_builders, stage='valid')
@@ -244,8 +244,8 @@ class Exp_pred(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         self.model.eval()
         
-        # 提升子批次大小到 4096
-        sub_batch_size = 4096
+        # 子批次大小提升到 6000
+        sub_batch_size = 6000
 
         metrics_builders = [
             metrics_object.MIRRTop1,
@@ -278,7 +278,6 @@ class Exp_pred(Exp_Basic):
                     metric.update(output, batch_y_gpu)
                 
                 del batch_x1, batch_x2, batch_y_gpu, output, outputs
-                torch.cuda.empty_cache()
 
         # result save
         folder_path = './results/' + setting +'/'
