@@ -321,7 +321,7 @@ class StockTradingEnv(gym.Env):
             # 更新后计算
             self.end_total_asset = self.env_info[0] + np.sum(first_day_prices * shares)
 
-            avg_prices = first_day_prices * 0.3 + fifth_day_prices * 0.7
+            avg_prices = first_day_prices * 0.7 + fifth_day_prices * 0.3
             asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
             
             market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0

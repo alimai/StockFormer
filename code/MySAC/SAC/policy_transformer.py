@@ -50,22 +50,27 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
+        temporal_relational_hybrid_feature, attn = self.attention(
+            temporal_feature_short, relational_feature, relational_feature,
+            attn_mask=mask
+        )  
+        # Residual Connection
+        temporal_feature = temporal_feature_short + self.dropout(temporal_relational_hybrid_feature)
+        temporal_feature_n = self.norm(temporal_feature)
+
         # 0. Early Fusion & Adaptation
-        # 拼接股票特征与附加上下文（Tech + Date）
-        fused_input = torch.cat([relational_feature, additional_feature], dim=-1) 
-        
-        # 投影回 d_model
+        # 拼接股票特征与附加上下文（Tech + Date）并投影回 d_model
+        fused_input = torch.cat([temporal_feature_n, additional_feature], dim=-1) 
         relational_feature_adapted = self.input_projection(fused_input) # [B, N, 128]
 
         # 处理关系特征 (Relational Hybrid) with Context
-        relational_hybrid_feature, attn = self.attention(
+        relational_hybrid_feature, attn = self.attention2(
             relational_feature_adapted, relational_feature_adapted, relational_feature_adapted,
             attn_mask=mask
         )
-        
         # Residual Connection
-        temporal_feature = relational_feature_adapted + self.dropout(relational_hybrid_feature)
-        hybrid_feature = self.norm(temporal_feature)
+        temporal_feature_2 = relational_feature_adapted + self.dropout(relational_hybrid_feature)
+        hybrid_feature = self.norm(temporal_feature_2)
 
         # Output Processing
         output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
