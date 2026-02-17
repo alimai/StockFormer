@@ -57,11 +57,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 处理关系特征 (Relational Hybrid) with Context
         relational_hybrid_feature, attn = self.attention2(
-            temporal_feature_adapted, relational_feature, relational_feature,
+            relational_feature, temporal_feature_adapted, temporal_feature_adapted,
             attn_mask=mask
         )
         # Residual Connection
-        temporal_feature_2 = temporal_feature_adapted + self.dropout(relational_hybrid_feature)
+        temporal_feature_2 = relational_feature + self.dropout(relational_hybrid_feature)
         hybrid_feature = self.norm(temporal_feature_2)
 
         # Output Processing
