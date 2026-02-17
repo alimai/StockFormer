@@ -89,26 +89,28 @@ class Exp_mae(Exp_Basic):
         total_loss = []
         metric_objs = [builder(stage) for builder in metric_builders]
 
-        for i, (batch_x1) in enumerate(vali_loader):
-            batch_x1 = batch_x1.float().to(self.device)
+        with torch.no_grad():
+            for i, (batch_x1) in enumerate(vali_loader):
+                batch_x1 = batch_x1.float().to(self.device)
 
-            bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
-            mask = torch.ones_like(batch_x1)
-            rand_indices = torch.rand(bs, stock_num).argsort(dim=-1)
-            mask_indices = rand_indices[:, :int(stock_num/2)]
-            batch_range = torch.arange(bs)[:, None]
-            mask[batch_range, mask_indices, stock_num:] = 0
-            enc_inp = mask * batch_x1
-            _, _, output = self.model(enc_inp, enc_inp)
+                bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
+                mask = torch.ones_like(batch_x1)
+                rand_indices = torch.rand(bs, stock_num).argsort(dim=-1)
+                mask_indices = rand_indices[:, :int(stock_num/2)]
+                batch_range = torch.arange(bs)[:, None]
+                mask[batch_range, mask_indices, stock_num:] = 0
+                enc_inp = mask * batch_x1
+                _, _, output = self.model(enc_inp, enc_inp)
 
-            pred = output[batch_range, mask_indices, stock_num:]
-            true = batch_x1[batch_range, mask_indices, stock_num:]
-            
-            loss = criterion(pred, true)
+                pred = output[batch_range, mask_indices, stock_num:]
+                true = batch_x1[batch_range, mask_indices, stock_num:]
+                
+                # 转回 float32
+                pred = pred.float()
+                loss = criterion(pred, true)
 
-            total_loss.append(loss.item())
+                total_loss.append(loss.item())
 
-            with torch.no_grad():
                 for metric in metric_objs:
                     metric.update(pred, true)
 
@@ -137,6 +139,9 @@ class Exp_mae(Exp_Basic):
         model_optim = self._select_optimizer()
         criterion =  self._select_criterion()
 
+        # 引入混合精度训练 Scaler
+        scaler = torch.amp.GradScaler('cuda')
+
         metric_objs = [builder('train') for builder in metrics_builders]
 
         valid_loss_global = np.inf
@@ -160,17 +165,26 @@ class Exp_mae(Exp_Basic):
                 batch_range = torch.arange(bs)[:, None]
                 mask[batch_range, mask_indices, stock_num:] = 0
                 enc_inp = mask * batch_x1
-                _,_, output = self.model(enc_inp, enc_inp)
-        
-                pred = output[batch_range, mask_indices, stock_num:]
-                true = batch_x1[batch_range, mask_indices, stock_num:]
-            
-                loss = criterion(pred, true)
-                train_loss.append(loss.item())
 
                 model_optim.zero_grad()
-                loss.backward()
-                model_optim.step()
+                
+                # 使用自动混合精度进行前向传播
+                with torch.amp.autocast('cuda'):
+                    _,_, output = self.model(enc_inp, enc_inp)
+            
+                    pred = output[batch_range, mask_indices, stock_num:]
+                    true = batch_x1[batch_range, mask_indices, stock_num:]
+                
+                    # 转回 float32 计算 Loss
+                    pred = pred.float()
+                    loss = criterion(pred, true)
+                
+                train_loss.append(loss.item())
+
+                # 反向传播并缩放梯度
+                scaler.scale(loss).backward()
+                scaler.step(model_optim)
+                scaler.update()
                 
                 if (i+1) % 100==0:
                     print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
@@ -208,6 +222,7 @@ class Exp_mae(Exp_Basic):
 
             if valid_loss.item() < valid_loss_global:
                 best_model_index = epoch+1
+                valid_loss_global = valid_loss.item()
 
             adjust_learning_rate(model_optim, epoch+1, self.args)
             
@@ -223,39 +238,40 @@ class Exp_mae(Exp_Basic):
         
         self.model.eval()
         
-        preds = []
-        trues = []
+        metrics_builders = [
+            metrics_object.MAE,
+            metrics_object.MSE
+        ]
+        metric_objs = [builder('test') for builder in metrics_builders]
         
-        for i, (batch_x1) in enumerate(test_loader):
-            batch_x1 = batch_x1.float().to(self.device)
+        with torch.no_grad():
+            for i, (batch_x1) in enumerate(test_loader):
+                batch_x1 = batch_x1.float().to(self.device)
 
-            bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
-            mask = torch.ones_like(batch_x1)
-            rand_indices = torch.rand(bs, stock_num).argsort(dim=-1)
-            mask_indices = rand_indices[:, :int(stock_num/2)]
-            batch_range = torch.arange(bs)[:, None]
-            mask[batch_range, mask_indices, stock_num:] = 0
-            enc_inp = mask * batch_x1
-            _,_, output = self.model(enc_inp, enc_inp)
+                bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
+                mask = torch.ones_like(batch_x1)
+                rand_indices = torch.rand(bs, stock_num).argsort(dim=-1)
+                mask_indices = rand_indices[:, :int(stock_num/2)]
+                batch_range = torch.arange(bs)[:, None]
+                mask[batch_range, mask_indices, stock_num:] = 0
+                enc_inp = mask * batch_x1
+                _,_, output = self.model(enc_inp, enc_inp)
 
-            pred = output.detach().cpu().numpy()[batch_range, mask_indices, stock_num:]
-            true = batch_x1.detach().cpu().numpy()[batch_range, mask_indices, stock_num:]
+                pred = output[batch_range, mask_indices, stock_num:]
+                true = batch_x1[batch_range, mask_indices, stock_num:]
 
-            preds.append(pred)
-            trues.append(true)
-
-        preds = np.array(preds)
-        trues = np.array(trues)
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        print('test shape:', preds.shape, trues.shape)
+                for metric in metric_objs:
+                    metric.update(pred, true)
 
         # result save
         folder_path = './results/' + setting +'/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
 
-        mae, mse, rmse, mape, mspe = metric(preds, trues)
-        print('mse:{}, mae:{}'.format(mse, mae))
+        all_logs = {
+                metric.name: metric.value for metric in metric_objs
+            }
+        for name, value in all_logs.items():
+            print(f"{name}: {value.mean()}")
 
         return

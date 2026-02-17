@@ -74,6 +74,10 @@ if __name__ == '__main__':
             a=SCALE_A
             )
     
+    # Transformer 训练不需要 full_df，手动释放以腾出系统内存
+    if hasattr(data, 'full_df'):
+        del data.full_df
+    
     gc.collect()
 
     for ii in range(args.itr):
@@ -92,3 +96,9 @@ if __name__ == '__main__':
 
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting)
+
+        # 迭代结束，显式清理显存和对象，防止内存持续上涨
+        del exp
+        if args.use_gpu:
+            torch.cuda.empty_cache()
+        gc.collect()

@@ -90,23 +90,40 @@ class Exp_pred(Exp_Basic):
         self.model.eval()
         total_loss = []
         metric_objs = [builder(stage) for builder in metric_builders]
+        
+        # 显存优化：提升子批次大小到 2048 (约 4x 之前的 512)
+        sub_batch_size = 2048 
 
-        for i, (batch_x1, batch_x2, batch_y) in enumerate(vali_loader):
-            bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
-            batch_x1 = batch_x1.reshape(-1, batch_x1.shape[-2], batch_x1.shape[-1]).float().to(self.device)
-            batch_x2 = batch_x2.reshape(-1, batch_x2.shape[-2], batch_x2.shape[-1]).float().to(self.device)
-            batch_y = batch_y.float().to(self.device)
-            
-            _, _, output = self.model(batch_x1, batch_x2)
+        with torch.no_grad():
+            for i, (batch_x1, batch_x2, batch_y) in enumerate(vali_loader):
+                bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
+                # 数据保持在 CPU
+                batch_x1 = batch_x1.reshape(-1, batch_x1.shape[-2], batch_x1.shape[-1]).float()
+                batch_x2 = batch_x2.reshape(-1, batch_x2.shape[-2], batch_x2.shape[-1]).float()
+                batch_y_gpu = batch_y.float().to(self.device)
+                
+                outputs = []
+                num_samples = batch_x1.shape[0]
+                for start_idx in range(0, num_samples, sub_batch_size):
+                    end_idx = min(start_idx + sub_batch_size, num_samples)
+                    sub_x1 = batch_x1[start_idx:end_idx].to(self.device)
+                    sub_x2 = batch_x2[start_idx:end_idx].to(self.device)
+                    
+                    with torch.amp.autocast('cuda'):
+                        _, _, sub_out = self.model(sub_x1, sub_x2)
+                    outputs.append(sub_out.detach().cpu())
+                    del sub_x1, sub_x2, sub_out
+                
+                output = torch.cat(outputs, dim=0).to(self.device).reshape(bs, stock_num).float()
+                loss = criterion(output, batch_y_gpu) + self.args.rank_alpha * ranking_loss(output, batch_y_gpu)
 
-            output = output.reshape(bs,stock_num)
-            loss = criterion(output, batch_y) + self.args.rank_alpha * ranking_loss(output, batch_y)
+                total_loss.append(loss.item())
 
-            total_loss.append(loss.item())
-
-            with torch.no_grad():
                 for metric in metric_objs:
-                    metric.update(output, batch_y)
+                    metric.update(output, batch_y_gpu)
+                
+                del batch_x1, batch_x2, batch_y_gpu, output, outputs
+                torch.cuda.empty_cache()
 
         total_loss = np.average(total_loss)
         self.model.train()
@@ -118,19 +135,19 @@ class Exp_pred(Exp_Basic):
         test_data, test_loader = self._get_data(flag = 'test')
 
         metrics_builders = [
-        metrics_object.MIRRTop1,
-    ]
+            metrics_object.MIRRTop1,
+        ]
 
         path = os.path.join('./checkpoints/',setting)
         if not os.path.exists(path):
             os.makedirs(path)
 
         time_now = time.time()
-        
         train_steps = len(train_loader)        
         model_optim = self._select_optimizer()
         criterion =  self._select_criterion()
 
+        scaler = torch.amp.GradScaler('cuda')
         metric_objs = [builder('train') for builder in metrics_builders]
 
         valid_loss_global = np.inf
@@ -139,42 +156,60 @@ class Exp_pred(Exp_Basic):
         print(f"Starting training loop... ({train_steps} steps per epoch)")
         for epoch in range(self.args.train_epochs):
             iter_count = 0
-            train_loss = []
+            train_loss_accum = []
             
             self.model.train()
             for i, (batch_x1, batch_x2, batch_y) in enumerate(train_loader):
                 iter_count += 1
-                # pdb.set_trace()
                 bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
-                batch_x1 = batch_x1.reshape(-1, batch_x1.shape[-2], batch_x1.shape[-1]).float().to(self.device)
-                batch_x2 = batch_x2.reshape(-1, batch_x2.shape[-2], batch_x2.shape[-1]).float().to(self.device)
-                batch_y = batch_y.float().to(self.device)
-
-                _,_, output = self.model(batch_x1, batch_x2)
-            
-                output = output.reshape(bs,stock_num)
-        
-                loss = criterion(output, batch_y) + self.args.rank_alpha * ranking_loss(output, batch_y)
-                train_loss.append(loss.item())
+                
+                # 初始数据在 CPU
+                batch_x1 = batch_x1.reshape(-1, batch_x1.shape[-2], batch_x1.shape[-1]).float()
+                batch_x2 = batch_x2.reshape(-1, batch_x2.shape[-2], batch_x2.shape[-1]).float()
+                batch_y_gpu = batch_y.float().to(self.device)
 
                 model_optim.zero_grad()
-                loss.backward()
-                model_optim.step()
+                
+                total_iter_loss = 0
+                
+                # 性能优化：从逐日处理改为每 4 天处理一次 (4x 显存利用)
+                accum_days = 4
+                for day_idx in range(0, bs, accum_days):
+                    end_day = min(day_idx + accum_days, bs)
+                    num_days = end_day - day_idx
+                    
+                    day_x1 = batch_x1[day_idx*stock_num : end_day*stock_num].to(self.device)
+                    day_x2 = batch_x2[day_idx*stock_num : end_day*stock_num].to(self.device)
+                    day_y = batch_y_gpu[day_idx:end_day] # [num_days, stock_num]
+                    
+                    with torch.amp.autocast('cuda'):
+                        _, _, day_out = self.model(day_x1, day_x2)
+                        day_out = day_out.reshape(num_days, stock_num).float()
+                        
+                        # 按比例缩放 Loss
+                        loss_group = (criterion(day_out, day_y) + self.args.rank_alpha * ranking_loss(day_out, day_y)) * (num_days / bs)
+                        
+                    scaler.scale(loss_group).backward()
+                    total_iter_loss += loss_group.item()
+                    
+                    del day_x1, day_x2, day_out
+                
+                scaler.step(model_optim)
+                scaler.update()
+                train_loss_accum.append(total_iter_loss)
                 
                 if (i+1) % 100==0:
-                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
+                    print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, total_iter_loss))
                     speed = (time.time()-time_now)/iter_count
                     left_time = speed*((self.args.train_epochs - epoch)*train_steps - i)
                     print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
                     iter_count = 0
                     time_now = time.time()
 
-                with torch.no_grad():
-                    for metric in metric_objs:
-                        metric.update(output, batch_y)
+                del batch_x1, batch_x2, batch_y_gpu
+                torch.cuda.empty_cache()
 
-
-            train_loss = np.average(train_loss)
+            train_loss = np.average(train_loss_accum)
             valid_loss, valid_metrics = self.vali(vali_data, vali_loader, criterion, metrics_builders, stage='valid')
             test_loss, test_metrics = self.vali(test_data, test_loader, criterion, metrics_builders, stage='test')
 
@@ -182,10 +217,8 @@ class Exp_pred(Exp_Basic):
             self.writer.add_scalar('Valid/loss', valid_loss, epoch)
             self.writer.add_scalar('Test/loss', test_loss, epoch)
 
-            # pdb.set_trace()
-
             all_logs = {
-                metric.name: metric.value for metric in metric_objs + valid_metrics + test_metrics
+                metric.name: metric.value for metric in valid_metrics + test_metrics
             }
             for name, value in all_logs.items():
                 self.writer.add_scalar(name, value.mean(), global_step=epoch)
@@ -197,6 +230,7 @@ class Exp_pred(Exp_Basic):
 
             if valid_loss.item() < valid_loss_global:
                 best_model_index = epoch+1
+                valid_loss_global = valid_loss.item()
 
             adjust_learning_rate(model_optim, epoch+1, self.args)
             
@@ -208,32 +242,43 @@ class Exp_pred(Exp_Basic):
 
     def test(self, setting):
         test_data, test_loader = self._get_data(flag='test')
-
-        outputs = []
-        real = []
-        
         self.model.eval()
+        
+        # 提升子批次大小到 2048
+        sub_batch_size = 2048
 
         metrics_builders = [
-        metrics_object.MIRRTop1,
-        metrics_object.RankIC
-    ]
+            metrics_object.MIRRTop1,
+            metrics_object.RankIC
+        ]
+        metric_objs = [builder('test') for builder in metric_builders]
         
-        metric_objs = [builder('test') for builder in metrics_builders]
-        
-        for i, (batch_x1, batch_x2, batch_y) in enumerate(test_loader):
-            bs, stock_num = batch_x1.shape[0], batch_x2.shape[1]
-            batch_x1 = batch_x1.reshape(-1, batch_x1.shape[-2], batch_x1.shape[-1]).float().to(self.device)
-            batch_x2 = batch_x2.reshape(-1, batch_x2.shape[-2], batch_x2.shape[-1]).float().to(self.device)
-            batch_y = batch_y.float().to(self.device)
+        with torch.no_grad():
+            for i, (batch_x1, batch_x2, batch_y) in enumerate(test_loader):
+                bs, stock_num = batch_x1.shape[0], batch_x1.shape[1]
+                batch_x1 = batch_x1.reshape(-1, batch_x1.shape[-2], batch_x1.shape[-1]).float()
+                batch_x2 = batch_x2.reshape(-1, batch_x2.shape[-2], batch_x2.shape[-1]).float()
+                batch_y_gpu = batch_y.float().to(self.device)
 
-            _,_, output = self.model(batch_x1, batch_x2)
+                outputs = []
+                num_samples = batch_x1.shape[0]
+                for start_idx in range(0, num_samples, sub_batch_size):
+                    end_idx = min(start_idx + sub_batch_size, num_samples)
+                    sub_x1 = batch_x1[start_idx:end_idx].to(self.device)
+                    sub_x2 = batch_x2[start_idx:end_idx].to(self.device)
+                    
+                    with torch.amp.autocast('cuda'):
+                        _, _, sub_out = self.model(sub_x1, sub_x2)
+                    outputs.append(sub_out.detach().cpu())
+                    del sub_x1, sub_x2, sub_out
 
-            output = output.reshape(bs,stock_num)
+                output = torch.cat(outputs, dim=0).to(self.device).reshape(bs, stock_num).float()
 
-            with torch.no_grad():
                 for metric in metric_objs:
-                    metric.update(output, batch_y)
+                    metric.update(output, batch_y_gpu)
+                
+                del batch_x1, batch_x2, batch_y_gpu, output, outputs
+                torch.cuda.empty_cache()
 
         # result save
         folder_path = './results/' + setting +'/'
@@ -246,4 +291,4 @@ class Exp_pred(Exp_Basic):
         for name, value in all_logs.items():
             print(name, value.mean())
 
-        return 
+        return 0
