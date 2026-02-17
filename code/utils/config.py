@@ -84,7 +84,7 @@ MAESAC_PARAMS = {
     "buffer_size": 80000,
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 1000,
-    "ent_coef": "auto_0.1",#0.001,#key--同时影响actor_loss/critic_loss
+    "ent_coef": 0.001,#"auto_0.1",#key--同时影响actor_loss/critic_loss
     "enc_in": ENCODER_INPUT_SIZE,#MAE编码器的输入维度#股票数88+技术指标数8
     "dec_in": ENCODER_INPUT_SIZE,#MAE解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE模型的输出维度（只用来评估重建损失）
