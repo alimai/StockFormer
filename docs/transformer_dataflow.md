@@ -1,4 +1,4 @@
-根据工程中的 transformer_main.py 及相关代码（exp_mae.py, exp_pred.py, stock_data_handle.py, config.py），exp_type="pred" 和 exp_type="mae"
+根据工程中的 train_tf.py 及相关代码（exp_mae.py, exp_pred.py, stock_data_handle.py, config.py），exp_type="pred" 和 exp_type="mae"
 
 ✦ 一. 两种模式对应的训练数据内容：
 

@@ -1,10 +1,10 @@
-# 📊 `transformer_main.py` 工作流程文档
+# 📊 `train_tf.py` 工作流程文档
 
 ## 整体架构概览
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                       transformer_main.py                        │
+│                       train_tf.py                        │
 ├─────────────────────────────────────────────────────────────────┤
 │  1. 参数解析 & 默认配置 (Args类)                                  │
 │  2. 环境初始化 (随机种子, GPU配置)                               │
@@ -95,7 +95,7 @@ args = Args({**TRANSFORMER_PARAMS_DEFAULT, **TRANSFORMER_PARAMS_TARGET})
 
 ### 运行方式
 ```bash
-python transformer_main.py
+python train_tf.py
 ```
 *(注意: 需在代码中手动切换 `TRANSFORMER_PARAMS_TARGET` 指向 MAE 或 Pred 配置)*
 
