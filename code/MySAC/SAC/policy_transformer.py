@@ -33,7 +33,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 2. Output Projection: 
         self.out_dim = d_model 
         self.projection = nn.Sequential(
-            nn.Linear(d_model, self.out_dim),
+            nn.Linear(d_model * 3, self.out_dim),
             nn.GELU(),
             nn.LayerNorm(self.out_dim)
         )
@@ -52,42 +52,47 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
+        # Early Fusion & Adaptation
+        # 拼接关系特征与附加上下文（Tech + Date）并投影回 d_model
+        relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
+        relational_fused_adapted = self.input_projection(relational_fused_input) # [B, N, 128]
+
         # 处理时序特征
-        temporal_feature, attn = self.attention(
-            temporal_feature_short, temporal_feature_long, temporal_feature_long,
+        temporal_feature_1, attn = self.attention(
+            temporal_feature_short, relational_fused_adapted, relational_fused_adapted,
             attn_mask=mask
         )
         # Residual Connection
-        tmp_feature = temporal_feature_short + self.dropout(temporal_feature)
-        temporal_hybrid_feature = self.norm(tmp_feature)
+        tmp_feature_1 = temporal_feature_short + self.dropout(temporal_feature_1)
+        temporal_hybrid_feature_1 = self.norm(tmp_feature_1)
+
+        # 处理时序特征
+        temporal_feature_2, attn = self.attention2(
+            temporal_feature_long, relational_fused_adapted, relational_fused_adapted,
+            attn_mask=mask
+        )
+        # Residual Connection
+        tmp_feature_2 = temporal_feature_long + self.dropout(temporal_feature_2)
+        temporal_hybrid_feature_2 = self.norm(tmp_feature_2)
+
+        # 处理关系特征
+        relational_feature_1, attn = self.attention3(
+            relational_feature, relational_fused_adapted, relational_fused_adapted,
+            attn_mask=mask
+        )
+        # Residual Connection
+        tmp_feature_3 = relational_feature + self.dropout(relational_feature_1)
+        relational_hybrid_feature = self.norm(tmp_feature_3)
 
         # Early Fusion & Adaptation
         # 拼接股票特征与附加上下文（Tech + Date）并投影回 d_model
-        fused_input = torch.cat([temporal_hybrid_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        temporal_feature_adapted = self.input_projection(fused_input) # [B, N, 128]
-
-        # 处理关系特征 (Relational Hybrid) with Context
-        relational_hybrid_feature, attn = self.attention2(
-            relational_feature, temporal_feature_adapted, temporal_feature_adapted,
-            attn_mask=mask
-        )
-        # Residual Connection
-        tmp_feature_2 = relational_feature + self.dropout(relational_hybrid_feature)
-        hybrid_feature = self.norm(tmp_feature_2)
-
-        # Output Processing
-        #output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
-        hybrid_feature_3, attn = self.attention3(
-            hybrid_feature, hybrid_feature, hybrid_feature,
-            attn_mask=mask
-        )
-        # Residual Connection
-        tmp_feature_3 = hybrid_feature + self.dropout(hybrid_feature_3)
-        output_hybrid = self.norm(tmp_feature_3)
+        fused_output = torch.cat([temporal_hybrid_feature_1, temporal_hybrid_feature_2,
+                                 relational_hybrid_feature], dim=-1) #temporal_feature_short#relational_feature
+        fused_output_adapted = self.projection(fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((output_hybrid, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
         return combined_feature
 
 
