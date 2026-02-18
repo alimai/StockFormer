@@ -29,8 +29,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
         self.input_projection = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU()
+            nn.GELU(),
+            nn.LayerNorm(d_model)
         )
 
         # 2. Output Projection: 
