@@ -20,7 +20,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.attention3 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
         self.dropout = nn.Dropout(dropout)
-        self.norm = nn.LayerNorm(d_model)
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.norm3 = nn.LayerNorm(d_model)
+        # self.norm = nn.LayerNorm(d_model)
 
         # 1. Input Adapter (Early Fusion): 
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
@@ -57,32 +60,32 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
         relational_fused_adapted = self.input_projection(relational_fused_input) # [B, N, 128]
 
-        # 处理时序特征
+        # 处理时序特征 (Short)
         temporal_feature_1, attn = self.attention(
             temporal_feature_short, relational_fused_adapted, relational_fused_adapted,
             attn_mask=mask
         )
-        # Residual Connection
+        # Residual Connection & Independent LayerNorm
         tmp_feature_1 = temporal_feature_short + self.dropout(temporal_feature_1)
-        temporal_hybrid_feature_1 = self.norm(tmp_feature_1)
+        temporal_hybrid_feature_1 = self.norm1(tmp_feature_1)
 
-        # 处理时序特征
+        # 处理时序特征 (Long)
         temporal_feature_2, attn = self.attention2(
             temporal_feature_long, relational_fused_adapted, relational_fused_adapted,
             attn_mask=mask
         )
-        # Residual Connection
+        # Residual Connection & Independent LayerNorm
         tmp_feature_2 = temporal_feature_long + self.dropout(temporal_feature_2)
-        temporal_hybrid_feature_2 = self.norm(tmp_feature_2)
+        temporal_hybrid_feature_2 = self.norm2(tmp_feature_2)
 
-        # 处理关系特征
+        # 处理关系特征 (Refinement)
         relational_feature_1, attn = self.attention3(
             relational_feature, relational_fused_adapted, relational_fused_adapted,
             attn_mask=mask
         )
-        # Residual Connection
+        # Residual Connection & Independent LayerNorm
         tmp_feature_3 = relational_feature + self.dropout(relational_feature_1)
-        relational_hybrid_feature = self.norm(tmp_feature_3)
+        relational_hybrid_feature = self.norm3(tmp_feature_3)
 
         # Early Fusion & Adaptation
         # 拼接股票特征与附加上下文（Tech + Date）并投影回 d_model

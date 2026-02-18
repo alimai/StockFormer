@@ -212,12 +212,25 @@ class SAC(SAC_SB3):
         self.actor_alpha = actor_alpha
 
 
+        # 获取环境的时序特征隐藏维度 (即 prediction model 的 hidden_channel)
+        if hasattr(env, "hidden_channel"):
+            self.env_hidden_dim = env.hidden_channel
+        elif hasattr(env, "get_attr"):
+            try:
+                self.env_hidden_dim = env.get_attr("hidden_channel")[0]
+            except Exception:
+                self.env_hidden_dim = d_model
+        else:
+            self.env_hidden_dim = d_model
+
         # 向 Policy Transformer 传递附加信号维度(Tech + Date)
         # self.in_feat (enc_in) = stock_num + tech_dim
         # additional_dim = self.in_feat - stock_num + 12(Tech + Date)
         #additional_dim = self.hidden_state_space.shape[1] - d_model
         stock_num = env.observation_space.shape[0]
-        additional_dim = env.observation_space.shape[1] - stock_num  - d_model* 2
+        # 使用环境隐藏维度进行计算，确保与环境生成的 Observation 结构对齐
+        additional_dim = env.observation_space.shape[1] - stock_num  - self.env_hidden_dim * 2
+        # additional_dim = env.observation_space.shape[1] - stock_num  - d_model* 2
         self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
         self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
 
@@ -716,16 +729,21 @@ class SAC(SAC_SB3):
 
         #temporal_feature_short = None
         #temporal_feature_long = None
-        hidden_channel = enc_out.shape[-1]
-        temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
-        temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
+        # 使用环境对应的隐藏维度进行切片，而非 MAE 的 d_model (防止维度不一致导致切片错位)
+        env_hidden_dim = self.env_hidden_dim
+        # hidden_channel = enc_out.shape[-1]
+        temporal_feature_short = x[:, :, feat_dim: env_hidden_dim + feat_dim]
+        # temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
+        temporal_feature_long = x[:, :, env_hidden_dim + feat_dim: env_hidden_dim * 2 + feat_dim]
+        # temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
 
         # 【精准特征切片：仅包含技术指标和日期】
         # 1. 提取技术指标 (位于协方差矩阵之后)
         # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)][hidden_channel][Date (12)]
         tech_features = x[:, :, stock_num : feat_dim] 
-        # 2. 提取日期特征 (最后 12 列)
-        date_features = x[:, :, feat_dim+hidden_channel*2:]        
+        # 2. 提取日期特征 (在时序特征之后)
+        date_features = x[:, :, feat_dim + env_hidden_dim * 2:]        
+        # date_features = x[:, :, feat_dim+hidden_channel*2:]        
         # 3. 合并为纯净的 additional_feature (排除协方差数据)
         additional_feature = th.cat((tech_features, date_features), dim=-1)
 
