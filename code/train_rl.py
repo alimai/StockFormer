@@ -7,7 +7,7 @@ import datetime
 from utils import config
 from MySAC.models.DRLAgent import DRLAgent
 from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
-from stable_baselines3.common.vec_env import VecMonitor, VecNormalize
+from stable_baselines3.common.vec_env import VecMonitor
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 from utils.data.stock_data_handle import Stock_Data
 

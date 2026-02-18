@@ -81,7 +81,7 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 ##transformer Model Parameters
 MAESAC_PARAMS = {
     "batch_size": 128,#important,同时影响速度
-    "buffer_size": 80000,
+    "buffer_size": 50000,
     "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
     "learning_starts": 1000,
     "ent_coef": 0.001,#"auto_0.1",#key--同时影响actor_loss/critic_loss
