@@ -30,7 +30,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.input_projection = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
             nn.GELU(),
-            nn.LayerNorm(d_model)
+            #nn.LayerNorm(d_model)
         )
 
         # 2. Output Projection: 
@@ -38,7 +38,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection = nn.Sequential(
             nn.Linear(d_model * 3, self.out_dim),
             nn.GELU(),
-            nn.LayerNorm(self.out_dim)
+            #nn.LayerNorm(self.out_dim)
         )
 
         # 检测GPU可用性并决定使用GPU还是CPU
@@ -89,8 +89,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # Early Fusion & Adaptation
         # 拼接股票特征与附加上下文（Tech + Date）并投影回 d_model
-        fused_output = torch.cat([temporal_hybrid_feature_1, temporal_hybrid_feature_2,
-                                 relational_hybrid_feature], dim=-1) #temporal_feature_short#relational_feature
+        fused_output = torch.cat([tmp_feature_1, tmp_feature_2,
+                                 tmp_feature_3], dim=-1) #temporal_feature_short#relational_feature
         fused_output_adapted = self.projection(fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
