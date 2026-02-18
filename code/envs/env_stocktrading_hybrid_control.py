@@ -128,6 +128,9 @@ class StockTradingEnv(gym.Env):
         self.long_prediction_model = self.load_model(long_prediction_model_path).to(self.device)
         self.short_prediction_model.eval()
         self.long_prediction_model.eval()
+        
+        # 预计算所有时间步的 hidden state
+        self._precompute_hidden_states()
 
         self.warmup_steps = 15 # 新增：预热步数
 
@@ -408,23 +411,10 @@ class StockTradingEnv(gym.Env):
         tech_end = tech_start + len(self.tech_indicator_list)
         technical_indicators = self.data[:, tech_start:tech_end]
 
-        # Removed pseudo hidden feature generation
-        # 生成伪hidden feature数据
-        # hidden_feature_dim = self.hidden_channel
-        # hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-        # hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-        
-        temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
-        temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes=bs, days, feature_list_len)
-        
-        enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
-        dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
 
-        _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
-        _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
-
-        hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
-        hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
+        # 使用预计算的 hidden features
+        hidden_np1 = self.precomputed_short[self.day]
+        hidden_np2 = self.precomputed_long[self.day]
 
         self.short_hidden_feature.append(hidden_np1)
         self.long_hidden_feature.append(hidden_np2)
@@ -448,24 +438,15 @@ class StockTradingEnv(gym.Env):
         tech_start = self.stock_dim
         tech_end = tech_start + len(self.tech_indicator_list)
         technical_indicators = self.data[:, tech_start:tech_end]
+        
+
+        # 使用预计算的 hidden features
+
+        hidden_np1 = self.precomputed_short[self.day]
+
+        hidden_np2 = self.precomputed_long[self.day]
 
 
-        # 生成伪hidden feature数据
-        # hidden_feature_dim = self.hidden_channel  # 假设hidden_channel是隐藏特征维度
-        # hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-        # hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
-
-        temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
-        temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
-
-        enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
-        dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
-
-        _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
-        _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
-
-        hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
-        hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
 
         # # 优化：限制hidden feature列表的最大长度，避免内存累积
         max_hidden_length = 30  # 最多保存最近50个时间步的特征
@@ -566,3 +547,71 @@ class StockTradingEnv(gym.Env):
             print("Successfully load prediction mode...", path)
 
         return model
+
+    def _precompute_hidden_states(self):
+        print("Precomputing hidden states for all days...")
+        
+        # Extract all features into a 3D numpy array: (Total_Days, Stock_Dim, Feature_Dim)
+        # Assuming self.df is sorted by date then tic (which is the case as per reshape usage in init)
+        
+        total_rows = len(self.df)
+        total_days = len(self.dates_all)
+        feature_dim = len(self.temporal_feature_list)
+        
+        all_features = self.df[self.temporal_feature_list].values
+        # Reshape: (Total_Days, Stock_Dim, Feature_Dim)
+        # 确保数据按 (Day, Stock, Feature) 排列
+        all_features = all_features.reshape(total_days, self.stock_dim, feature_dim)
+        
+        # 初始化存储数组
+        self.precomputed_short = np.zeros((total_days, self.stock_dim, self.hidden_channel), dtype=np.float32)
+        self.precomputed_long = np.zeros((total_days, self.stock_dim, self.hidden_channel), dtype=np.float32)
+        
+        batch_size_days = 64 # 每次处理 64 天的数据 -> 64 * 88 = 5632 样本
+        
+        start_idx = self.temporal_len - 1
+        end_idx = total_days
+        
+        with torch.no_grad():
+            for i in range(start_idx, end_idx, batch_size_days):
+                current_batch_days = min(batch_size_days, end_idx - i)
+                indices = range(i, i + current_batch_days)
+                
+                # Prepare batch input
+                batch_input = []
+                for day_idx in indices:
+                    # Window: [day_idx - temporal_len + 1 : day_idx + 1]
+                    window = all_features[day_idx - self.temporal_len + 1 : day_idx + 1]
+                    # Transpose to (Stock_Dim, Temporal_Len, Feature_Dim)
+                    window = window.transpose(1, 0, 2)
+                    batch_input.append(window)
+                
+                # Stack: (Batch_Days, Stock_Dim, T_Len, F_Dim)
+                batch_input_np = np.stack(batch_input)
+                
+                # Flatten to (Batch_Days * Stock_Dim, T_Len, F_Dim)
+                flat_input_np = batch_input_np.reshape(-1, self.temporal_len, feature_dim)
+                
+                enc_feature = torch.FloatTensor(flat_input_np).to(self.device)
+                dec_feature = enc_feature[:, -1:, :] # Last time step
+                
+                _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
+                _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
+                
+                # Reshape back and store
+                # Output: (Batch_Days * Stock_Dim, Hidden_Dim)
+                hidden_short_np = hidden_short.cpu().numpy().reshape(current_batch_days, self.stock_dim, -1)
+                hidden_long_np = hidden_long.cpu().numpy().reshape(current_batch_days, self.stock_dim, -1)
+                
+                # 生成伪hidden feature数据
+                # hidden_feature_dim = self.hidden_channel
+                # hidden_short_np = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+                # hidden_long_np = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        
+                self.precomputed_short[i : i + current_batch_days] = hidden_short_np
+                self.precomputed_long[i : i + current_batch_days] = hidden_long_np
+                
+                if i % (batch_size_days * 5) == 0:
+                    print(f"Precomputed {i}/{total_days} days...")
+                
+        print("Precomputation complete.")
