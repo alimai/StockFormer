@@ -549,7 +549,7 @@ class StockTradingEnv(gym.Env):
         model = PredictionModel(enc_in=enc_in, dec_in=dec_in, c_out=c_out)
 
         if path is not None:
-            state_dict = torch.load(path, map_location=self.device)
+            state_dict = torch.load(path, map_location=self.device, weights_only=True)
             
             # 检查是否为DataParallel保存的模型（键名带有"module."前缀）
             if any(k.startswith('module.') for k in state_dict.keys()):
