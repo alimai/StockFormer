@@ -309,8 +309,8 @@ class DRLAgent:
         if model_name not in MODELS:
             raise NotImplementedError("NotImplementedError")
         try:
-            # load agent
-            model = MODELS[model_name].load(cwd, env=test_env)
+            # load agent: 强制设置 buffer_size=1 避免推理阶段分配巨大的内存块
+            model = MODELS[model_name].load(cwd, env=test_env, buffer_size=1)
             print("Successfully load model", cwd)
         except Exception as e:
             print(f"Error loading agent from {cwd}: {e}")
