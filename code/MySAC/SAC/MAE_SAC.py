@@ -212,11 +212,12 @@ class SAC(SAC_SB3):
         self.actor_alpha = actor_alpha
 
 
-        # 向 Policy Transformer 传递附加信号维度 (Tech + Date)
+        # 向 Policy Transformer 传递附加信号维度(Tech + Date)
         # self.in_feat (enc_in) = stock_num + tech_dim
+        # additional_dim = self.in_feat - stock_num + 12(Tech + Date)
         #additional_dim = self.hidden_state_space.shape[1] - d_model
         stock_num = env.observation_space.shape[0]
-        additional_dim = env.observation_space.shape[1] - stock_num
+        additional_dim = env.observation_space.shape[1] - stock_num  - d_model* 2
         self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
         self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
 
@@ -338,11 +339,13 @@ class SAC(SAC_SB3):
             
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                combined_out, _, _, combined_additional, combined_loss = self._state_transfer(
+                combined_out, temporal_short, temporal_long, combined_additional, combined_loss = self._state_transfer(
                     combined_obs, seed=seed, mask_mode='mixed', compute_loss=should_compute_loss)
                 
                 state, next_state = th.chunk(combined_out, 2, dim=0)
                 additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
+                temporal_short_state, temporal_short_next = th.chunk(temporal_short, 2, dim=0)
+                temporal_long_state, temporal_long_next = th.chunk(temporal_long, 2, dim=0)
                 
                 # state_for_actor = state.detach()
                 # 使用 actor_alpha 动态控制回传给 MAE 的梯度
@@ -352,8 +355,10 @@ class SAC(SAC_SB3):
                 
                 combined_policy_input = th.cat([state_for_actor, next_state.detach()], dim=0)
                 combined_additional_input = th.cat([additional_feature, next_additional_feature], dim=0)
+                combined_temporal_short = th.cat([temporal_short_state, temporal_short_next], dim=0)
+                combined_temporal_long = th.cat([temporal_long_state, temporal_long_next], dim=0)
                 
-                combined_policy_embed = self.actor_transformer(combined_policy_input, None, None, combined_additional_input)
+                combined_policy_embed = self.actor_transformer(combined_policy_input, combined_temporal_short, combined_temporal_long, combined_additional_input)
                 policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
 
                 actions_pi, log_prob = self.actor.action_log_prob(policy_embed)
@@ -384,7 +389,7 @@ class SAC(SAC_SB3):
                 with th.amp.autocast(device_type=device_type, enabled=use_amp):
                     next_actions, next_log_prob = self.actor.action_log_prob(next_policy_embed)
                     
-                    next_critic_embed = self.critic_transformer(next_state.detach(), None, None, next_additional_feature)
+                    next_critic_embed = self.critic_transformer(next_state.detach(), temporal_short_next, temporal_long_next, next_additional_feature)
                     next_q_values = th.cat(self.critic_target(next_critic_embed, next_actions), dim=1)
                     next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                     next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
@@ -392,9 +397,10 @@ class SAC(SAC_SB3):
 
             # Optimize critic
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                #使用不带梯度控制的状态state
+                # current_critic_embed = self.critic_transformer(state, temporal_short, temporal_long, additional_feature)
                 #使用带梯度控制的状态state_for_critic
-                # current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
-                current_critic_embed = self.critic_transformer(state_for_critic, None, None, additional_feature)
+                current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
                 current_q_values = self.critic(current_critic_embed, replay_data.actions)
                 critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
             
@@ -417,7 +423,7 @@ class SAC(SAC_SB3):
 
             # Optimize actor
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, None, None, additional_feature), actions_pi), dim=1)
+                q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
                 min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
                 
                 alpha = 0
@@ -708,19 +714,21 @@ class SAC(SAC_SB3):
                 enc_out, _ = self.state_transformer.encoder(enc_out)
                 loss = th.tensor(0.0, device=x.device)
 
+        #temporal_feature_short = None
+        #temporal_feature_long = None
+        hidden_channel = enc_out.shape[-1]
+        temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
+        temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
+
         # 【精准特征切片：仅包含技术指标和日期】
         # 1. 提取技术指标 (位于协方差矩阵之后)
-        # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)] [Date (12)]
+        # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)][hidden_channel][Date (12)]
         tech_features = x[:, :, stock_num : feat_dim] 
         # 2. 提取日期特征 (最后 12 列)
-        date_features = x[:, :, feat_dim:]
-        
+        date_features = x[:, :, feat_dim+hidden_channel*2:]        
         # 3. 合并为纯净的 additional_feature (排除协方差数据)
         additional_feature = th.cat((tech_features, date_features), dim=-1)
 
-        temporal_feature_short = None
-        temporal_feature_long = None
-        
         #各元素维度：[bs, stock_num, d_model]， [bs, stock_num, hidden_channel]， [bs, stock_num, hidden_channel]，
         # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2]， loss (标量)
         return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss

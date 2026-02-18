@@ -91,15 +91,16 @@ class StockTradingEnv(gym.Env):
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
         tech_dim = len(self.tech_indicator_list)#8
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
-        # Modified: date features now take 12 dimensions (One-hot)
-        # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+2*self.hidden_channel+tech_dim+2))
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
+        # observation_space：self._update_state()生成数据维度；Modified: date features now take 12 dimensions (One-hot)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+tech_dim+self.hidden_channel*2+12))
+        #self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
         
         # Modified: Update hidden_state_space to strictly include MAE output (128)# + Tech + Date
         # This excludes redundant Covariance data from the SAC input stream
+        # hidden_state_space: actor/critic输入维度，对应 actor_transformer/critic_transformer输出维度
+        # 亦即policy_transformer_stock_atten2.forward()生成数据维度
         self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel + tech_dim + 12))
         
-        # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+len(self.tech_indicator_list)+2*self.hidden_channel+2))
         # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
         # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)
         print("action_space shape: ",self.action_space.shape)
@@ -125,8 +126,8 @@ class StockTradingEnv(gym.Env):
         self.device = device
         self.short_prediction_model = self.load_model(short_prediction_model_path).to(self.device)
         self.long_prediction_model = self.load_model(long_prediction_model_path).to(self.device)
-        # self.short_prediction_model.eval()
-        # self.long_prediction_model.eval()
+        self.short_prediction_model.eval()
+        self.long_prediction_model.eval()
 
         self.warmup_steps = 15 # 新增：预热步数
 
@@ -412,15 +413,27 @@ class StockTradingEnv(gym.Env):
         # hidden_feature_dim = self.hidden_channel
         # hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
         # hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
+        
+        temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
+        temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes=bs, days, feature_list_len)
+        
+        enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
+        dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
 
-        # self.short_hidden_feature.append(hidden_np1)
-        # self.long_hidden_feature.append(hidden_np2)
+        _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
+        _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
+
+        hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
+        hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
+
+        self.short_hidden_feature.append(hidden_np1)
+        self.long_hidden_feature.append(hidden_np2)
 
         # 提取日期特征 (最后 12 列)
         date_features = self.data[:, -12:]
 
-        state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
-        #state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
+        #state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         return state
 
 
@@ -436,39 +449,38 @@ class StockTradingEnv(gym.Env):
         tech_end = tech_start + len(self.tech_indicator_list)
         technical_indicators = self.data[:, tech_start:tech_end]
 
-        # 注释掉原始的hidden feature生成部分，用伪数据代替
-        # temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
-        # temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
-        #
-        # enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
-        # dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
-        #
-        # _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
-        # _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
 
-
-        # # 生成伪hidden feature数据---伪数据不再重复生成，直接用初始状态数据
+        # 生成伪hidden feature数据
         # hidden_feature_dim = self.hidden_channel  # 假设hidden_channel是隐藏特征维度
         # hidden_np1 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
         # hidden_np2 = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
 
-        # # 优化：限制hidden feature列表的最大长度，避免内存累积
-        # max_hidden_length = 30  # 最多保存最近50个时间步的特征
-        # if len(self.short_hidden_feature) >= max_hidden_length:
-        #     self.short_hidden_feature.pop(0)
-        #     self.long_hidden_feature.pop(0)
+        temporal_feature_data = self.df.loc[self.day-self.temporal_len+1:self.day, :]
+        temporal_feature = np.array(temporal_feature_data[self.temporal_feature_list].values.tolist()).reshape(self.temporal_len, self.stock_dim, -1).transpose(1,0,2) # (num_nodes, temporal_day, feature_list_len)
 
-        # self.short_hidden_feature.append(hidden_np1)
-        # self.long_hidden_feature.append(hidden_np2)
-        #取最后一个时间步的hidden feature作为当前状态输入
-        # hidden_np1 = self.short_hidden_feature[-1]
-        # hidden_np2 = self.long_hidden_feature[-1]
+        enc_feature = torch.FloatTensor(temporal_feature).to(self.device)
+        dec_feature = torch.FloatTensor(temporal_feature[:,-1:,:]).to(self.device)
+
+        _, hidden_short, _ = self.short_prediction_model(enc_feature, dec_feature)
+        _, hidden_long, _ = self.long_prediction_model(enc_feature, dec_feature)
+
+        hidden_np1 = hidden_short.detach().cpu().numpy().reshape(self.stock_dim, -1)
+        hidden_np2 = hidden_long.detach().cpu().numpy().reshape(self.stock_dim, -1)
+
+        # # 优化：限制hidden feature列表的最大长度，避免内存累积
+        max_hidden_length = 30  # 最多保存最近50个时间步的特征
+        if len(self.short_hidden_feature) >= max_hidden_length:
+            self.short_hidden_feature.pop(0)
+            self.long_hidden_feature.pop(0)
+
+        self.short_hidden_feature.append(hidden_np1)
+        self.long_hidden_feature.append(hidden_np2)
 
         # 提取日期特征 (最后 12 列)
         date_features = self.data[:, -12:]
 
-        state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
-        #state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
+        #state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         # print("Update: ",state.shape)
         return state
 
@@ -538,10 +550,18 @@ class StockTradingEnv(gym.Env):
 
         if path is not None:
             state_dict = torch.load(path, map_location=self.device)
-            new_state_dict = OrderedDict()
-            for k, v in state_dict.items():
-                name = k[7:]
-                new_state_dict[name] = v
+            
+            # 检查是否为DataParallel保存的模型（键名带有"module."前缀）
+            if any(k.startswith('module.') for k in state_dict.keys()):
+                # 移除"module."前缀
+                new_state_dict = OrderedDict()
+                for k, v in state_dict.items():
+                    name = k[7:]  # 移除"module."前缀
+                    new_state_dict[name] = v
+            else:
+                # 如果没有"module."前缀，则直接使用原始state_dict
+                new_state_dict = state_dict
+            
             model.load_state_dict(new_state_dict)
             print("Successfully load prediction mode...", path)
 
