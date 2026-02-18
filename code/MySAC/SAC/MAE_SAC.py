@@ -186,7 +186,7 @@ class SAC(SAC_SB3):
                                              d_model=d_model, d_ff=d_ff, dropout=dropout).to(transformer_device)
 
         if transformer_path is not None and transformer_path != '':
-            state_dict = th.load(transformer_path, map_location=transformer_device)
+            state_dict = th.load(transformer_path, map_location=transformer_device, weights_only=True)
             
             # 检查是否为DataParallel保存的模型（键名带有"module."前缀）
             if any(k.startswith('module.') for k in state_dict.keys()):

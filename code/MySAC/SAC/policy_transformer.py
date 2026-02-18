@@ -17,6 +17,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                                       output_attention=output_attention), d_model, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
+        self.attention3 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
+                                      output_attention=output_attention), d_model, n_heads)
         self.dropout = nn.Dropout(dropout)
         self.norm = nn.LayerNorm(d_model)
 
@@ -74,7 +76,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         hybrid_feature = self.norm(tmp_feature_2)
 
         # Output Processing
-        output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
+        #output_hybrid = self.projection(hybrid_feature) # [B, N, 128]
+        hybrid_feature_3, attn = self.attention3(
+            hybrid_feature, hybrid_feature, hybrid_feature,
+            attn_mask=mask
+        )
+        # Residual Connection
+        tmp_feature_3 = hybrid_feature + self.dropout(hybrid_feature_3)
+        output_hybrid = self.norm(tmp_feature_3)
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
