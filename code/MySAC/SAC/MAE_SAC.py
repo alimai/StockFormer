@@ -113,7 +113,7 @@ class SAC(SAC_SB3):
         transformer_device = None,
         transformer_path = None,
         critic_alpha=1,
-        actor_alpha=0,
+        actor_alpha=0.1,
     ):
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
         # 否则父类初始化过程中调用 _setup_model 时会因找不到 hidden_state_space 报错
@@ -441,10 +441,22 @@ class SAC(SAC_SB3):
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
             
+            # 老大，在 Actor 更新期间，必须锁定 Critic 参数的梯度，防止被 Actor 污染
+            for param in self.critic.parameters():
+                param.requires_grad = False
+            for param in self.critic_transformer.parameters():
+                param.requires_grad = False
+
             if scaler is not None:
                 scaler.scale(actor_loss).backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
             else:
                 actor_loss.backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
+
+            # 老大，解开 Critic 参数锁定，恢复正常状态
+            for param in self.critic.parameters():
+                param.requires_grad = True
+            for param in self.critic_transformer.parameters():
+                param.requires_grad = True
 
             if should_compute_loss:
                 # 正式更新 MAE 模型（自监督部分）
