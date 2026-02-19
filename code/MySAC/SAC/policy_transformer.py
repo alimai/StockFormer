@@ -41,7 +41,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             #nn.LayerNorm(self.out_dim)
         )
         self.projection2 = nn.Sequential(
-            nn.Linear(d_model * 2, self.out_dim),
+            nn.Linear(d_model * 2, additional_dim),
             nn.GELU(),
             #nn.LayerNorm(self.out_dim)
         )
