@@ -43,7 +43,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection2 = nn.Sequential(
             nn.Linear(d_model * 2, additional_dim),
             nn.GELU(),
-            #nn.LayerNorm(self.out_dim)
+            nn.LayerNorm(additional_dim)
         )
 
         # 检测GPU可用性并决定使用GPU还是CPU
