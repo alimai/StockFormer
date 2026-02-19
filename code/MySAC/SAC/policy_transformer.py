@@ -36,7 +36,12 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 2. Output Projection: 
         self.out_dim = d_model 
         self.projection = nn.Sequential(
-            nn.Linear(d_model * 3, self.out_dim),
+            nn.Linear(d_model, self.out_dim),
+            nn.GELU(),
+            #nn.LayerNorm(self.out_dim)
+        )
+        self.projection2 = nn.Sequential(
+            nn.Linear(d_model * 2, self.out_dim),
             nn.GELU(),
             #nn.LayerNorm(self.out_dim)
         )
@@ -86,16 +91,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # Residual Connection & Independent LayerNorm
         tmp_feature_3 = relational_feature + self.dropout(relational_feature_1)
         #relational_hybrid_feature = self.norm3(tmp_feature_3)
+        relational_output_adapted = self.projection(tmp_feature_3) # [B, N, 128]
 
         # Early Fusion & Adaptation
         # 拼接股票特征与附加上下文（Tech + Date）并投影回 d_model
-        fused_output = torch.cat([tmp_feature_1, tmp_feature_2,
-                                 tmp_feature_3], dim=-1) #temporal_feature_short#relational_feature
-        #fused_output_adapted = self.projection(fused_output) # [B, N, 128]
+        temporal_fused_output = torch.cat([tmp_feature_1, tmp_feature_2], dim=-1) #temporal_feature_short/long
+        temporal_output_adapted = self.projection2(temporal_fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        combined_feature = torch.cat((relational_output_adapted, temporal_output_adapted, additional_feature), dim=-1)  # [B, N, 128+128+additional_dim]
         return combined_feature
 
 
