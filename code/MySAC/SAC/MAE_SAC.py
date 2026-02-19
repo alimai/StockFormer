@@ -480,6 +480,10 @@ class SAC(SAC_SB3):
             else:
                 self.transformer_optim.step()
 
+            # 老大，更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
+            if gradient_step % self.target_update_interval == 0:
+                polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
+
         self._n_updates += gradient_steps
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
