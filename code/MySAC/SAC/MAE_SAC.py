@@ -388,16 +388,17 @@ class SAC(SAC_SB3):
                 ent_coefs.append(ent_coef.item())
 
             #  Optimize entropy coefficient
+            # 熵系数优化器独立更新，但需要 retain_graph=True
+            # 因为 Actor loss 的计算图与熵系数共享 actor_transformer
             if ent_coef_loss is not None:
                 self.ent_coef_optimizer.zero_grad()
                 if scaler is not None:
-                    scaler.scale(ent_coef_loss).backward()
+                    scaler.scale(ent_coef_loss).backward(retain_graph=True)
                     scaler.step(self.ent_coef_optimizer)
-                    scaler.update()  # 立即步进并更新 scaler，避免梯度累积
+                    # 注意：scaler.update() 留到最后与其他优化器一起调用
                 else:
-                    ent_coef_loss.backward()
+                    ent_coef_loss.backward(retain_graph=True)
                     self.ent_coef_optimizer.step()
-                    self.ent_coef_optimizer.zero_grad()  # 清空梯度，避免累积
 
             # Target Q-values calculation
             with th.no_grad():
@@ -472,7 +473,7 @@ class SAC(SAC_SB3):
                 transformer_losses.append(combined_loss.item())
 
             # 老大，最后统一步进所有优化器，确保 Actor 和 Critic 基于同一参数快照更新
-            # 注意：ent_coef_optimizer 已在前面单独步进，此处不再重复
+            # 注意：熵系数优化器已在前面单独 step，此处不再重复
             if scaler is not None:
                 scaler.step(self.critic.optimizer)
                 scaler.step(self.critic_transformer.optimizer)
@@ -488,6 +489,7 @@ class SAC(SAC_SB3):
                 self.transformer_optim.step()
 
             # 清空所有优化器的梯度，释放计算图
+            # 注意：熵系数优化器已在前面单独 zero_grad，此处不再重复
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
             self.actor.optimizer.zero_grad()

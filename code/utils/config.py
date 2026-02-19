@@ -6,7 +6,7 @@ fix_seed = 2022
 INF = 1100
 SCALE_A = 1.2
 
-# 检测GPU可用性并决定使用GPU还是CPU
+# 检测 GPU 可用性并决定使用 GPU 还是 CPU
 if torch.cuda.is_available():
     device = 'cuda:0'
 else:
@@ -23,15 +23,15 @@ END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
 
 USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
-if len(USE_CSI_300_TICKET) > 88:#如果大于88，取前88个
+if len(USE_CSI_300_TICKET) > 88:#如果大于 88，取前 88 个
     USE_CSI_300_TICKET = USE_CSI_300_TICKET[:88]
 
 #`train`, `valid`, `test` 三个阶段
 #CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
 CSI_date_trans = ['20110419', '20220415', '20220630', '20250331',  '20220630', '20251231']
 
-step_len = 800  # 每个Episode的时间步长度
-stride = int(step_len * 0.6) # 滑动窗口步长,<step_len，确保相邻Episode之间有数据重叠
+step_len = 800  # 每个 Episode 的时间步长度
+stride = int(step_len * 0.6) # 滑动窗口步长，<step_len，确保相邻 Episode 之间有数据重叠
 
 ## stockstats technical indicator column names
 ## check https://pypi.org/project/stockstats/ for different names
@@ -66,10 +66,10 @@ TEMPORAL_FEATURE = [
 ]
 
 NORMALIZED_TEMPORAL_FEATURE = [
-    'open', 
-    'close', 
-    'high', 
-    'low', 
+    'open',
+    'close',
+    'high',
+    'low',
     'volume'
 ]
 
@@ -80,27 +80,28 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
-    "batch_size": 128,#important,同时影响速度
+    "batch_size": 128,#important，同时影响速度
     "buffer_size": 50000,
-    "learning_rate": 0.0001,#除MAE模型外其他模块的学习率
+    "learning_rate": 0.0001,#除 MAE 模型外其他模块的学习率
     "learning_starts": 1000,
-    "ent_coef": 0.001,#"auto_0.1",#key--同时影响actor_loss/critic_loss
-    "enc_in": ENCODER_INPUT_SIZE,#MAE编码器的输入维度#股票数88+技术指标数8
-    "dec_in": ENCODER_INPUT_SIZE,#MAE解码器的输入维度
-    "c_out_construction": ENCODER_INPUT_SIZE,#MAE模型的输出维度（只用来评估重建损失）
-    "d_model":128,#MAE模型的隐藏层维度（编码后，解码前，输入给SAC模型）
-    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络) in SAC Transformer,位于SAC编码/解码block内
+    "ent_coef": 0.001,#"auto_0.1",#key--同时影响 actor_loss/critic_loss
+    "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
+    "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
+    "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
+    "d_model":128,#MAE 模型的隐藏层维度（编码后，解码前，输入给 SAC 模型）
+    "d_ff":256,#demension of Feed-Forward Network(FFN，前馈神经网络) in SAC Transformer，位于 SAC 编码/解码 block 内
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
     "dropout":0.05,
-    "gamma": 0.99,#折扣因子,越小越重视短期奖励，最大为1
+    "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
-    "train_freq": 249,  # 每x步训练一次
-    "gradient_steps": 100,  # 每次训练进行x个梯度更新
-    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic端，默认1.0）
-    "actor_alpha": 0.5,  # MAE 反向梯度更新的权重（Actor端，默认0.1）
+    "train_freq": 499,  # 【优化】每 500 步训练一次（原 249），减少训练频率
+    "gradient_steps": 50,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
+    "target_update_interval": 2,  # 【新增】每 2 个 gradient step 更新一次 target network（原 1）
+    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
+    "actor_alpha": 0.5,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
 }
 
 # MAESAC_PARAMS_PRED = {
@@ -109,17 +110,17 @@ MAESAC_PARAMS = {
 #     "learning_rate": 0.0001,
 #     "learning_starts": 100,
 #     "ent_coef": "auto_0.1",
-#     "enc_in":TEMPORAL_FEATURE_SIZE,#时序特征数10
+#     "enc_in":TEMPORAL_FEATURE_SIZE,#时序特征数 10
 #     "dec_in":TEMPORAL_FEATURE_SIZE,
-#     "c_out_prediction":1,#不同于MAESAC_PARAMS
+#     "c_out_prediction":1,#不同于 MAESAC_PARAMS
 #     "d_model":128,
 #     "d_ff":256,
-#     "n_heads":8,#不同于MAESAC_PARAMS
-#     "e_layers":3,#不同于MAESAC_PARAMS
-#     "d_layers":2,#不同于MAESAC_PARAMS
+#     "n_heads":8,#不同于 MAESAC_PARAMS
+#     "e_layers":3,#不同于 MAESAC_PARAMS
+#     "d_layers":2,#不同于 MAESAC_PARAMS
 #     "dropout":0.05,
-#     "pred_len":1,#不同于MAESAC_PARAMS
-#     "seq_len":60,#不同于MAESAC_PARAMS
+#     "pred_len":1,#不同于 MAESAC_PARAMS
+#     "seq_len":60,#不同于 MAESAC_PARAMS
 # }
 
 
@@ -189,7 +190,7 @@ TRANSFORMER_PARAMS_PRED_SHORT = {
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
-    "enc_in": TEMPORAL_FEATURE_SIZE,#时序指标10个
+    "enc_in": TEMPORAL_FEATURE_SIZE,#时序特征 10 个
     "dec_in": TEMPORAL_FEATURE_SIZE,
     "c_out": 1,
     "d_model": 128,
@@ -218,7 +219,7 @@ TRANSFORMER_PARAMS_PRED_LONG = {
     "seq_len": 60,
     "label_len": 1,
     "pred_len": 1,
-    "enc_in": TEMPORAL_FEATURE_SIZE,#时序指标10个
+    "enc_in": TEMPORAL_FEATURE_SIZE,#时序特征 10 个
     "dec_in": TEMPORAL_FEATURE_SIZE,
     "c_out": 1,
     "d_model": 128,
@@ -243,9 +244,9 @@ TRANSFORMER_PARAMS_MAE = {
     "exp_type": "mae",
     "train_epochs": 30,
     "itr": 1,
-    "enc_in": ENCODER_INPUT_SIZE,#编码器输入维度（股票数88+技术指标数8）
-    "dec_in": ENCODER_INPUT_SIZE,#解码器输入维度（股票数88+技术指标数8）
-    "c_out": ENCODER_INPUT_SIZE,#输出维度（股票数88+技术指标数8）
+    "enc_in": ENCODER_INPUT_SIZE,#编码器输入维度（股票数 88+ 技术指标数 8）
+    "dec_in": ENCODER_INPUT_SIZE,#解码器输入维度（股票数 88+ 技术指标数 8）
+    "c_out": ENCODER_INPUT_SIZE,#输出维度（股票数 88+ 技术指标数 8）
     "d_model": 128,
     "n_heads": 4,
     "e_layers": 2,
