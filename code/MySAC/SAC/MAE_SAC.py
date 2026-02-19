@@ -421,17 +421,17 @@ class SAC(SAC_SB3):
             
             critic_losses.append(critic_loss.item())
 
+            # 反向传播 Critic 损失
+            # 必须 retain_graph=True，因为 Actor 和 MAE 还需要使用 state 的计算图
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
-            self.transformer_optim.zero_grad() # 重置 MAE 优化器
-
-            # Critic 的 backward 必须保留计算图，因为 Actor 和 MAE 都需要通过 state 回传梯度
             if scaler is not None:
                 scaler.scale(critic_loss).backward(retain_graph=True)
             else:
                 critic_loss.backward(retain_graph=True)
 
-            # 老大，在 Actor 更新之前锁定 Critic 参数，防止 Actor 更新时污染 Critic 梯度
+            # 锁定 Critic 参数，防止 Actor loss 更新 Critic
+            # 这是标准 SAC 的要求：Actor 只通过 Critic 获取 Q 值，不应更新 Critic
             for param in self.critic.parameters():
                 param.requires_grad = False
             for param in self.critic_transformer.parameters():
@@ -447,24 +447,24 @@ class SAC(SAC_SB3):
 
             actor_losses.append(actor_loss.item())
 
+            # 反向传播 Actor 损失
+            # 如果还需要计算 MAE loss，则 retain_graph=True
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
-
-            # Actor 的 backward 必须保留计算图，因为 MAE 需要通过 state 回传梯度
             if scaler is not None:
                 scaler.scale(actor_loss).backward(retain_graph=should_compute_loss)
             else:
                 actor_loss.backward(retain_graph=should_compute_loss)
 
-            # 解开 Critic 参数锁定，恢复正常状态
+            # 恢复 Critic 参数梯度
             for param in self.critic.parameters():
                 param.requires_grad = True
             for param in self.critic_transformer.parameters():
                 param.requires_grad = True
 
+            # Optimize MAE (按需)
             if should_compute_loss:
-                # 正式更新 MAE 模型（自监督部分）
-                # combined_loss 的计算图与 Actor/Critic 独立，可以直接 backward
+                self.transformer_optim.zero_grad()
                 if scaler is not None:
                     scaler.scale(combined_loss).backward()
                 else:
@@ -486,6 +486,17 @@ class SAC(SAC_SB3):
                 self.actor.optimizer.step()
                 self.actor_transformer.optimizer.step()
                 self.transformer_optim.step()
+
+            # 清空所有优化器的梯度，释放计算图
+            self.critic.optimizer.zero_grad()
+            self.critic_transformer.optimizer.zero_grad()
+            self.actor.optimizer.zero_grad()
+            self.actor_transformer.optimizer.zero_grad()
+            self.transformer_optim.zero_grad()
+
+            # 如果是 CUDA 模式，清空缓存以防止显存泄漏
+            if device_type == "cuda":
+                th.cuda.empty_cache()
 
             # 老大，更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
             if gradient_step % self.target_update_interval == 0:
