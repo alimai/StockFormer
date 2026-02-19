@@ -392,10 +392,12 @@ class SAC(SAC_SB3):
                 self.ent_coef_optimizer.zero_grad()
                 if scaler is not None:
                     scaler.scale(ent_coef_loss).backward()
-                    # scaler.step(self.ent_coef_optimizer) # 移到最后统一步进
+                    scaler.step(self.ent_coef_optimizer)
+                    scaler.update()  # 立即步进并更新 scaler，避免梯度累积
                 else:
                     ent_coef_loss.backward()
-                    # self.ent_coef_optimizer.step() # 移到最后统一步进
+                    self.ent_coef_optimizer.step()
+                    self.ent_coef_optimizer.zero_grad()  # 清空梯度，避免累积
 
             # Target Q-values calculation
             with th.no_grad():
@@ -422,37 +424,39 @@ class SAC(SAC_SB3):
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
             self.transformer_optim.zero_grad() # 重置 MAE 优化器
-            
+
+            # 只在需要计算 transformer loss 时才保留计算图
+            retain_graph = should_compute_loss
             if scaler is not None:
-                scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 和 MAE 更新
+                scaler.scale(critic_loss).backward(retain_graph=retain_graph)
             else:
-                critic_loss.backward(retain_graph=True) # 保留计算图
+                critic_loss.backward(retain_graph=retain_graph)
 
-            # Optimize actor
-            with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
-                min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
-                
-                alpha = 0
-                actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
-            
-            actor_losses.append(actor_loss.item())
-
-            self.actor.optimizer.zero_grad()
-            self.actor_transformer.optimizer.zero_grad()
-            
-            # 老大，在 Actor 更新期间，必须锁定 Critic 参数的梯度，防止被 Actor 污染
+            # 老大，在 Actor 更新之前锁定 Critic 参数，防止 Actor 更新时污染 Critic 梯度
             for param in self.critic.parameters():
                 param.requires_grad = False
             for param in self.critic_transformer.parameters():
                 param.requires_grad = False
 
-            if scaler is not None:
-                scaler.scale(actor_loss).backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
-            else:
-                actor_loss.backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
+            # Optimize actor
+            with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
+                min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
 
-            # 老大，解开 Critic 参数锁定，恢复正常状态
+                alpha = 0
+                actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
+
+            actor_losses.append(actor_loss.item())
+
+            self.actor.optimizer.zero_grad()
+            self.actor_transformer.optimizer.zero_grad()
+
+            if scaler is not None:
+                scaler.scale(actor_loss).backward(retain_graph=should_compute_loss)
+            else:
+                actor_loss.backward(retain_graph=should_compute_loss)
+
+            # 解开 Critic 参数锁定，恢复正常状态
             for param in self.critic.parameters():
                 param.requires_grad = True
             for param in self.critic_transformer.parameters():
@@ -467,9 +471,8 @@ class SAC(SAC_SB3):
                 transformer_losses.append(combined_loss.item())
             
             # 老大，最后统一步进所有优化器，确保 Actor 和 Critic 基于同一参数快照更新
+            # 注意：ent_coef_optimizer 已在前面单独步进，此处不再重复
             if scaler is not None:
-                if self.ent_coef_optimizer is not None:
-                    scaler.step(self.ent_coef_optimizer)
                 scaler.step(self.critic.optimizer)
                 scaler.step(self.critic_transformer.optimizer)
                 scaler.step(self.actor.optimizer)
@@ -477,8 +480,6 @@ class SAC(SAC_SB3):
                 scaler.step(self.transformer_optim)
                 scaler.update()
             else:
-                if self.ent_coef_optimizer is not None:
-                    self.ent_coef_optimizer.step()
                 self.critic.optimizer.step()
                 self.critic_transformer.optimizer.step()
                 self.actor.optimizer.step()
