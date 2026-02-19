@@ -67,7 +67,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         )
         # Residual Connection & Independent LayerNorm
         tmp_feature_1 = temporal_feature_short + self.dropout(temporal_feature_1)
-        temporal_hybrid_feature_1 = self.norm1(tmp_feature_1)
+        #temporal_hybrid_feature_1 = self.norm1(tmp_feature_1)
 
         # 处理时序特征 (Long)
         temporal_feature_2, attn = self.attention2(
@@ -76,7 +76,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         )
         # Residual Connection & Independent LayerNorm
         tmp_feature_2 = temporal_feature_long + self.dropout(temporal_feature_2)
-        temporal_hybrid_feature_2 = self.norm2(tmp_feature_2)
+        #temporal_hybrid_feature_2 = self.norm2(tmp_feature_2)
 
         # 处理关系特征 (Refinement)
         relational_feature_1, attn = self.attention3(
@@ -85,17 +85,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         )
         # Residual Connection & Independent LayerNorm
         tmp_feature_3 = relational_feature + self.dropout(relational_feature_1)
-        relational_hybrid_feature = self.norm3(tmp_feature_3)
+        #relational_hybrid_feature = self.norm3(tmp_feature_3)
 
         # Early Fusion & Adaptation
         # 拼接股票特征与附加上下文（Tech + Date）并投影回 d_model
         fused_output = torch.cat([tmp_feature_1, tmp_feature_2,
                                  tmp_feature_3], dim=-1) #temporal_feature_short#relational_feature
-        fused_output_adapted = self.projection(fused_output) # [B, N, 128]
+        #fused_output_adapted = self.projection(fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        combined_feature = torch.cat((fused_output, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
         return combined_feature
 
 
