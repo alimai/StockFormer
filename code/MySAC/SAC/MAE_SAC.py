@@ -425,11 +425,11 @@ class SAC(SAC_SB3):
             self.critic_transformer.optimizer.zero_grad()
             self.transformer_optim.zero_grad() # 重置 MAE 优化器
 
-            # Critic 的 backward 不需要保留计算图，因为 Actor 的计算是独立的前向传播
+            # Critic 的 backward 必须保留计算图，因为 Actor 和 MAE 都需要通过 state 回传梯度
             if scaler is not None:
-                scaler.scale(critic_loss).backward()
+                scaler.scale(critic_loss).backward(retain_graph=True)
             else:
-                critic_loss.backward()
+                critic_loss.backward(retain_graph=True)
 
             # 老大，在 Actor 更新之前锁定 Critic 参数，防止 Actor 更新时污染 Critic 梯度
             for param in self.critic.parameters():
@@ -450,11 +450,11 @@ class SAC(SAC_SB3):
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
 
-            # Actor 的 backward 不需要保留计算图，因为 combined_loss 的计算图是独立的
+            # Actor 的 backward 必须保留计算图，因为 MAE 需要通过 state 回传梯度
             if scaler is not None:
-                scaler.scale(actor_loss).backward()
+                scaler.scale(actor_loss).backward(retain_graph=should_compute_loss)
             else:
-                actor_loss.backward()
+                actor_loss.backward(retain_graph=should_compute_loss)
 
             # 解开 Critic 参数锁定，恢复正常状态
             for param in self.critic.parameters():
