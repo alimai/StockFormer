@@ -72,14 +72,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             temporal_feature_short, relational_input_adapted, relational_input_adapted,
             attn_mask=mask
         )
-        temporal_hybrid_feature_1 = temporal_feature_1 # self.norm1(temporal_feature_1)
+        temporal_hybrid_feature_1 = self.norm1(temporal_feature_1) # temporal_feature_1 # 
 
         # 处理时序特征 (Long)
         temporal_feature_2, attn = self.attention2(
             temporal_feature_long, relational_input_adapted, relational_input_adapted,
             attn_mask=mask
         )
-        temporal_hybrid_feature_2 = temporal_feature_2 # self.norm2(temporal_feature_2)
+        temporal_hybrid_feature_2 = self.norm2(temporal_feature_2) # temporal_feature_2 # 
 
         # 拼接时序特征并投影压缩
         temporal_fused = torch.cat([temporal_hybrid_feature_1, temporal_hybrid_feature_2, additional_feature], dim=-1) #temporal_feature_short/long
