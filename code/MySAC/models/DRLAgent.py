@@ -85,8 +85,8 @@ class CombinedCallback(BaseCallback):
         infos = self.locals.get("infos")
         if infos is not None and len(infos) > 0 and "episode" in infos[0]:
             self.episode_count += 1
-            # 每2个episode保存一个备份
-            if self.episode_count % 2 == 0:
+            # 每10个episode保存一个备份
+            if self.episode_count % 10 == 0:
                 tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
                 self.model.save(tmp_path)
                 if self.verbose > 0:
