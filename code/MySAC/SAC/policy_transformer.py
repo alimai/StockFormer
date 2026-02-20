@@ -30,7 +30,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.input_projection = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
             nn.GELU(),
-            #nn.LayerNorm(d_model)
+            nn.LayerNorm(d_model)
         )
 
         # 2. Output Projection: 
@@ -38,12 +38,12 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection = nn.Sequential(
             nn.Linear(d_model * 2, self.out_dim),
             nn.GELU(),
-            #nn.LayerNorm(self.out_dim)
+            nn.LayerNorm(self.out_dim)
         )
         self.projection2 = nn.Sequential(
             nn.Linear(d_model * 2, d_model),
             nn.GELU(),
-            #nn.LayerNorm(d_model)
+            nn.LayerNorm(d_model)
         )
 
         # 检测GPU可用性并决定使用GPU还是CPU
