@@ -35,7 +35,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
-            nn.Linear(d_model * 2 + additional_dim, d_model),
+            nn.Linear(d_model + additional_dim, d_model),
             nn.GELU(),
             nn.LayerNorm(d_model)
         )
@@ -82,8 +82,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_hybrid_feature_2 = temporal_feature_2 # self.norm2(temporal_feature_2)
 
         # 拼接时序特征并投影压缩
-        temporal_fused = torch.cat([temporal_hybrid_feature_1, temporal_hybrid_feature_2, additional_feature], dim=-1) #temporal_feature_short/long
-        temporal_fused_adapted = self.projection_temporal(temporal_fused) # [B, N, 128]
+        # temporal_fused = torch.cat([temporal_hybrid_feature_1, temporal_hybrid_feature_2, additional_feature], dim=-1) #temporal_feature_short/long
+        # temporal_fused_adapted = self.projection_temporal(temporal_fused) # [B, N, 128]
+        temporal_fused_1 = torch.cat([temporal_hybrid_feature_1, additional_feature], dim=-1) #temporal_feature_short/long
+        temporal_fused_adapted_1 = self.projection_temporal(temporal_fused_1) # [B, N, 128]
+
+        temporal_fused_2 = torch.cat([temporal_hybrid_feature_2, additional_feature], dim=-1) #temporal_feature_short/long
+        temporal_fused_adapted_2 = self.projection_temporal(temporal_fused_2) # [B, N, 128]
+
 
         # 处理关系特征 (Refinement)
         tmp_feature_3, attn = self.attention3(
@@ -100,7 +106,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, temporal_fused_adapted), dim=-1)  # [B, N, 128+additional_dim]
+        combined_feature = torch.cat((fused_output_adapted, temporal_fused_adapted_1, temporal_fused_adapted_2), dim=-1)  # [B, N, 128+additional_dim]
         return combined_feature
 
 
