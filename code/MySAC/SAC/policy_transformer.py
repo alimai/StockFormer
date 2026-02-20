@@ -33,17 +33,20 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.LayerNorm(d_model)
         )
 
+        # 时序特征融合后维度压缩
+        temporal_dim = int(d_model/2)
+        self.projection_temporal = nn.Sequential(
+            nn.Linear(d_model * 2, temporal_dim),
+            nn.GELU(),
+            nn.LayerNorm(temporal_dim)
+        )
+
         # 2. Output Projection: 
         self.out_dim = d_model 
         self.projection = nn.Sequential(
-            nn.Linear(d_model * 2, self.out_dim),
+            nn.Linear(d_model + temporal_dim, self.out_dim),
             nn.GELU(),
             nn.LayerNorm(self.out_dim)
-        )
-        self.projection2 = nn.Sequential(
-            nn.Linear(d_model * 2, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
         )
 
         # 检测GPU可用性并决定使用GPU还是CPU
@@ -67,21 +70,21 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 处理时序特征 (Short)
         temporal_feature_1, attn = self.attention(
-            temporal_feature_short, relational_fused_adapted, relational_fused_adapted,
+            temporal_feature_short, temporal_feature_long, temporal_feature_long,
             attn_mask=mask
         )
-        # Residual Connection & Independent LayerNorm
-        tmp_feature_1 = temporal_feature_short + self.dropout(temporal_feature_1)
         #temporal_hybrid_feature_1 = self.norm1(tmp_feature_1)
 
         # 处理时序特征 (Long)
         temporal_feature_2, attn = self.attention2(
-            temporal_feature_long, relational_fused_adapted, relational_fused_adapted,
+            temporal_feature_long, temporal_feature_short, temporal_feature_short,
             attn_mask=mask
         )
-        # Residual Connection & Independent LayerNorm
-        tmp_feature_2 = temporal_feature_long + self.dropout(temporal_feature_2)
         #temporal_hybrid_feature_2 = self.norm2(tmp_feature_2)
+        
+        # 拼接时序特征并投影压缩
+        temporal_fused = torch.cat([temporal_feature_1, temporal_feature_2], dim=-1) #temporal_feature_short/long
+        temporal_fused_adapted = self.projection_temporal(temporal_fused) # [B, N, 128]
 
         # 处理关系特征 (Refinement)
         relational_feature_1, attn = self.attention3(
@@ -91,14 +94,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # Residual Connection & Independent LayerNorm
         tmp_feature_3 = relational_feature + self.dropout(relational_feature_1)
         #relational_hybrid_feature = self.norm3(tmp_feature_3)
-        #relational_output_adapted = self.projection(tmp_feature_3) # [B, N, 128]
 
-        # Early Fusion & Adaptation
-        # 拼接股票特征与附加上下文（Tech + Date）并投影回 d_model
-        temporal_fused_output = torch.cat([tmp_feature_1, tmp_feature_2], dim=-1) #temporal_feature_short/long
-        temporal_output_adapted = self.projection2(temporal_fused_output) # [B, N, 128]
-        
-        fused_output = torch.cat([tmp_feature_3, temporal_output_adapted], dim=-1) #temporal_feature_short/long
+        # 拼接关系特征与时序特征并投影融合
+        fused_output = torch.cat([tmp_feature_3, temporal_fused_adapted], dim=-1) # ralation feature and temporal_feature
         fused_output_adapted = self.projection(fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
