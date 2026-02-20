@@ -100,8 +100,8 @@ MAESAC_PARAMS = {
     "train_freq": 499,  # 【优化】每 500 步训练一次（原 249），减少训练频率
     "gradient_steps": 100,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
     "target_update_interval": 2,  # 【新增】每 2 个 gradient step 更新一次 target network（原 1）
-    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
     "actor_alpha": 0.1,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
+    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
 }
 
 # MAESAC_PARAMS_PRED = {
