@@ -10,7 +10,7 @@ from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 from stable_baselines3.common.vec_env import VecMonitor
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 from utils.data.stock_data_handle import Stock_Data
-
+from torch.optim import AdamW
 
 if __name__ == '__main__':
     
@@ -131,10 +131,10 @@ if __name__ == '__main__':
                         }#策略网络参数(MlpPolicy Policy Network,包括act/critic/critic_target)
         if load_pretrain:
             print(f"load: {final_model_path}...")
-            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
+            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)#, policy_kwargs=policy_kwargs)
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
-            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed, policy_kwargs=policy_kwargs)
+            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=config.fix_seed)#, policy_kwargs=policy_kwargs)
 
         timestamp = datetime.datetime.now().strftime("%m%d%H%M")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
