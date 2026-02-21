@@ -100,7 +100,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        combined_feature = torch.cat((fused_output_adapted, temporal_fused_adapted), dim=-1)  # [B, N, 128+additional_dim]
         return combined_feature
 
 
