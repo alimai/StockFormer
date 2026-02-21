@@ -91,11 +91,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             attn_mask=mask
         )
         # Residual Connection & Independent LayerNorm
-        relational_feature = relational_feature + self.dropout(tmp_feature_3)
-        #relational_hybrid_feature = self.norm3(relational_feature)
+        relational_feature_attn = relational_feature + self.dropout(tmp_feature_3)
+        relational_hybrid_feature = self.norm3(relational_feature_attn)
 
         # 拼接关系特征与时序特征并投影融合
-        fused_output = torch.cat([relational_feature, additional_feature], dim=-1) # ralation feature and temporal_feature
+        fused_output = torch.cat([relational_hybrid_feature, additional_feature], dim=-1) # ralation feature and temporal_feature
         fused_output_adapted = self.projection(fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
