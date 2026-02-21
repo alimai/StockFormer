@@ -99,7 +99,7 @@ class StockTradingEnv(gym.Env):
         # This excludes redundant Covariance data from the SAC input stream
         # hidden_state_space: actor/critic输入维度，对应 actor_transformer/critic_transformer输出维度
         # 亦即policy_transformer_stock_atten2.forward()生成数据维度
-        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel*2))
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel + tech_dim  + 12))
         
         # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
         # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)

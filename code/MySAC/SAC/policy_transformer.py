@@ -35,9 +35,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
-            nn.Linear(d_model * 2 + additional_dim, d_model),
+            nn.Linear(d_model * 2 + additional_dim, additional_dim),
             nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.LayerNorm(additional_dim)
         )
 
         # 2. Output Projection: 
