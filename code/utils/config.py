@@ -2,7 +2,7 @@ import os
 import torch
 from datetime import datetime
 
-fix_seed = 2022
+fix_seed = 2025
 INF = 1100
 SCALE_A = 1.2
 
