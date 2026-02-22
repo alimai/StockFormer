@@ -26,15 +26,15 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
         self.projection_relational = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU()
+            nn.GELU(),
+            nn.LayerNorm(d_model)
         )
 
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
             nn.Linear(d_model * 2 + additional_dim, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU()
+            nn.GELU(),
+            nn.LayerNorm(d_model)
         )
 
         # Gated Fusion Mechanism
