@@ -1,20 +1,18 @@
 import os
 import sys
+import time
+import gc
+import torch
 import argparse
 from Transformer.exp.exp_pred import Exp_pred
 from Transformer.exp.exp_mae import Exp_mae
 
 from utils.data.stock_data_handle import Stock_Data
-from utils.config import fix_seed, SCALE_A
+from utils import config
 from utils.config import TRANSFORMER_PARAMS_DEFAULT
 from utils.config import TRANSFORMER_PARAMS_PRED_SHORT, TRANSFORMER_PARAMS_PRED_LONG, TRANSFORMER_PARAMS_MAE
 import utils.tools as tools
 
-import time
-import gc
-import random
-import torch
-import numpy as np
 
 # 创建一个简单的类来模拟 argparse 命名空间
 class Args:
@@ -37,9 +35,7 @@ if __name__ == '__main__':
                         help='Type of transformer parameters: 0 for PRED_SHORT, 1 for PRED_LONG, 2 for MAE')
     args_parsed = parser.parse_args()
 
-    random.seed(fix_seed)
-    torch.manual_seed(fix_seed)
-    np.random.seed(fix_seed)
+    config.set_seed()  # 使用 config 中的 set_seed 函数设置随机种子，确保全局一致性
 
     # 根据命令行参数选择对应的参数配置
     if args_parsed.params_type == 0:
@@ -71,7 +67,7 @@ if __name__ == '__main__':
             temporal_len=args.seq_len,
             prediction_len=[args.short_term_len, args.long_term_len],
             exp_type=args.exp_type,
-            a=SCALE_A
+            a=config.SCALE_A
             )
     
     # Transformer 训练不需要 full_df，手动释放以腾出系统内存

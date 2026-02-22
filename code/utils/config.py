@@ -1,8 +1,9 @@
 import os
+import random
+import numpy as np
 import torch
 from datetime import datetime
 
-fix_seed = 2022
 INF = 1100
 SCALE_A = 1.2
 
@@ -11,6 +12,17 @@ if torch.cuda.is_available():
     device = 'cuda:0'
 else:
     device = 'cpu'
+
+def set_seed():
+    seed=2022
+    """统一设置所有随机种子"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # 确保确定性行为
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 version_name = 'CSI_2'#'N100'#
 model_name='StockFormer'
