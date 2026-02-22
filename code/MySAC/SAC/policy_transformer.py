@@ -7,20 +7,19 @@ import itertools
 from Transformer.models.attn import AttentionLayer, FullAttention
 from Transformer.models.layer import MultiHeadAttention
 
-import pdb
+#import pdb
 
 
 class policy_transformer_stock_atten2(nn.Module): # attention(long, short), attention(hybrid, relational) 
     def __init__(self, d_model=128, n_heads=4, dropout=0.1, lr=0.0001, output_attention=False, device=None, additional_dim=20):
         super().__init__()
-        self.attention = AttentionLayer(FullAttention(False, attention_dropout=dropout,
+        self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
-        self.attention3 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
-                                      output_attention=output_attention), d_model, n_heads)
         self.dropout = nn.Dropout(dropout)
-        self.norm = nn.LayerNorm(d_model)
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
 
         # 1. 关系特征与附加上下文融合: 
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
@@ -32,15 +31,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
-            nn.Linear(d_model * 2 + additional_dim, d_model),
+            nn.Linear(d_model * 2 + additional_dim, additional_dim),
             nn.GELU(),
+            nn.Linear(additional_dim, d_model),
             nn.LayerNorm(d_model)
-        )
-
-        # Gated Fusion Mechanism
-        self.fusion_gate = nn.Sequential(
-            nn.Linear(d_model * 2, d_model),
-            nn.Sigmoid()
         )
 
         # 2. Output Projection: 
@@ -65,35 +59,36 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
-        # Early Fusion & Adaptation
-        # 拼接关系特征与附加上下文（Tech + Date）并投影回 d_model
-        relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
-
         # Temporal Feature Fusion
         # 拼接长短期时序特征与附加上下文，并投影回 d_model
         temporal_fused_input = torch.cat([temporal_feature_short, temporal_feature_long, additional_feature], dim=-1)
         temporal_input_adapted = self.projection_temporal(temporal_fused_input) # [B, N, 128]
 
-        # Gated Fusion: Dynamically combine Relational and Temporal features
-        # Calculate gate values based on both inputs
-        gate_input = torch.cat([relational_input_adapted, temporal_input_adapted], dim=-1)
-        gate = self.fusion_gate(gate_input)
-        
-        # Weighted sum
-        fused_input = gate * relational_input_adapted + (1 - gate) * temporal_input_adapted
-
-        # 处理关系特征 (Refinement)
-        tmp_feature_3, attn = self.attention3(
-            fused_input, fused_input, fused_input,
+        # 处理时序特征 (Refinement)
+        tmp_feature_1, attn = self.attention1(
+            temporal_input_adapted, temporal_input_adapted, temporal_input_adapted,
             attn_mask=mask
         )
         # Residual Connection & Independent LayerNorm
-        relational_feature_attn = fused_input + self.dropout(tmp_feature_3)
-        relational_hybrid_feature = self.norm(relational_feature_attn)
+        temporal_feature_attn = temporal_input_adapted + self.dropout(tmp_feature_1)
+        temporal_hybrid_feature = self.norm1(temporal_feature_attn)
+
+        # 拼接关系特征与附加上下文（Tech + Date）并投影回 d_model
+        relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
+        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
+
+        # 处理关系特征 (Refinement)
+        tmp_feature_2, attn = self.attention2(
+            relational_input_adapted, relational_input_adapted, relational_input_adapted,
+            attn_mask=mask
+        )
+        # Residual Connection & Independent LayerNorm
+        relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
+        relational_hybrid_feature = self.norm2(relational_feature_attn)
 
         # Output Processing
-        fused_output_adapted = self.projection(relational_hybrid_feature) # [B, N, 128]
+        fused_input = relational_hybrid_feature + temporal_hybrid_feature
+        fused_output_adapted = self.projection(fused_input) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
