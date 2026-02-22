@@ -40,6 +40,12 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.LayerNorm(d_model)
         )
 
+        # Gated Fusion Mechanism
+        self.fusion_gate = nn.Sequential(
+            nn.Linear(d_model * 2, d_model),
+            nn.Sigmoid()
+        )
+
         # 2. Output Projection: 
         self.out_dim = d_model 
         self.projection = nn.Sequential(
@@ -67,13 +73,26 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
         relational_input_adapted = self.input_projection(relational_fused_input) # [B, N, 128]
 
+        # Temporal Feature Fusion
+        # 拼接长短期时序特征与附加上下文，并投影回 d_model
+        temporal_fused_input = torch.cat([temporal_feature_short, temporal_feature_long, additional_feature], dim=-1)
+        temporal_input_adapted = self.projection_temporal(temporal_fused_input) # [B, N, 128]
+
+        # Gated Fusion: Dynamically combine Relational and Temporal features
+        # Calculate gate values based on both inputs
+        gate_input = torch.cat([relational_input_adapted, temporal_input_adapted], dim=-1)
+        gate = self.fusion_gate(gate_input)
+        
+        # Weighted sum
+        fused_input = gate * relational_input_adapted + (1 - gate) * temporal_input_adapted
+
         # 处理关系特征 (Refinement)
         tmp_feature_3, attn = self.attention3(
-            relational_input_adapted, relational_input_adapted, relational_input_adapted,
+            fused_input, fused_input, fused_input,
             attn_mask=mask
         )
         # Residual Connection & Independent LayerNorm
-        relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_3)
+        relational_feature_attn = fused_input + self.dropout(tmp_feature_3)
         relational_hybrid_feature = self.norm3(relational_feature_attn)
 
         # Output Processing
