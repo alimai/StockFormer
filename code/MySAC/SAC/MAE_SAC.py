@@ -387,17 +387,14 @@ class SAC(SAC_SB3):
 
                 ent_coefs.append(ent_coef.item())
 
-            #  Optimize entropy coefficient
-            # 熵系数优化器独立更新，但需要 retain_graph=True
-            # 因为 Actor loss 的计算图与熵系数共享 actor_transformer
+            # Optimize entropy coefficient
             if ent_coef_loss is not None:
                 self.ent_coef_optimizer.zero_grad()
                 if scaler is not None:
-                    scaler.scale(ent_coef_loss).backward(retain_graph=True)
+                    scaler.scale(ent_coef_loss).backward()
                     scaler.step(self.ent_coef_optimizer)
-                    # 注意：scaler.update() 留到最后与其他优化器一起调用
                 else:
-                    ent_coef_loss.backward(retain_graph=True)
+                    ent_coef_loss.backward()
                     self.ent_coef_optimizer.step()
 
             # Target Q-values calculation
@@ -413,30 +410,28 @@ class SAC(SAC_SB3):
 
             # Optimize critic
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                #使用不带梯度控制的状态state
-                # current_critic_embed = self.critic_transformer(state, temporal_short, temporal_long, additional_feature)
-                #使用带梯度控制的状态state_for_critic
+                #state:不带梯度控制的状态; state_for_critic: 带梯度控制的状态
+                # current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
                 current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
                 current_q_values = self.critic(current_critic_embed, replay_data.actions)
                 critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
             
             critic_losses.append(critic_loss.item())
 
-            # 反向传播 Critic 损失
-            # 必须 retain_graph=True，因为 Actor 和 MAE 还需要使用 state 的计算图
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
+            self.transformer_optim.zero_grad() # 重置 MAE 优化器
+            
             if scaler is not None:
-                scaler.scale(critic_loss).backward(retain_graph=True)
+                scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 和 MAE 更新
+                scaler.step(self.critic.optimizer)
+                scaler.step(self.critic_transformer.optimizer)
+                # scaler.step(self.transformer_optim) # 暂时不更新 MAE，等待梯度累积
             else:
-                critic_loss.backward(retain_graph=True)
-
-            # 锁定 Critic 参数，防止 Actor loss 更新 Critic
-            # 这是标准 SAC 的要求：Actor 只通过 Critic 获取 Q 值，不应更新 Critic
-            for param in self.critic.parameters():
-                param.requires_grad = False
-            for param in self.critic_transformer.parameters():
-                param.requires_grad = False
+                critic_loss.backward(retain_graph=True) # 保留计算图
+                self.critic.optimizer.step()
+                self.critic_transformer.optimizer.step()
+                # self.transformer_optim.step() # 暂时不更新 MAE
 
             # Optimize actor
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
@@ -448,61 +443,45 @@ class SAC(SAC_SB3):
 
             actor_losses.append(actor_loss.item())
 
-            # 反向传播 Actor 损失
-            # 如果还需要计算 MAE loss，则 retain_graph=True
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
+            # self.transformer_optim.zero_grad() # 不要重置，因为要累积来自 Critic 的梯度
+            
             if scaler is not None:
-                scaler.scale(actor_loss).backward(retain_graph=should_compute_loss)
-            else:
-                actor_loss.backward(retain_graph=should_compute_loss)
-
-            # 恢复 Critic 参数梯度
-            for param in self.critic.parameters():
-                param.requires_grad = True
-            for param in self.critic_transformer.parameters():
-                param.requires_grad = True
-
-            # Optimize MAE (按需)
-            if should_compute_loss:
-                self.transformer_optim.zero_grad()
-                if scaler is not None:
-                    scaler.scale(combined_loss).backward()
-                else:
-                    combined_loss.backward()
-                transformer_losses.append(combined_loss.item())
-
-            # 老大，最后统一步进所有优化器，确保 Actor 和 Critic 基于同一参数快照更新
-            # 注意：熵系数优化器已在前面单独 step，此处不再重复
-            if scaler is not None:
-                scaler.step(self.critic.optimizer)
-                scaler.step(self.critic_transformer.optimizer)
+                scaler.scale(actor_loss).backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
                 scaler.step(self.actor.optimizer)
                 scaler.step(self.actor_transformer.optimizer)
+                # scaler.step(self.transformer_optim) # 暂时不更新 MAE
+                # 在每个梯度步结束时必须调用 update()，否则下次 step() 会报错
+                # scaler.update() # 移到最后统一步进
+            else:
+                actor_loss.backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
+                self.actor.optimizer.step()
+                self.actor_transformer.optimizer.step()
+                # self.transformer_optim.step() # 暂时不更新 MAE
+
+            if should_compute_loss:
+                # 正式更新 MAE 模型（自监督部分）
+                # self.transformer_optim.zero_grad() # 不要重置，累积之前的梯度
+                if scaler is not None:
+                    scaler.scale(combined_loss).backward()
+                    # scaler.step(self.transformer_optim)
+                    # scaler.update()
+                else:
+                    combined_loss.backward()
+                    # self.transformer_optim.step()
+                transformer_losses.append(combined_loss.item())
+            
+            # 老大，最后统一步进 MAE 优化器，避免 inplace 错误
+            if scaler is not None:
                 scaler.step(self.transformer_optim)
                 scaler.update()
             else:
-                self.critic.optimizer.step()
-                self.critic_transformer.optimizer.step()
-                self.actor.optimizer.step()
-                self.actor_transformer.optimizer.step()
                 self.transformer_optim.step()
 
-            # 清空所有优化器的梯度，释放计算图
-            # 注意：熵系数优化器已在前面单独 zero_grad，此处不再重复
-            self.critic.optimizer.zero_grad()
-            self.critic_transformer.optimizer.zero_grad()
-            self.actor.optimizer.zero_grad()
-            self.actor_transformer.optimizer.zero_grad()
-            self.transformer_optim.zero_grad()
-
-            # 如果是 CUDA 模式，清空缓存以防止显存泄漏
-            if device_type == "cuda":
-                th.cuda.empty_cache()
-
-            # 老大，更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
-            if gradient_step % self.target_update_interval == 0:
-                polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
+            # # 老大，更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
+            # if gradient_step % self.target_update_interval == 0:
+            #     polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
 
         self._n_updates += gradient_steps
 

@@ -2,7 +2,7 @@ import os
 import torch
 from datetime import datetime
 
-fix_seed = 2025
+fix_seed = 2022
 INF = 1100
 SCALE_A = 1.2
 
@@ -81,7 +81,7 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 ##transformer Model Parameters
 MAESAC_PARAMS = {
     "batch_size": 128,#important，同时影响速度
-    "buffer_size": 50000,
+    "buffer_size": 80000,
     "learning_rate": 0.0001,#除 MAE 模型外其他模块的学习率
     "learning_starts": 1000,
     "ent_coef": 0.001,#"auto_0.1",#key--同时影响 actor_loss/critic_loss
@@ -97,10 +97,10 @@ MAESAC_PARAMS = {
     "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
-    "train_freq": 499,  # 【优化】每 500 步训练一次（原 249），减少训练频率
-    "gradient_steps": 200,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
-    "target_update_interval": 2,  # 【新增】每 2 个 gradient step 更新一次 target network（原 1）
-    "actor_alpha": 0.5,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
+    "train_freq": 249,  # 【优化】每 500 步训练一次（原 249），减少训练频率
+    "gradient_steps": 100,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
+    #"target_update_interval": 2,  # 【新增】每 2 个 gradient step 更新一次 target network（原 1）
+    "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
     "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
 }
 

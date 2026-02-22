@@ -92,14 +92,15 @@ class StockTradingEnv(gym.Env):
         tech_dim = len(self.tech_indicator_list)#8
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
         # observation_space：self._update_state()生成数据维度；Modified: date features now take 12 dimensions (One-hot)
+        # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+tech_dim+self.hidden_channel*2+12))
-        #self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
         
         # Modified: Update hidden_state_space to strictly include MAE output (128)# + Tech + Date
         # This excludes redundant Covariance data from the SAC input stream
         # hidden_state_space: actor/critic输入维度，对应 actor_transformer/critic_transformer输出维度
         # 亦即policy_transformer_stock_atten2.forward()生成数据维度
-        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel*2))
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel + tech_dim + 12))
+        # self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel*2))
         
         # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
         # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)
@@ -325,7 +326,7 @@ class StockTradingEnv(gym.Env):
             # 更新后计算
             self.end_total_asset = self.env_info[0] + np.sum(first_day_prices * shares)
 
-            avg_prices = first_day_prices * 0.7 + fifth_day_prices * 0.3
+            avg_prices = first_day_prices * 0.3 + fifth_day_prices * 0.7
             asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
             
             market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
@@ -422,7 +423,7 @@ class StockTradingEnv(gym.Env):
         # 提取日期特征 (最后 12 列)
         date_features = self.data[:, -12:]
 
-        #state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
+        # state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
         state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         return state
 
@@ -460,7 +461,7 @@ class StockTradingEnv(gym.Env):
         # 提取日期特征 (最后 12 列)
         date_features = self.data[:, -12:]
 
-        #state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
+        # state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
         state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
         # print("Update: ",state.shape)
         return state
