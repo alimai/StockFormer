@@ -20,14 +20,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.attention3 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
         self.dropout = nn.Dropout(dropout)
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
-        self.norm3 = nn.LayerNorm(d_model)
-        # self.norm = nn.LayerNorm(d_model)
+        self.norm = nn.LayerNorm(d_model)
 
-        # 1. Input Adapter (Early Fusion): 
+        # 1. 关系特征与附加上下文融合: 
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
-        self.input_projection = nn.Sequential(
+        self.projection_relational = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
             nn.LayerNorm(d_model),
             nn.GELU()
@@ -36,8 +33,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
             nn.Linear(d_model * 2 + additional_dim, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.LayerNorm(d_model),
+            nn.GELU()
         )
 
         # Gated Fusion Mechanism
@@ -71,7 +68,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # Early Fusion & Adaptation
         # 拼接关系特征与附加上下文（Tech + Date）并投影回 d_model
         relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        relational_input_adapted = self.input_projection(relational_fused_input) # [B, N, 128]
+        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
 
         # Temporal Feature Fusion
         # 拼接长短期时序特征与附加上下文，并投影回 d_model
@@ -93,7 +90,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         )
         # Residual Connection & Independent LayerNorm
         relational_feature_attn = fused_input + self.dropout(tmp_feature_3)
-        relational_hybrid_feature = self.norm3(relational_feature_attn)
+        relational_hybrid_feature = self.norm(relational_feature_attn)
 
         # Output Processing
         fused_output_adapted = self.projection(relational_hybrid_feature) # [B, N, 128]
