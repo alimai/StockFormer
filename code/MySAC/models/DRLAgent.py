@@ -100,15 +100,14 @@ class CombinedCallback(BaseCallback):
                 # Mean training reward over the last 10 episodes
                 mean_reward = np.mean(y[-10:])
                 if self.verbose > 0:
-                    print(f"Num timesteps: {self.num_timesteps}")
-                    print(f"Best mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
+                    print(f"Best training mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
 
                 # New best model, you could save the agent here
                 if mean_reward > self.best_mean_reward:
                     self.best_mean_reward = mean_reward
                     # Example for saving best model
                     if self.verbose > 0:
-                        print(f"Saving new best model to {self.model_save_path}")
+                        print(f"Saving new best training model to {self.model_save_path}")
                     self.model.save(self.model_save_path+'/best_train_model.zip')
 
         return True
@@ -194,9 +193,14 @@ class FinancialEvalCallback(EvalCallback):
                 self.logger.dump(self.num_timesteps)
 
                 # 检查是否为最佳模型
+                if self.verbose > 0:
+                    print(f"Best eval mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
+
                 if mean_reward > self.best_mean_reward:
                     if self.verbose > 0:
-                        print("New best mean reward!")
+                        print("New best eval mean reward!")
+                        print(f"Saving new best eval model to {self.best_model_save_path}")
+
                     if self.best_model_save_path is not None:
                         self.model.save(os.path.join(self.best_model_save_path, "best_model"))
                     self.best_mean_reward = mean_reward
