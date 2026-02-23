@@ -293,8 +293,8 @@ class StockTradingEnv(gym.Env):
                 'reward_ratio': tot_reward_ratio,
                 'reward_step': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
                 'sharpe': sharpe,
-                'account_memory': df_total_value if self.mode != 'train' else None,
-                'actions_memory': df_actions if self.mode != 'train' else None,
+                'account_memory': df_total_value if self.mode == 'test' else None,
+                'actions_memory': df_actions if self.mode == 'test' else None,
             }
 
         else:
