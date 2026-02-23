@@ -14,14 +14,21 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
     def __init__(self, d_model=128, n_heads=4, dropout=0.1, lr=0.0001, output_attention=False, device=None, additional_dim=20):
         super().__init__()
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
-                                      output_attention=output_attention), d_model, n_heads)
+                                      output_attention=output_attention), additional_dim, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
         self.dropout = nn.Dropout(dropout)
-        self.norm1 = nn.LayerNorm(d_model)
+        self.norm1 = nn.LayerNorm(additional_dim)
         self.norm2 = nn.LayerNorm(d_model)
 
-        # 1. 关系特征与附加上下文融合: 
+        # 时序特征融合后投影回 d_model
+        self.projection_temporal = nn.Sequential(
+            nn.Linear(d_model * 2 + additional_dim, additional_dim),
+            nn.GELU(),
+            nn.LayerNorm(additional_dim)
+        )
+
+        # 关系特征与附加上下文融合: 
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
         self.projection_relational = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
@@ -29,20 +36,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.LayerNorm(d_model)
         )
 
-        # 时序特征融合后投影回 d_model
-        self.projection_temporal = nn.Sequential(
-            nn.Linear(d_model * 2 + additional_dim, additional_dim),
-            nn.GELU(),
-            nn.Linear(additional_dim, d_model),
-            nn.LayerNorm(d_model)
-        )
-
         # 2. Output Projection: 
-        self.out_dim = d_model 
         self.projection = nn.Sequential(
-            nn.Linear(d_model, self.out_dim),
+            nn.Linear(d_model + additional_dim, d_model),
             nn.GELU(),
-            nn.LayerNorm(self.out_dim)
+            nn.LayerNorm(d_model)
         )
 
         # 检测GPU可用性并决定使用GPU还是CPU
@@ -51,9 +49,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 device = 'cuda:0'
             else:
                 device = 'cpu'
+        self.device = device
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
-        self.device = device
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
@@ -87,7 +85,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         relational_hybrid_feature = self.norm2(relational_feature_attn)
 
         # Output Processing
-        fused_input = relational_hybrid_feature + temporal_hybrid_feature
+        #fused_input = relational_hybrid_feature + temporal_hybrid_feature
+        fused_input = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
         fused_output_adapted = self.projection(fused_input) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
