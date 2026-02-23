@@ -69,6 +69,7 @@ class CombinedCallback(BaseCallback):
         self.log_dir = log_dir
         self.best_mean_reward = -np.inf
         self.episode_count = 0
+        self.episode_rewards = [] # 用于在内存中存储最近的奖励，避免读取磁盘
         
         if self.model_save_path is not None:
             os.makedirs(self.model_save_path, exist_ok=True)
@@ -85,6 +86,12 @@ class CombinedCallback(BaseCallback):
         infos = self.locals.get("infos")
         if infos is not None and len(infos) > 0 and "episode" in infos[0]:
             self.episode_count += 1
+            # 记录奖励到内存列表
+            ep_rew = infos[0]["episode"]["r"]
+            self.episode_rewards.append(ep_rew)
+            if len(self.episode_rewards) > 100: # 只保留最近100个，防止列表无限增长
+                self.episode_rewards.pop(0)
+
             # 每10个episode保存一个备份
             if self.episode_count % 10 == 0:
                 tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
@@ -94,11 +101,9 @@ class CombinedCallback(BaseCallback):
 
         # 按指定频率记录训练奖励
         if self.check_freq > 0 and self.n_calls % self.check_freq == 0:
-            # Retrieve training reward
-            x, y = ts2xy(load_results(self.log_dir), 'timesteps')
-            if len(x) > 0:
-                # Mean training reward over the last 10 episodes
-                mean_reward = np.mean(y[-10:])
+            # 从内存中获取最近10个episode的平均奖励，不再从磁盘读取
+            if len(self.episode_rewards) > 0:
+                mean_reward = np.mean(self.episode_rewards[-10:])
                 if self.verbose > 0:
                     print(f"Best training mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
 
