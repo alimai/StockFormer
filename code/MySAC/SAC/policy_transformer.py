@@ -21,10 +21,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.dropout = nn.Dropout(dropout)
 
         # 时序特征融合后投影回 d_model
-        self.temporal_out_dim = 10
+        self.temporal_out_dim = additional_dim // 2 #20//2=10
         self.projection_temporal = nn.Sequential(
             nn.Linear(d_model, self.temporal_out_dim),
-            #nn.GELU(),
+            nn.GELU(),
             nn.LayerNorm(self.temporal_out_dim)
         )
 
