@@ -115,6 +115,9 @@ MAESAC_PARAMS = {
     "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
     "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
     "optimize_memory_usage": True, # 【新增】开启内存优化，减少 ReplayBuffer 占用
+    "replay_buffer_kwargs": {
+        "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
+    },
 }
 
 # MAESAC_PARAMS_PRED = {
