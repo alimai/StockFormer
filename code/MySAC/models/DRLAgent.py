@@ -239,7 +239,7 @@ class DRLAgent:
     def get_model(
         self,
         model_name,
-        policy="MlpPolicy",
+        policy="MlpPolicy",#策略网络(MlpPolicy Policy Network,包括act/critic/critic_target)
         policy_kwargs=None,
         model_kwargs=None,
         verbose=1,
