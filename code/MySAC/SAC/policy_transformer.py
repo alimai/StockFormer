@@ -72,27 +72,24 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
         # 1) 处理时序特征 (Refinement)
-        tmp_feature_1, attn = self.attention1(
-            temporal_feature_long, temporal_feature_short, temporal_feature_short,
-            attn_mask=mask
-        )
-        temporal_feature_attn = temporal_feature_long + self.dropout(tmp_feature_1)
-        temporal_feature_adapted = self.norm1(temporal_feature_attn)
-        temporal_fused_adapted = torch.cat([temporal_feature_adapted, additional_feature], dim=-1)
-        temporal_hybrid_feature = self.projection_temporal(temporal_fused_adapted) # [B, N, 128]
-
-
-        # temporal_fused_input = torch.cat([temporal_feature_short, temporal_feature_long, additional_feature], dim=-1)
-        # temporal_input_adapted = self.projection_temporal_2(temporal_fused_input) # [B, N, 128]
-
         # tmp_feature_1, attn = self.attention1(
-        #     temporal_input_adapted, temporal_input_adapted, temporal_input_adapted,
+        #     temporal_feature_long, temporal_feature_short, temporal_feature_short,
         #     attn_mask=mask
         # )
-        # temporal_feature_attn = temporal_input_adapted + self.dropout(tmp_feature_1)
-        # temporal_hybrid_feature = self.norm1(temporal_feature_attn)
+        # temporal_feature_attn = temporal_feature_long + self.dropout(tmp_feature_1)
+        # temporal_feature_adapted = self.norm1(temporal_feature_attn)
+        # temporal_fused_adapted = torch.cat([temporal_feature_adapted, additional_feature], dim=-1)
+        # temporal_hybrid_feature = self.projection_temporal(temporal_fused_adapted) # [B, N, 128]
 
+        temporal_fused_input = torch.cat([temporal_feature_short, temporal_feature_long, additional_feature], dim=-1)
+        temporal_input_adapted = self.projection_temporal_2(temporal_fused_input) # [B, N, 128]
 
+        tmp_feature_1, attn = self.attention1(
+            temporal_input_adapted, temporal_input_adapted, temporal_input_adapted,
+            attn_mask=mask
+        )
+        temporal_feature_attn = temporal_input_adapted + self.dropout(tmp_feature_1)
+        temporal_hybrid_feature = self.norm1(temporal_feature_attn)
 
 
 
@@ -106,6 +103,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         )
         relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
         relational_hybrid_feature = self.norm2(relational_feature_attn)
+
 
         # 3) Output Processing
         #fused_input = relational_hybrid_feature + temporal_hybrid_feature
