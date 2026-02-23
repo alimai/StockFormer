@@ -203,7 +203,6 @@ class FinancialEvalCallback(EvalCallback):
 
                 if mean_reward > self.best_mean_reward:
                     if self.verbose > 0:
-                        print("New best eval mean reward!")
                         print(f"Saving new best eval model to {self.best_model_save_path}")
 
                     if self.best_model_save_path is not None:
