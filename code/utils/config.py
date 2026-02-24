@@ -13,8 +13,7 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'
 
-def set_seed():
-    seed=2022
+def set_seed(seed=2022):
     """统一设置所有随机种子"""
     random.seed(seed)
     np.random.seed(seed)
@@ -114,10 +113,10 @@ MAESAC_PARAMS = {
     #"target_update_interval": 2,  # 【新增】每 2 个 gradient step 更新一次 target network（原 1）
     "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
     "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
-    "optimize_memory_usage": True, # 【新增】开启内存优化，减少 ReplayBuffer 占用
-    "replay_buffer_kwargs": {
-        "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
-    },
+    # "optimize_memory_usage": True, # 【新增】开启内存优化，减少 ReplayBuffer 占用
+    # "replay_buffer_kwargs": {
+    #     "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
+    # },
 }
 
 # MAESAC_PARAMS_PRED = {
