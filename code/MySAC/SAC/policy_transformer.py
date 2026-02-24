@@ -13,6 +13,17 @@ from Transformer.models.layer import MultiHeadAttention
 class policy_transformer_stock_atten2(nn.Module): # attention(long, short), attention(hybrid, relational) 
     def __init__(self, d_model=128, n_heads=4, dropout=0.1, lr=0.0001, output_attention=False, device=None, additional_dim=20):
         super().__init__()
+        
+        # 检测GPU可用性并决定使用GPU还是CPU
+        if device is None:
+            if torch.cuda.is_available():
+                device = 'cuda:0'
+            else:
+                device = 'cpu'
+        self.device = device
+
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
+        
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_model, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
@@ -50,16 +61,6 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.LayerNorm(d_model),
             nn.GELU()
         )
-
-        # 检测GPU可用性并决定使用GPU还是CPU
-        if device is None:
-            if torch.cuda.is_available():
-                device = 'cuda:0'
-            else:
-                device = 'cpu'
-        self.device = device
-
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
