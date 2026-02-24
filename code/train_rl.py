@@ -176,3 +176,4 @@ if __name__ == '__main__':
     assets_test, actions_test = results[1], results[2]
     actions_test.to_csv(os.path.join(df_root, 'df_actions_test.csv'))
     assets_test.to_csv(os.path.join(df_root, 'df_assets_test.csv'))
+    print("=================================\n")
