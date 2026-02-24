@@ -24,16 +24,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
             nn.Linear(d_model * 2 + additional_dim, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU()
+            nn.GELU(),
+            nn.LayerNorm(d_model)
         )
 
         # 关系特征与附加上下文融合: 
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
         self.projection_relational = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU()
+            nn.GELU(),
+            nn.LayerNorm(d_model)
         )
 
         # # Gated Fusion Mechanism
@@ -47,8 +47,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.Linear = nn.Linear(d_model, self.temporal_out_dim)
         self.projection_output = nn.Sequential(
             nn.Linear(d_model + self.temporal_out_dim, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU()
+            nn.GELU(),
+            nn.LayerNorm(d_model)
         )
 
         # 检测GPU可用性并决定使用GPU还是CPU
