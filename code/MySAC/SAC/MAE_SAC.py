@@ -575,7 +575,7 @@ class SAC(SAC_SB3):
         为每个模式应用其最快速的实现
 
         :param x: 输入状态 [bs, stock_num, features]
-        :param seed: 可选的随机种子，用于生成 mask。如果提供，确保相同的 seed 生成相同的 mask
+        :param seed: 可选的随机种子，用于生成 mask。如果提供确保相同的 seed 生成相同的 mask
         :param mask_mode: mask 模式，可选值：
             - 'stock': 屏蔽股票（默认），随机选择部分股票，屏蔽其全部特征
             - 'feature': 屏蔽技术指标，随机选择部分特征，对所有股票屏蔽这些特征
@@ -751,6 +751,6 @@ class SAC(SAC_SB3):
         # 3. 合并为纯净的 additional_feature (排除协方差数据)
         additional_feature = th.cat((tech_features, date_features), dim=-1)
 
-        #各元素维度：[bs, stock_num, d_model]， [bs, stock_num, hidden_channel]， [bs, stock_num, hidden_channel]，
-        # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2]， loss (标量)
+        #各元素维度：[bs, stock_num, d_model], [bs, stock_num, hidden_channel], [bs, stock_num, hidden_channel],
+        # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2], loss (标量)
         return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss
