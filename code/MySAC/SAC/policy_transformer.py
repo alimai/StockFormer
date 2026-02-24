@@ -43,7 +43,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # )
 
         # 2. Output Projection: 
-        self.temporal_out_dim = 0#additional_dim# // 2 #20//2=10
+        self.temporal_out_dim = 1#additional_dim# // 2 #20//2=10
         self.Linear = nn.Linear(d_model, self.temporal_out_dim)
         self.projection_output = nn.Sequential(
             nn.Linear(d_model + self.temporal_out_dim, d_model),
@@ -90,9 +90,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
 
         # 3) Output Processing
-        #temporal_output = self.Linear(temporal_hybrid_feature) # [B, N, 1]
-        #fused_output = torch.cat((relational_hybrid_feature, temporal_output), dim=-1)
-        fused_output = relational_hybrid_feature + temporal_hybrid_feature
+        temporal_output = self.Linear(temporal_hybrid_feature) # [B, N, 1]
+        fused_output = torch.cat((relational_hybrid_feature, temporal_output), dim=-1)
+        # fused_output = relational_hybrid_feature + temporal_hybrid_feature
         fused_output_adapted = self.projection_output(fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
