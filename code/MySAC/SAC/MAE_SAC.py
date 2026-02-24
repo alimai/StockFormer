@@ -206,7 +206,7 @@ class SAC(SAC_SB3):
         
         #for MAE
         self.transformer_device = transformer_device
-        self.transformer_optim = th.optim.AdamW(self.state_transformer.parameters(), lr=1e-5, weight_decay=1e-4)
+        self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=1e-5, weight_decay=1e-4)
         self.transformer_criteria = th.nn.MSELoss()
 
         self.critic_alpha = critic_alpha

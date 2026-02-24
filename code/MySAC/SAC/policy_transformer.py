@@ -59,7 +59,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 device = 'cpu'
         self.device = device
 
-        self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-4)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
