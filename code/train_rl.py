@@ -14,7 +14,7 @@ from torch.optim import AdamW
 
 if __name__ == '__main__':
     fix_seed = 2022
-    config.set_seed(fix_seed)
+    #config.set_seed(fix_seed)
     version_name = config.version_name
     model_name = config.model_name
 
