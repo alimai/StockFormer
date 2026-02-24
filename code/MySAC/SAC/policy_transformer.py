@@ -90,10 +90,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
 
         # 3) Output Processing
-        fused_input = relational_hybrid_feature + temporal_hybrid_feature
         #temporal_output = self.Linear(temporal_hybrid_feature) # [B, N, 1]
         #fused_output = torch.cat((relational_hybrid_feature, temporal_output), dim=-1)
-        fused_output_adapted = self.projection_output(fused_input) # [B, N, 128]
+        fused_output = relational_hybrid_feature + temporal_hybrid_feature
+        fused_output_adapted = self.projection_output(fused_output) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
