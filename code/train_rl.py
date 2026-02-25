@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import datetime
+import json
 
 from utils import config
 from MySAC.Agent.DRLAgent import DRLAgent
@@ -140,6 +141,14 @@ if __name__ == '__main__':
 
         timestamp = datetime.datetime.now().strftime("%m%d%H%M")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
+
+        # 在训练正式开始前保存参数配置到 tensorboard 日志目录
+        config_save_dir = os.path.join(tensorboard_log_dir, tb_log_name_with_timestamp)
+        os.makedirs(config_save_dir, exist_ok=True)
+        with open(os.path.join(config_save_dir, 'maesac_config.json'), 'w', encoding='utf-8') as f:
+            # 处理不可序列化项为字符串
+            serializable_config = {k: str(v) for k, v in config.MAESAC_PARAMS.items()}
+            json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
         print('Start training...')
         start = time.time()
