@@ -90,7 +90,7 @@ if __name__ == '__main__':
         "device": config.device,
     }
 
-    tensorboard_log_dir = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac_tb')
+    tensorboard_log_dir = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac_tb_agent')
     os.makedirs(tensorboard_log_dir, exist_ok=True)
     log_path = os.path.join(config.TENSORBOARD_LOG_DIR, 'mysac_mnt')
     os.makedirs(log_path, exist_ok=True)
@@ -159,7 +159,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=99000)
+                                    total_timesteps=33000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
