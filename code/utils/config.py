@@ -109,7 +109,7 @@ MAESAC_PARAMS = {
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
     "train_freq": 249,  # 【优化】每 500 步训练一次（原 249），减少训练频率
-    "gradient_steps": 100,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
+    "gradient_steps": 50,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
     "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
     "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
     # "optimize_memory_usage": True, # 【新增】开启内存优化，减少 ReplayBuffer 占用
