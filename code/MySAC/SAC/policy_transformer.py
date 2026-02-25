@@ -149,19 +149,19 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # Early Fusion & Adaptation
         # 拼接关系特征与附加上下文（Tech + Date）并投影回 d_model
         relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        relational_input_adapted = self.input_projection(relational_fused_input) # [B, N, 128]
+        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
 
         # 处理关系特征 (Refinement)
-        tmp_feature_3, attn = self.attention3(
+        tmp_feature_2, attn = self.attention2(
             relational_input_adapted, relational_input_adapted, relational_input_adapted,
             attn_mask=mask
         )
         # Residual Connection & Independent LayerNorm
-        relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_3)
-        relational_hybrid_feature = self.norm3(relational_feature_attn)
+        relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
+        relational_hybrid_feature = self.norm2(relational_feature_attn)
 
         # Output Processing
-        fused_output_adapted = self.projection(relational_hybrid_feature) # [B, N, 128]
+        fused_output_adapted = self.projection_output(relational_hybrid_feature) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）

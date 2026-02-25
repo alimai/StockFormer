@@ -114,6 +114,8 @@ class SAC(SAC_SB3):
         transformer_path = None,
         critic_alpha=1,
         actor_alpha=0.1,
+        actor_learning_rate=None,
+        critic_learning_rate=None,
     ):
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
         # 否则父类初始化过程中调用 _setup_model 时会因找不到 hidden_state_space 报错
@@ -232,8 +234,13 @@ class SAC(SAC_SB3):
         # 使用环境隐藏维度进行计算，确保与环境生成的 Observation 结构对齐
         additional_dim = env.observation_space.shape[1] - stock_num  - self.env_hidden_dim * 2
         # additional_dim = env.observation_space.shape[1] - stock_num  - d_model* 2
-        self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
-        self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        
+        # 使用单独设置的学习率，如果没有则回退到通用的 learning_rate
+        a_lr = actor_learning_rate if actor_learning_rate is not None else learning_rate
+        c_lr = critic_learning_rate if critic_learning_rate is not None else learning_rate
+        
+        self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=a_lr, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=c_lr, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
 
         self.in_feat = enc_in
 

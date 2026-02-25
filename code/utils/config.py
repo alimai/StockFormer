@@ -93,9 +93,10 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 MAESAC_PARAMS = {
     "batch_size": 128,#important，同时影响速度
     "buffer_size": 80000,
-    "learning_rate": 0.0001,#除 MAE 模型外其他模块的学习率
+    "actor_learning_rate": 0.0001,# Actor 学习率
+    "critic_learning_rate": 0.0003,# Critic 学习率
     "learning_starts": 1000,
-    "ent_coef": 0.001,#"auto_0.1",#key--同时影响 actor_loss/critic_loss
+    "ent_coef": "auto_0.01",#0.001,#key--同时影响 actor_loss/critic_loss
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
     "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
@@ -111,7 +112,7 @@ MAESAC_PARAMS = {
     "train_freq": 249,  # 【优化】每 500 步训练一次（原 249），减少训练频率
     "gradient_steps": 100,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
     #"target_update_interval": 2,  # 【新增】每 2 个 gradient step 更新一次 target network（原 1）
-    "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
+    "actor_alpha": 0.1,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
     "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
     # "optimize_memory_usage": True, # 【新增】开启内存优化，减少 ReplayBuffer 占用
     # "replay_buffer_kwargs": {
