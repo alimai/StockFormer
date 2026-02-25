@@ -32,17 +32,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
-            nn.Linear(d_model * 2 + additional_dim, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.Linear(d_model + additional_dim, d_model),
+            nn.LayerNorm(d_model),
+            nn.GELU()
         )
 
         # 关系特征与附加上下文融合: 
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
         self.projection_relational = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.LayerNorm(d_model),
+            nn.GELU()
         )
 
         # # Gated Fusion Mechanism
@@ -56,8 +56,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.Linear = nn.Linear(d_model, self.temporal_out_dim)
         self.projection_output = nn.Sequential(
             nn.Linear(d_model + self.temporal_out_dim, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.LayerNorm(d_model),
+            nn.GELU()
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
@@ -67,11 +67,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
         # 1) 处理时序特征 (Refinement)
-        temporal_fused_input = torch.cat([temporal_feature_short, temporal_feature_long, additional_feature], dim=-1)
+        temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1)
         temporal_input_adapted = self.projection_temporal(temporal_fused_input) # [B, N, 128]
 
         tmp_feature_1, attn = self.attention1(
-            temporal_input_adapted, temporal_input_adapted, temporal_input_adapted,
+            temporal_input_adapted, temporal_feature_short, temporal_feature_short,
             attn_mask=mask
         )
         temporal_feature_attn = temporal_input_adapted + self.dropout(tmp_feature_1)
