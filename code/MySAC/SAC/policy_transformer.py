@@ -33,16 +33,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
             nn.Linear(d_model * 2 + additional_dim, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.LayerNorm(d_model),
+            nn.GELU()
         )
 
         # 关系特征与附加上下文融合: 
         # 输入维度: d_model (128) + additional_dim (Tech + Date)
         self.projection_relational = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.LayerNorm(d_model),
+            nn.GELU()
         )
 
         # # Gated Fusion Mechanism
@@ -52,12 +52,12 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # )
 
         # 2. Output Projection: 
-        temporal_out_dim = 0#additional_dim# // 2 #20//2=10
-        self.Linear = nn.Linear(d_model, temporal_out_dim)
+        self.temporal_out_dim = 0#additional_dim# // 2 #20//2=10
+        self.Linear = nn.Linear(d_model, self.temporal_out_dim)
         self.projection_output = nn.Sequential(
-            nn.Linear(d_model + temporal_out_dim, d_model),
-            nn.GELU(),
-            nn.LayerNorm(d_model)
+            nn.Linear(d_model + self.temporal_out_dim, d_model),
+            nn.LayerNorm(d_model),
+            nn.GELU()
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
@@ -83,7 +83,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
 
         tmp_feature_2, attn = self.attention2(
-            relational_input_adapted, relational_input_adapted, relational_input_adapted,
+            relational_input_adapted, temporal_hybrid_feature, temporal_hybrid_feature,
             attn_mask=mask
         )
         relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
@@ -93,8 +93,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 3) Output Processing
         #temporal_output = self.Linear(temporal_hybrid_feature) # [B, N, 1]
         #fused_output = torch.cat((relational_hybrid_feature, temporal_output), dim=-1)
-        fused_output = relational_hybrid_feature + temporal_hybrid_feature
-        fused_output_adapted = self.projection_output(fused_output) # [B, N, 128]
+        #fused_output = relational_hybrid_feature + temporal_hybrid_feature
+        fused_output_adapted = self.projection_output(relational_hybrid_feature) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
