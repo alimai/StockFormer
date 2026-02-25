@@ -94,7 +94,7 @@ MAESAC_PARAMS = {
     "batch_size": 128,#important，同时影响速度
     "buffer_size": 80000,
     "learning_starts": 1000,
-    "learning_rate": 1e-4,#policy_transformer学习率
+    "learning_rate": 1e-4,#所有模块初始学习率,会被 _update_learning_rate() 动态调整
     "ent_coef": "auto_0.01",#0.001,#key--同时影响 actor_loss/critic_loss
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
     "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度

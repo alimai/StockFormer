@@ -136,7 +136,7 @@ class SAC(SAC_SB3):
         super(SAC, self).__init__(
             policy=policy,
             env=env,
-            learning_rate=learning_rate,
+            learning_rate=learning_rate,#使用_update_learning_rate()后学习速率真正被赋初值的地方
             buffer_size=buffer_size,
             learning_starts=learning_starts,
             batch_size=batch_size,
