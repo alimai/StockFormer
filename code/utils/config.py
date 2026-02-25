@@ -111,7 +111,7 @@ MAESAC_PARAMS = {
     "train_freq": 249,  # 【优化】每 500 步训练一次（原 249），减少训练频率
     "gradient_steps": 100,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
     "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
-    "critic_alpha": 0.1, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
+    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
     # "optimize_memory_usage": True, # 【新增】开启内存优化，减少 ReplayBuffer 占用
     # "replay_buffer_kwargs": {
     #     "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
