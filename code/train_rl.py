@@ -150,7 +150,20 @@ if __name__ == '__main__':
             serializable_config = {k: str(v) for k, v in config.MAESAC_PARAMS.items()}
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
+        # 定义 Buffer 文件的存储路径
+        buffer_path = os.path.join(model_path, "replay_buffer.pkl")
+
         print('Start training...')
+
+        # 在正式开始 learn 之前尝试加载旧的 Buffer
+        if os.path.exists(buffer_path):
+            try:
+                print(f"发现已有的 Buffer 文件，正在加载以实现热启动: {buffer_path}")
+                model_sac.load_replay_buffer(buffer_path)
+                print("Buffer 加载成功！")
+            except Exception as e:
+                print(f"加载 Buffer 失败（可能是格式不匹配），将跳过加载阶段: {e}")
+
         start = time.time()
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
@@ -162,6 +175,14 @@ if __name__ == '__main__':
                                     total_timesteps=66000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
+
+        # 老大，训练完成后保存最新的 Buffer，供下次使用
+        try:
+            print(f"正在将本次训练积累的经验保存到 Buffer: {buffer_path}")
+            trained_sac.save_replay_buffer(buffer_path)
+            print("Buffer 保存成功！")
+        except Exception as e:
+            print(f"保存 Buffer 失败: {e}")
 
     #强化学习训练后保存的模型（如best_train_model.zip）是一个复合模型，它包含了：
     #   - 更新后的MAE模型（state_transformer）---对应原mae/checkpoint.pth
