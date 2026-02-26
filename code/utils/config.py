@@ -115,9 +115,9 @@ MAESAC_PARAMS = {
     "gradient_steps": 50,#每次训练进行 * 个梯度更新
     
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.5,#与policy_transformer共用
-    "actor_alpha": 0.1,# MAE 反向梯度更新的权重（Actor 端）
-    "critic_alpha": 1.0,# MAE 反向梯度更新的权重（Critic 端）    
+    "dropout": 0.1,#与policy_transformer共用
+    "actor_alpha": 1.0,# MAE 反向梯度更新的权重（Actor 端）
+    "critic_alpha": 0.1,# MAE 反向梯度更新的权重（Critic 端）    
     
     "transformer_path": '',#mae_model_path,
     "transformer_device": device,
