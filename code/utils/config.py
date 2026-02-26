@@ -34,7 +34,7 @@ END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
 
 USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
-if len(USE_CSI_300_TICKET) > 88:#如果大于 88，取前 88 个
+if len(USE_CSI_300_TICKET) > 88:#如果大于 88,取前 88 个
     USE_CSI_300_TICKET = USE_CSI_300_TICKET[:88]
 
 #`train`, `valid`, `test` 三个阶段
@@ -42,7 +42,7 @@ if len(USE_CSI_300_TICKET) > 88:#如果大于 88，取前 88 个
 CSI_date_trans = ['20110419', '20220415', '20220630', '20250331',  '20220630', '20251231']
 
 step_len = 800  # 每个 Episode 的时间步长度
-stride = int(step_len * 0.6) # 滑动窗口步长，<step_len，确保相邻 Episode 之间有数据重叠
+stride = int(step_len * 0.6) # 滑动窗口步长,<step_len,确保相邻 Episode 之间有数据重叠
 
 ## stockstats technical indicator column names
 ## check https://pypi.org/project/stockstats/ for different names
@@ -91,28 +91,28 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
-    "batch_size": 128,#important，同时影响速度
-    "buffer_size": 80000,
+    "batch_size": 128,  # 第 6 次优化：介于 64-128 之间,平衡效率与稳定性
+    "buffer_size": 80000,#用于存储环境的“经验”（Obs, Action, Reward, Next_Obs, Done）
     "learning_starts": 1000,
     "learning_rate": 1e-4,#所有模块初始学习率,会被 _update_learning_rate() 动态调整
-    "ent_coef": "auto_0.01",#0.001,#key--同时影响 actor_loss/critic_loss
+    "ent_coef": "auto_0.001",#0.001#key 第 6 次优化：介于最佳 0.001 和 0.002 之间
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
     "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
-    "d_model":128,#即hidden_channel，MAE/short/long模型的隐藏层维度（解码后，线性层前，输入给SAC模型）
-    "d_ff":256,#demension of Feed-Forward Network(FFN，前馈神经网络) in SAC Transformer，位于 SAC 编码/解码 block 内
+    "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层维度（解码后,线性层前,输入给SAC模型）
+    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络) in SAC Transformer,位于 SAC 编码/解码 block 内
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "dropout":0.05,
-    "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
+    "dropout":0.05,  # 第 3 次优化：恢复最佳配置
+    "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     "transformer_path":'',#mae_model_path,
     "transformer_device": device,
-    "train_freq": 249,  # 【优化】每 500 步训练一次（原 249），减少训练频率
-    "gradient_steps": 50,  # 【优化】每次训练进行 25 个梯度更新（原 100），大幅减少计算量
-    "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端，默认 0.1）
-    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端，默认 1.0）
-    # "optimize_memory_usage": True, # 【新增】开启内存优化，减少 ReplayBuffer 占用
+    "train_freq": 249,
+    "gradient_steps": 100,  # 第 3 次优化：恢复最佳配置
+    "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端,默认 0.1）
+    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端,默认 1.0）
+    # "optimize_memory_usage": True, # 【新增】开启内存优化,减少 ReplayBuffer 占用
     # "replay_buffer_kwargs": {
     #     "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
     # },
