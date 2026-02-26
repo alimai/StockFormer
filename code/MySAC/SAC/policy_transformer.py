@@ -78,27 +78,27 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_hybrid_feature = self.norm1(temporal_feature_attn)
 
 
-        # 2) 处理关系特征 (Refinement)
-        relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
+        # # 2) 处理关系特征 (Refinement)
+        # relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
+        # relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
 
-        tmp_feature_2, attn = self.attention2(
-            relational_input_adapted, temporal_hybrid_feature, temporal_hybrid_feature,
-            attn_mask=mask
-        )
-        relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
-        relational_hybrid_feature = self.norm2(relational_feature_attn)
+        # tmp_feature_2, attn = self.attention2(
+        #     relational_input_adapted, temporal_hybrid_feature, temporal_hybrid_feature,
+        #     attn_mask=mask
+        # )
+        # relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
+        # relational_hybrid_feature = self.norm2(relational_feature_attn)
 
 
         # 3) Output Processing
         #temporal_output = self.Linear(temporal_hybrid_feature) # [B, N, 1]
         #fused_output = torch.cat((relational_hybrid_feature, temporal_output), dim=-1)
-        #fused_output = relational_hybrid_feature + temporal_hybrid_feature
-        fused_output_adapted = self.projection_output(relational_hybrid_feature) # [B, N, 128]
+        fused_input = 0.5 * relational_feature + 0.5 * temporal_hybrid_feature
+        #fused_output_adapted = self.projection_output(fused_input) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        combined_feature = torch.cat((fused_input, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
         return combined_feature
 
 
