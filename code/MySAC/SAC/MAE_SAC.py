@@ -113,7 +113,7 @@ class SAC(SAC_SB3):
         dropout=0.05,
         transformer_device = None,
         transformer_path = None,
-        actor_alpha=1.0,
+        actor_alpha=0.1,
         critic_alpha=1.0,
     ):
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
