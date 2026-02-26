@@ -113,7 +113,7 @@ class SAC(SAC_SB3):
         dropout=0.05,
         transformer_device = None,
         transformer_path = None,
-        actor_alpha=0.1,
+        actor_alpha=0.0,
         critic_alpha=1.0,
     ):
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
@@ -550,42 +550,67 @@ class SAC(SAC_SB3):
     def _excluded_save_params(self) -> List[str]:
         return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
 
-    # 老大，重写 save_replay_buffer 和 load_replay_buffer，只保存真正有数据的部分，解决 20G 巨型文件的问题
-    # 老大，重写 save_replay_buffer 和 load_replay_buffer，实现“串行写入”和“内存映射”加载
+    # 重写 save_replay_buffer 和 load_replay_buffer，只保存真正有数据的部分，解决 20G 巨型文件的问题
+    # 优化了 save_replay_buffer：导出速度更快（不压缩），且限制最多保存最新的 5 万条数据
     def save_replay_buffer(self, path: Union[str, os.PathLike]) -> None:
         """
-        保存 ReplayBuffer。使用 np.savez 存储，支持加载时的磁盘映射。
+        保存 ReplayBuffer。使用 np.savez 存储，限制最多 50,000 条最新数据，优化导出速度。
         """
         if self.replay_buffer is None:
             raise ValueError("The replay buffer is not defined.")
 
         pos = self.replay_buffer.pos
         full = self.replay_buffer.full
+        buffer_size = self.replay_buffer.buffer_size
         
-        # 定义保存路径（自动处理后缀，统一使用 .npz 格式以支持 mmap）
+        # 这里限制最多导出 5 万条最新数据
+        max_save = 50000
+        current_count = buffer_size if full else pos
+        n_to_save = min(current_count, max_save)
+
+        if n_to_save <= 0:
+            print("Buffer 里还没数据，不存了。")
+            return
+
+        # 定义保存路径（统一使用 .npz 格式）
         save_path = str(path)
         if not save_path.endswith('.npz'):
             save_path = os.path.splitext(save_path)[0] + ".npz"
 
-        print(f"正在以优化模式保存 Buffer 至: {save_path}")
+        print(f"正在导出最新的 {n_to_save} 条数据至: {save_path} ...")
         
-        # 准备要保存的数据字典
+        # 获取最新 n_to_save 条数据的索引（处理环形缓冲区的回绕情况）
+        if full:
+            # 环形缓冲区中，最新数据在 pos 之前
+            start_idx = (pos - n_to_save) % buffer_size
+            if start_idx < pos:
+                # 情况 A：最新数据连续，没有跨越缓冲区末尾
+                idx = slice(start_idx, pos)
+            else:
+                # 情况 B：最新数据跨越了缓冲区末尾，需要拼接索引
+                idx = np.concatenate([np.arange(start_idx, buffer_size), np.arange(0, pos)])
+        else:
+            # 未满时，最新数据就是末尾的 n_to_save 条
+            idx = slice(pos - n_to_save, pos)
+
+        # 准备数据字典（直接切片/索引）
+        # 注意：导出的数据在加载时会被放在新 Buffer 的 0 到 n_to_save 位置
         save_dict = {
-            "observations": self.replay_buffer.observations[:pos] if not full else self.replay_buffer.observations,
-            "actions": self.replay_buffer.actions[:pos] if not full else self.replay_buffer.actions,
-            "rewards": self.replay_buffer.rewards[:pos] if not full else self.replay_buffer.rewards,
-            "dones": self.replay_buffer.dones[:pos] if not full else self.replay_buffer.dones,
-            "pos": np.array([pos]),
-            "full": np.array([full])
+            "observations": self.replay_buffer.observations[idx],
+            "actions": self.replay_buffer.actions[idx],
+            "rewards": self.replay_buffer.rewards[idx],
+            "dones": self.replay_buffer.dones[idx],
+            "pos": np.array([n_to_save]), # 加载后，下一个数据将从 n_to_save 开始存
+            "full": np.array([False])      # 导出的子集通常视为未满状态
         }
         
         # 如果有 timeouts (SB3 默认会有)
         if hasattr(self.replay_buffer, "timeouts"):
-            save_dict["timeouts"] = self.replay_buffer.timeouts[:pos] if not full else self.replay_buffer.timeouts
+            save_dict["timeouts"] = self.replay_buffer.timeouts[idx]
 
-        # 使用 NumPy 压缩保存，体积更小，且加载支持 mmap
-        np.savez_compressed(save_path, **save_dict)
-        print("Buffer 保存成功！")
+        # 核心优化：改用 savez 而非 savez_compressed，速度提升巨大
+        np.savez(save_path, **save_dict)
+        print(f"最新 {n_to_save} 条 Buffer 数据保存成功！")
 
     def load_replay_buffer(self, path: Union[str, os.PathLike]) -> None:
         """
