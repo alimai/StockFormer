@@ -151,7 +151,7 @@ if __name__ == '__main__':
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
         # 定义 Buffer 文件的存储路径
-        buffer_path = os.path.join(model_path, "replay_buffer.pkl")
+        buffer_path = os.path.join(model_path, "replay_buffer.npz")
 
         print('Start training...')
 

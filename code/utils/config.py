@@ -34,8 +34,9 @@ END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
 
 USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
-if len(USE_CSI_300_TICKET) > 88:#如果大于 88,取前 88 个
-    USE_CSI_300_TICKET = USE_CSI_300_TICKET[:88]
+MAX_TICKET_NUM = 88 # CSI 300 中的股票数量
+if len(USE_CSI_300_TICKET) > MAX_TICKET_NUM:#如果大于 88,取前 88 个
+    USE_CSI_300_TICKET = USE_CSI_300_TICKET[:MAX_TICKET_NUM]
 
 #'train', 'valid', 'test' 三个阶段
 #CSI_date_trans = ['20110419', '20181228', '20190712', '20220415',  '20181009', '20220415']
@@ -91,31 +92,41 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
+    # 训练超参数 - 稳定性优化
     "batch_size": 128,
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
     "learning_starts": 1000,
     "learning_rate": 1e-4,#所有模块初始学习率,会被 _update_learning_rate()动态调整
     "ent_coef": "auto_0.001",#0.001#key
+    
+    # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
     "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
-    "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层维度（解码后,线性层前,输入给SAC模型）
-    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络)in SAC Transformer,位于 SAC 编码/解码 block 内
+    "d_model":128,#与policy_transformer共用#即hidden_channel,MAE/short/long模型的隐藏层维度（解码后,线性层前,输入给SAC模型）
+    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络),位于 MAE 编码/解码 block 内
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "dropout":0.05,
+    
+    # 折扣与更新频率优化
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
-    "transformer_path":'',#mae_model_path,
+    "train_freq": 200,#每 * 步训练一次
+    "gradient_steps": 50,#每次训练进行 * 个梯度更新
+    
+    # MAE 梯度控制 - 关键优化
+    "dropout": 0.06,#与policy_transformer共用
+    "actor_alpha": 0.5,# MAE 反向梯度更新的权重（Actor 端）
+    "critic_alpha": 0.5,# MAE 反向梯度更新的权重（Critic 端）    
+    
+    "transformer_path": '',#mae_model_path,
     "transformer_device": device,
-    "train_freq": 249,
-    "gradient_steps": 100, 
-    "actor_alpha": 1.0,  # MAE 反向梯度更新的权重（Actor 端,默认 0.1）
-    "critic_alpha": 1.0, # MAE 反向梯度更新的权重（Critic 端,默认 1.0）
-    # "optimize_memory_usage": True, # 【新增】开启内存优化,减少 ReplayBuffer 占用
-    # "replay_buffer_kwargs": {
-    #     "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
-    # },
+    
+    # 设备配置
+    "optimize_memory_usage": True, # 【新增】开启内存优化,减少 ReplayBuffer 占用
+    "replay_buffer_kwargs": {
+        "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
+    },
 }
 
 # MAESAC_PARAMS_PRED = {

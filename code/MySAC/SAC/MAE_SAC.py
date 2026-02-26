@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import random
+import os
 
 import gymnasium as gym
 import numpy as np
@@ -548,6 +549,88 @@ class SAC(SAC_SB3):
 
     def _excluded_save_params(self) -> List[str]:
         return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
+
+    # 老大，重写 save_replay_buffer 和 load_replay_buffer，只保存真正有数据的部分，解决 20G 巨型文件的问题
+    # 老大，重写 save_replay_buffer 和 load_replay_buffer，实现“串行写入”和“内存映射”加载
+    def save_replay_buffer(self, path: Union[str, os.PathLike]) -> None:
+        """
+        保存 ReplayBuffer。使用 np.savez 存储，支持加载时的磁盘映射。
+        """
+        if self.replay_buffer is None:
+            raise ValueError("The replay buffer is not defined.")
+
+        pos = self.replay_buffer.pos
+        full = self.replay_buffer.full
+        
+        # 定义保存路径（自动处理后缀，统一使用 .npz 格式以支持 mmap）
+        save_path = str(path)
+        if not save_path.endswith('.npz'):
+            save_path = os.path.splitext(save_path)[0] + ".npz"
+
+        print(f"老大，正在以优化模式（只保存有效切片）保存 Buffer 至: {save_path}")
+        
+        # 准备要保存的数据字典
+        save_dict = {
+            "observations": self.replay_buffer.observations[:pos] if not full else self.replay_buffer.observations,
+            "actions": self.replay_buffer.actions[:pos] if not full else self.replay_buffer.actions,
+            "rewards": self.replay_buffer.rewards[:pos] if not full else self.replay_buffer.rewards,
+            "dones": self.replay_buffer.dones[:pos] if not full else self.replay_buffer.dones,
+            "pos": np.array([pos]),
+            "full": np.array([full])
+        }
+        
+        # 如果有 timeouts (SB3 默认会有)
+        if hasattr(self.replay_buffer, "timeouts"):
+            save_dict["timeouts"] = self.replay_buffer.timeouts[:pos] if not full else self.replay_buffer.timeouts
+
+        # 使用 NumPy 压缩保存，体积更小，且加载支持 mmap
+        np.savez_compressed(save_path, **save_dict)
+        print("Buffer 保存成功！")
+
+    def load_replay_buffer(self, path: Union[str, os.PathLike]) -> None:
+        """
+        加载 ReplayBuffer。通过 mmap_mode 实现从磁盘到预分配空间的“串行写入”。
+        """
+        if self.replay_buffer is None:
+            raise ValueError("The replay buffer is not defined.")
+
+        # 统一使用 .npz 格式
+        path_str = str(path)
+        if not path_str.endswith('.npz'):
+            path_str = os.path.splitext(path_str)[0] + ".npz"
+
+        if not os.path.exists(path_str):
+            raise FileNotFoundError(f"老大，找不到优化的 Buffer 文件: {path_str}")
+
+        print(f"老大，正在使用磁盘映射模式（mmap）从 {path_str} 串行载入数据...")
+        
+        # 核心：使用 mmap_mode='r'。这不会把数组读入 RAM，而是直接映射磁盘文件
+        with np.load(path_str, mmap_mode='r') as data:
+            loaded_pos = int(data["pos"][0])
+            loaded_full = bool(data["full"][0])
+            
+            # 串行写入：直接将映射的磁盘数据拷贝到预分配的内存空间中
+            # CPU 会在这一步执行高效的 Block Copy，不占用额外中转内存
+            print(f"正在将 {loaded_pos} 条经验串行拷贝至预分配内存...")
+            
+            # 处理 Observation (兼容 SB3 的 (n, 1, ...) 结构)
+            source_obs = data["observations"]
+            if len(source_obs.shape) == len(self.replay_buffer.observations.shape):
+                self.replay_buffer.observations[:loaded_pos] = source_obs
+            else:
+                self.replay_buffer.observations[:loaded_pos, 0] = source_obs
+
+            self.replay_buffer.actions[:loaded_pos] = data["actions"]
+            self.replay_buffer.rewards[:loaded_pos] = data["rewards"]
+            self.replay_buffer.dones[:loaded_pos] = data["dones"]
+            
+            if "timeouts" in data and hasattr(self.replay_buffer, "timeouts"):
+                self.replay_buffer.timeouts[:loaded_pos] = data["timeouts"]
+            
+            self.replay_buffer.pos = loaded_pos
+            self.replay_buffer.full = loaded_full
+            
+        print(f"老大，串行载入完成！当前 Buffer 状态: {'已满' if self.replay_buffer.full else '未满'}, 位置: {self.replay_buffer.pos}")
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         # 保存基础 SAC 组件
