@@ -567,7 +567,7 @@ class SAC(SAC_SB3):
         if not save_path.endswith('.npz'):
             save_path = os.path.splitext(save_path)[0] + ".npz"
 
-        print(f"老大，正在以优化模式（只保存有效切片）保存 Buffer 至: {save_path}")
+        print(f"正在以优化模式保存 Buffer 至: {save_path}")
         
         # 准备要保存的数据字典
         save_dict = {
@@ -602,7 +602,7 @@ class SAC(SAC_SB3):
         if not os.path.exists(path_str):
             raise FileNotFoundError(f"老大，找不到优化的 Buffer 文件: {path_str}")
 
-        print(f"老大，正在使用磁盘映射模式（mmap）从 {path_str} 串行载入数据...")
+        print(f"正在使用磁盘映射模式（mmap）从 {path_str} 串行载入数据...")
         
         # 核心：使用 mmap_mode='r'。这不会把数组读入 RAM，而是直接映射磁盘文件
         with np.load(path_str, mmap_mode='r') as data:
@@ -630,7 +630,7 @@ class SAC(SAC_SB3):
             self.replay_buffer.pos = loaded_pos
             self.replay_buffer.full = loaded_full
             
-        print(f"老大，串行载入完成！当前 Buffer 状态: {'已满' if self.replay_buffer.full else '未满'}, 位置: {self.replay_buffer.pos}")
+        print(f"串行载入完成！当前 Buffer 状态: {'已满' if self.replay_buffer.full else '未满'}, 位置: {self.replay_buffer.pos}")
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         # 保存基础 SAC 组件
