@@ -39,7 +39,7 @@ class YahooDownloader:
 
         Returns
         -------
-        `pd.DataFrame`
+        'pd.DataFrame'
             7 columns: A date, open, high, low, close, volume and tick symbol
             for the specified stock ticker
         """

@@ -37,15 +37,15 @@ class SAC(SAC_SB3):
     :param batch_size: Minibatch size for each gradient update
     :param tau: the soft update coefficient ("Polyak update", between 0 and 1)
     :param gamma: the discount factor
-    :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
-        like ``(5, "step")`` or ``(2, "episode")``.
-    :param gradient_steps: How many gradient steps to do after each rollout (see ``train_freq``)
-        Set to ``-1`` means to do as many gradient steps as steps done in the environment
+    :param train_freq: Update the model every "train_freq" steps. Alternatively pass a tuple of frequency and unit
+        like "(5, "step")" or "(2, "episode")".
+    :param gradient_steps: How many gradient steps to do after each rollout (see "train_freq")
+        Set to "-1" means to do as many gradient steps as steps done in the environment
         during the rollout.
     :param action_noise: the action noise type (None by default), this can help
         for hard exploration problem. Cf common.noise for the different action noise type.
-    :param replay_buffer_class: Replay buffer class to use (for instance ``HerReplayBuffer``).
-        If ``None``, it will be automatically selected.
+    :param replay_buffer_class: Replay buffer class to use (for instance "HerReplayBuffer").
+        If "None", it will be automatically selected.
     :param replay_buffer_kwargs: Keyword arguments to pass to the replay buffer on creation.
     :param optimize_memory_usage: Enable a memory efficient variant of the replay buffer
         at a cost of more complexity.
@@ -53,9 +53,9 @@ class SAC(SAC_SB3):
     :param ent_coef: Entropy regularization coefficient. (Equivalent to
         inverse of reward scale in the original SAC paper.)  Controlling exploration/exploitation trade-off.
         Set it to 'auto' to learn it automatically (and 'auto_0.1' for using 0.1 as initial value)
-    :param target_update_interval: update the target network every ``target_network_update_freq``
+    :param target_update_interval: update the target network every "target_network_update_freq"
         gradient steps.
-    :param target_entropy: target entropy when learning ``ent_coef`` (``ent_coef = 'auto'``)
+    :param target_entropy: target entropy when learning "ent_coef" ("ent_coef = 'auto'")
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
@@ -341,7 +341,7 @@ class SAC(SAC_SB3):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
-            # We need to sample because `log_std` may have changed between two gradient steps
+            # We need to sample because 'log_std' may have changed between two gradient steps
             if self.use_sde:
                 self.actor.reset_noise()
 
