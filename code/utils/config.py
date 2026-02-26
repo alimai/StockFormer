@@ -112,12 +112,12 @@ MAESAC_PARAMS = {
     # 折扣与更新频率优化
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     "train_freq": 249,#每 * 步训练一次
-    "gradient_steps": 50,#每次训练进行 * 个梯度更新
+    "gradient_steps": 150,#每次训练进行 * 个梯度更新
     
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.1,#与policy_transformer共用
-    "actor_alpha": 1.0,# MAE 反向梯度更新的权重（Actor 端）
-    "critic_alpha": 0.1,# MAE 反向梯度更新的权重（Critic 端）    
+    "dropout": 0.8,#与policy_transformer共用
+    "actor_alpha": 0.1,# MAE 反向梯度更新的权重（Actor 端,默认值0.0）
+    "critic_alpha": 1.0,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
     "transformer_path": '',#mae_model_path,
     "transformer_device": device,
