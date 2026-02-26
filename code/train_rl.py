@@ -172,15 +172,13 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=66000)
+                                    total_timesteps=33000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
-        # 老大，训练完成后保存最新的 Buffer，供下次使用
+        # 训练完成后保存最新的 Buffer，供下次使用
         try:
-            print(f"正在将本次训练积累的经验保存到 Buffer: {buffer_path}")
             trained_sac.save_replay_buffer(buffer_path)
-            print("Buffer 保存成功！")
         except Exception as e:
             print(f"保存 Buffer 失败: {e}")
 

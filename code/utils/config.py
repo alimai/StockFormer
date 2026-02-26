@@ -103,15 +103,15 @@ MAESAC_PARAMS = {
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
     "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
-    "d_model":128,#与policy_transformer共用#即hidden_channel,MAE/short/long模型的隐藏层维度（解码后,线性层前,输入给SAC模型）
     "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络),位于 MAE 编码/解码 block 内
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
+    "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层输出维度（解码后,线性层前,输入给SAC模型）#与policy_transformer共用!!!
     
     # 折扣与更新频率优化
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
-    "train_freq": 200,#每 * 步训练一次
+    "train_freq": 249,#每 * 步训练一次
     "gradient_steps": 50,#每次训练进行 * 个梯度更新
     
     # MAE 梯度控制 - 关键优化
