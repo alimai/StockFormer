@@ -750,8 +750,8 @@ class SAC(SAC_SB3):
 
         elif mask_mode == 'mixed':
             # ==================== 模式3: 混合模式，同时屏蔽股票和特征  - 优化版 ====================
-            num_stock_mask = max(1, int(stock_num * 0.2))
-            num_feat_mask = max(1, int(feat_dim * 0.1))
+            num_stock_mask = max(1, int(stock_num * 0.5))
+            num_feat_mask = max(1, int(feat_dim * 0.2))
             if seed is not None:
                 with th.random.fork_rng():
                     th.random.manual_seed(seed)
