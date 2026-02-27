@@ -96,7 +96,7 @@ MAESAC_PARAMS = {
     "batch_size": 128,
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
     "learning_starts": 1000,
-    "learning_rate": 1e-4,#所有模块初始学习率,会被 _update_learning_rate()动态调整
+    "learning_rate": 1e-4,#所有模块初始学习率,会被 _update_learning_rate() 动态调整
     "ent_coef": "auto_0.001",#0.001#key
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
@@ -122,11 +122,11 @@ MAESAC_PARAMS = {
     "transformer_path": '',#mae_model_path,
     "transformer_device": device,
     
-    # 设备配置
-    "optimize_memory_usage": True, # 【新增】开启内存优化,减少 ReplayBuffer 占用
-    "replay_buffer_kwargs": {
-        "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
-    },
+    # # 设备配置
+    # "optimize_memory_usage": True, # 【新增】开启内存优化,减少 ReplayBuffer 占用
+    # "replay_buffer_kwargs": {
+    #     "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
+    # },
 }
 
 # MAESAC_PARAMS_PRED = {
