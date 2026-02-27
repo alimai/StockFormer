@@ -29,18 +29,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
-        self.linear = nn.Linear(d_model + additional_dim, d_model) 
 
-        # 时序特征融合后投影回 d_model
-        self.projection_temporal = nn.Sequential(
-            nn.Linear(d_model + additional_dim, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU()
-        )
-
-        # 关系特征与附加上下文融合: 
-        # 输入维度: d_model (128) + additional_dim (Tech + Date)
-        self.projection_relational = nn.Sequential(
+        # 特征融合后投影回 d_model
+        self.projection_input = nn.Sequential(
             nn.Linear(d_model + additional_dim, d_model),
             nn.LayerNorm(d_model),
             nn.GELU()
@@ -67,29 +58,29 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
-        # 1) 处理关系特征 (Refinement)
-        relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
+        # 1) 处理输入特征 (Refinement)
+        temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
+        temporal_input_adapted = self.projection_input(temporal_fused_input) # [B, N, 128]
 
         tmp_feature_1, attn = self.attention1(
-            relational_input_adapted, temporal_feature_long, temporal_feature_long,
+            temporal_input_adapted, temporal_feature_short, temporal_feature_short,
             attn_mask=mask
         )
-        long_feature_attn = relational_input_adapted + self.dropout(tmp_feature_1)
-        long_hybrid_feature = self.norm1(long_feature_attn)
+        temporal_feature_attn = temporal_input_adapted + self.dropout(tmp_feature_1)
+        temporal_hybrid_feature = self.norm1(temporal_feature_attn)
 
         tmp_feature_2, attn = self.attention2(
-            long_hybrid_feature, temporal_feature_short, temporal_feature_short,
+            temporal_hybrid_feature, relational_feature, relational_feature,
             attn_mask=mask
         )
-        temporal_feature_attn = long_hybrid_feature + self.dropout(tmp_feature_2)
-        temporal_hybrid_feature = self.norm2(temporal_feature_attn)
+        feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
+        hybrid_feature = self.norm2(feature_attn)
 
 
         # 2) Output Processing
         #fused_output = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
         #fused_output = torch.cat((relational_feature, temporal_feature_long, temporal_feature_short, additional_feature), dim=-1)
-        fused_output_adapted = self.projection_output(temporal_hybrid_feature) # [B, N, 128]
+        fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
         #fused_output_adapted = 0.5 * relational_feature + 0.5 * temporal_hybrid_feature
         
         # Late Fusion (Skip Connection with Clean Context)
