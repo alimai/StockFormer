@@ -127,17 +127,17 @@ if __name__ == '__main__':
 
         # 训练强化学习代理,加载模型
         agent = DRLAgent(env = env_train_vm)
-        policy_kwargs = {"optimizer_kwargs": {"weight_decay": 1e-3},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
-                         "optimizer_class": AdamW, # 配合权重衰减使用
-                         "net_arch": [128, 128], # 与 d_model 保持一致，默认[256,256]
+        policy_kwargs = {#"optimizer_kwargs": {"weight_decay": 1e-3},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
+                         #"optimizer_class": AdamW, # 配合权重衰减使用
+                         "net_arch": [96, 96], # 与 d_model 保持一致，默认[256,256]
                          "use_sde": False
                         }#策略网络参数(MlpPolicy Policy Network,包括act/critic/critic_target)
         if load_pretrain:
             print(f"load: {final_model_path}...")
-            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir)#, policy_kwargs=policy_kwargs)
+            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
-            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed)#, policy_kwargs=policy_kwargs)
+            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed, policy_kwargs=policy_kwargs)
 
         timestamp = datetime.datetime.now().strftime("%m%d%H%M")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
