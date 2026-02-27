@@ -116,7 +116,7 @@ MAESAC_PARAMS = {
     # "target_update_interval": 10,#每 * 个梯度更新后更新一次目标网络, <gradient_steps
     
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.8,#与policy_transformer共用
+    "dropout": 0.2,#与policy_transformer共用
     "actor_alpha": 0.5,# MAE 反向梯度更新的权重（Actor 端,默认值0.0）
     "critic_alpha": 0.5,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     

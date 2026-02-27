@@ -129,7 +129,7 @@ if __name__ == '__main__':
         agent = DRLAgent(env = env_train_vm)
         policy_kwargs = {#"optimizer_kwargs": {"weight_decay": 1e-3},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
                          #"optimizer_class": AdamW, # 配合权重衰减使用
-                         "net_arch": [64, 32], # 与 d_model 保持一致，默认[256,256]
+                         "net_arch": [128, 128], # 与 d_model 保持一致，默认[256,256]
                          "use_sde": False
                         }#策略网络参数(MlpPolicy Policy Network,包括act/critic/critic_target)
         if load_pretrain:
