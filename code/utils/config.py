@@ -96,7 +96,7 @@ MAESAC_PARAMS = {
     "batch_size": 128,
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
     "learning_starts": 1000,
-    "learning_rate": 1e-3,#所有模块初始学习率,会被 _update_learning_rate()动态调整
+    "learning_rate": 1e-4,#所有模块初始学习率,会被 _update_learning_rate()动态调整
     "ent_coef": "auto_0.001",#0.001#key
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
@@ -112,12 +112,12 @@ MAESAC_PARAMS = {
     # 折扣与更新频率优化
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     "train_freq": 249,#每 * 步训练一次
-    "gradient_steps": 150,#每次训练进行 * 个梯度更新
+    "gradient_steps": 250,#每次训练进行 * 个梯度更新
     
     # MAE 梯度控制 - 关键优化
     "dropout": 0.8,#与policy_transformer共用
-    "actor_alpha": 0.1,# MAE 反向梯度更新的权重（Actor 端,默认值0.0）
-    "critic_alpha": 1.0,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
+    "actor_alpha": 0.5,# MAE 反向梯度更新的权重（Actor 端,默认值0.0）
+    "critic_alpha": 0.5,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
     "transformer_path": '',#mae_model_path,
     "transformer_device": device,
