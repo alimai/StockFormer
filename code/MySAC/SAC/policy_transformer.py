@@ -29,6 +29,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
+        self.linear = nn.Linear(d_model + additional_dim, d_model) 
 
         # 时序特征融合后投影回 d_model
         self.projection_temporal = nn.Sequential(
@@ -68,7 +69,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # 1) 处理时序特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1)
-        temporal_input_adapted = self.projection_temporal(temporal_fused_input) # [B, N, 128]
+        temporal_input_adapted = self.linear(temporal_fused_input) # [B, N, 128]
+        #temporal_input_adapted = self.projection_temporal(temporal_fused_input) # [B, N, 128]
 
         tmp_feature_1, attn = self.attention1(
             temporal_input_adapted, temporal_feature_short, temporal_feature_short,
