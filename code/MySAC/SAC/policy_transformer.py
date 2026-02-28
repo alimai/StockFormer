@@ -49,7 +49,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.Linear(d_model, tmp_hid_dim),
             nn.LayerNorm(tmp_hid_dim),
             nn.GELU(),
-            nn.Linear(tmp_hid_dim, d_model)
+            #nn.Linear(tmp_hid_dim, d_model)
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
