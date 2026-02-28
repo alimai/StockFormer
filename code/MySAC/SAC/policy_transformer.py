@@ -45,11 +45,12 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 2. Output Projection: 
         tmp_hid_dim = d_model//4 # additional_dim # 21//2=10
+        tmp_out_dim = d_model - additional_dim # 128 - 20 = 108
         self.projection_output = nn.Sequential(
             nn.Linear(d_model, tmp_hid_dim),
             nn.LayerNorm(tmp_hid_dim),
             nn.GELU(),
-            nn.Linear(tmp_hid_dim, d_model)
+            nn.Linear(tmp_hid_dim, tmp_out_dim)
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
