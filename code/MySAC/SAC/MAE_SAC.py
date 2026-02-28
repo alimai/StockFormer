@@ -477,10 +477,10 @@ class SAC(SAC_SB3):
             
             # 最后统一步进 MAE 优化器，避免 inplace 错误
             if scaler is not None:
-                scaler.step(self.transformer_optim)
+                #scaler.step(self.transformer_optim)
                 scaler.update()
-            else:
-                self.transformer_optim.step()
+            # else:
+            #     self.transformer_optim.step()
 
         # 更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
         #if gradient_step % self.target_update_interval == 0:
