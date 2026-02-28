@@ -49,7 +49,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.Linear(d_model, tmp_hid_dim),
             nn.LayerNorm(tmp_hid_dim),
             nn.GELU(),
-            #nn.Linear(tmp_hid_dim, d_model)
+            nn.Linear(tmp_hid_dim, d_model)
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
@@ -85,8 +85,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
-        return combined_feature
+        # combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        return fused_output_adapted
 
 
     def forward_02241920(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
