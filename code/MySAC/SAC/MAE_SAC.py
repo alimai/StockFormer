@@ -564,7 +564,7 @@ class SAC(SAC_SB3):
         buffer_size = self.replay_buffer.buffer_size
         
         # 这里限制最多导出 5 万条最新数据
-        max_save = 50000
+        max_save = 30000
         current_count = buffer_size if full else pos
         n_to_save = min(current_count, max_save)
 
