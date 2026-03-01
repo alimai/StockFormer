@@ -437,11 +437,14 @@ class SAC(SAC_SB3):
                 self.critic_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
 
-            # Optimize actor
+            # 计算 actor loss
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
                 q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
                 min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
 
+                # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
+                # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
+                # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
                 alpha = 0
                 actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
 
