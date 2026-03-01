@@ -351,13 +351,10 @@ class SAC(SAC_SB3):
             combined_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
             seed = random.randint(0, 2**31 - 1)
             
-            # 停掉重建损失的计算和反向传播，仅保留 MAE 输出
-            should_compute_loss = False # ((gradient_step+1)%(gradient_steps//5)==0)
-            
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
                 combined_out, temporal_short, temporal_long, combined_additional, _ = self._state_transfer(
-                    combined_obs, seed=seed, mask_mode='mixed', compute_loss=should_compute_loss)
+                    combined_obs, seed=seed, mask_mode='mixed')
                 
                 state, next_state = th.chunk(combined_out, 2, dim=0)
                 additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
@@ -540,7 +537,7 @@ class SAC(SAC_SB3):
         try:
             with th.no_grad():
                 obs = th.FloatTensor(test_obs).to(self.transformer_device)
-                obs_tensor, temporal_short, temporal_long, additional_feature,_ = self._state_transfer(obs, compute_loss=False)
+                obs_tensor, temporal_short, temporal_long, additional_feature,_ = self._state_transfer(obs)
                 state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long, additional_feature)
                 obs_array = state_tensor.detach().cpu().numpy()
 
@@ -693,7 +690,7 @@ class SAC(SAC_SB3):
 
         return state_dicts, saved_pytorch_variables
 
-    def _state_transfer(self, x, seed=None, mask_mode='nope', compute_loss=True):
+    def _state_transfer(self, x, seed=None, mask_mode='nope'):
         """
         状态转换方法，使用 MAE Transformer 进行状态编码
         为每个模式应用其最快速的实现
@@ -705,7 +702,6 @@ class SAC(SAC_SB3):
             - 'feature': 屏蔽技术指标，随机选择部分特征，对所有股票屏蔽这些特征
             - 'mixed': 混合模式，同时随机屏蔽部分股票和部分特征
             - 'nope': 不进行任何屏蔽，保留所有特征和股票
-        :param compute_loss: 是否计算重建损失。如果不计算，将跳过 Decoder 以加速。
         :return: 编码后的状态、时序特征、附加特征、重建损失
         """
         bs, stock_num = x.shape[0], x.shape[1]
@@ -734,24 +730,13 @@ class SAC(SAC_SB3):
 
             enc_inp = mask * batch_enc1
             
-            # 按需计算 Decoder 部分，提速核心
-            if compute_loss:
-                # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
-                # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
-                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
-
-                # 计算被屏蔽股票的重建损失
-                # mask_stock_indices: [bs, num_mask] -> 扩展为 [bs, num_mask, feat_dim]
-                gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_mask, feat_dim]
-
-                pred = th.gather(output, 1, gather_idx)  # [bs, num_mask, feat_dim]
-                true = th.gather(batch_enc1, 1, gather_idx)  # [bs, num_mask, feat_dim]
-                loss = self.transformer_criteria(pred, true)
-            else:
-                # 只运行 Encoder 部分，跳过 Decoder
-                enc_out = self.state_transformer.enc_embedding(enc_inp)
-                enc_out, _ = self.state_transformer.encoder(enc_out)
-                loss = th.tensor(0.0, device=x.device)
+            # 只运行 Encoder 部分，跳过 Decoder
+            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
+            # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
+            # enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
+            enc_out = self.state_transformer.enc_embedding(enc_inp)
+            enc_out, _ = self.state_transformer.encoder(enc_out)
+            loss = th.tensor(0.0, device=x.device)
 
         elif mask_mode == 'feature':
             # ==================== 模式2: 屏蔽技术指标 - 最快版 ====================
@@ -772,21 +757,10 @@ class SAC(SAC_SB3):
 
             enc_inp = mask * batch_enc1
             
-            if compute_loss:
-                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
-
-                # 计算被屏蔽特征的重建损失
-                # mask_feat_indices: [bs, num_mask] -> 扩展为 [bs, stock_num, num_mask]
-                gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_mask]
-
-                pred = th.gather(output, 2, gather_idx)  # [bs, stock_num, num_mask]
-                true = th.gather(batch_enc1, 2, gather_idx)  # [bs, stock_num, num_mask]
-                loss = self.transformer_criteria(pred, true)
-            else:
-                # 只运行 Encoder 部分
-                enc_out = self.state_transformer.enc_embedding(enc_inp)
-                enc_out, _ = self.state_transformer.encoder(enc_out)
-                loss = th.tensor(0.0, device=x.device)
+            # 只运行 Encoder 部分
+            enc_out = self.state_transformer.enc_embedding(enc_inp)
+            enc_out, _ = self.state_transformer.encoder(enc_out)
+            loss = th.tensor(0.0, device=x.device)
 
         elif mask_mode == 'mixed':
             # ==================== 模式3: 混合模式，同时屏蔽股票和特征  - 优化版 ====================
@@ -816,44 +790,18 @@ class SAC(SAC_SB3):
 
             enc_inp = mask * batch_enc1
             
-            if compute_loss:
-                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
-
-                # 计算被屏蔽股票的重建损失
-                # mask_stock_indices: [bs, num_stock_mask] -> 扩展为 [bs, num_stock_mask, feat_dim]
-                stock_gather_idx = mask_stock_indices.unsqueeze(2).expand(-1, -1, feat_dim)  # [bs, num_stock_mask, feat_dim]
-                stock_pred = th.gather(output, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
-                stock_true = th.gather(batch_enc1, 1, stock_gather_idx)  # [bs, num_stock_mask, feat_dim]
-
-                # 计算被屏蔽特征的重建损失
-                # mask_feat_indices: [bs, num_feat_mask] -> 扩展为 [bs, stock_num, num_feat_mask]
-                feat_gather_idx = mask_feat_indices.unsqueeze(1).expand(-1, stock_num, -1)  # [bs, stock_num, num_feat_mask]
-                feat_pred = th.gather(output, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
-                feat_true = th.gather(batch_enc1, 2, feat_gather_idx)  # [bs, stock_num, num_feat_mask]
-
-                # 组合损失：股票mask损失 + 特征mask损失
-                # 优化：使用flatten替代reshape以提高性能
-                pred = th.cat([stock_pred.flatten(), feat_pred.flatten()], dim=0)
-                true = th.cat([stock_true.flatten(), feat_true.flatten()], dim=0)
-                loss = self.transformer_criteria(pred, true)
-            else:
-                # 只运行 Encoder 部分
-                enc_out = self.state_transformer.enc_embedding(enc_inp)
-                enc_out, _ = self.state_transformer.encoder(enc_out)
-                loss = th.tensor(0.0, device=x.device)
+            # 只运行 Encoder 部分
+            enc_out = self.state_transformer.enc_embedding(enc_inp)
+            enc_out, _ = self.state_transformer.encoder(enc_out)
+            loss = th.tensor(0.0, device=x.device)
 
         else:  # if mask_mode == 'nope':
             # ==================== 模式4: 不屏蔽任何特征或股票 ====================
             enc_inp = batch_enc1
-            if compute_loss:
-                enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
-                # 由于没有进行掩码，无法计算重建损失，返回零损失
-                loss = th.tensor(0.0, device=x.device)
-            else:
-                # 只运行 Encoder 部分
-                enc_out = self.state_transformer.enc_embedding(enc_inp)
-                enc_out, _ = self.state_transformer.encoder(enc_out)
-                loss = th.tensor(0.0, device=x.device)
+            # 只运行 Encoder 部分
+            enc_out = self.state_transformer.enc_embedding(enc_inp)
+            enc_out, _ = self.state_transformer.encoder(enc_out)
+            loss = th.tensor(0.0, device=x.device)
 
         #temporal_feature_short = None
         #temporal_feature_long = None
