@@ -96,9 +96,9 @@ MAESAC_PARAMS = {
     "batch_size": 128,
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
     "buffer_max_load": 50000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
-    "learning_starts": 10000,
+    "learning_starts": 1000,
     "learning_rate": 1e-4,#所有模块初始学习率,会被 _update_learning_rate() 动态调整
-    "ent_coef": "auto_0.003",#0.001#key
+    "ent_coef": "auto_0.001",#0.001#key
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
