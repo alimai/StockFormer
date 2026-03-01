@@ -97,7 +97,7 @@ MAESAC_PARAMS = {
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
     "buffer_max_load": 50000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
-    "learning_rate": 1e-6,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
+    "learning_rate": 1e-5,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
     "ent_coef": "auto_0.001",#0.001#key
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
@@ -111,8 +111,8 @@ MAESAC_PARAMS = {
     "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层输出维度（解码后,线性层前,输入给SAC模型）#与policy_transformer共用!!!
     
     # 更新频率与折扣优化
-    "train_freq": 50,#每 * 步训练一次,更新目标网络的频率也由此决定
-    "gradient_steps": 10,#每次训练进行 * 个梯度更新
+    "train_freq": 150,#每 * 步训练一次,更新目标网络的频率也由此决定
+    "gradient_steps": 30,#每次训练进行 * 个梯度更新
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     
     # MAE 梯度控制 - 关键优化
