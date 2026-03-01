@@ -141,6 +141,7 @@ if __name__ == '__main__':
 
         timestamp = datetime.datetime.now().strftime("%m%d%H%M")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
+        print(f"log name: {tb_log_name_with_timestamp}")
 
         # 在训练正式开始前保存参数配置到 tensorboard 日志目录
         config_save_dir = os.path.join(tensorboard_log_dir, tb_log_name_with_timestamp)
@@ -154,8 +155,6 @@ if __name__ == '__main__':
         buffer_path = os.path.join(model_path, "replay_buffer.npz")
         buffer_path_out = os.path.join(model_path, "replay_buffer_out.npz")
 
-        print('Start training...')
-
         # 在正式开始 learn 之前尝试加载旧的 Buffer
         if os.path.exists(buffer_path):
             try:
@@ -166,6 +165,7 @@ if __name__ == '__main__':
             except Exception as e:
                 print(f"加载 Buffer 失败（可能是格式不匹配），将跳过加载阶段: {e}")
 
+        print('Start training...')
         start = time.time()
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
