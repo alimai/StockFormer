@@ -355,7 +355,7 @@ class SAC(SAC_SB3):
             
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs)#, mask_mode='mixed')
+                combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs, mask_mode='mixed')
                 
                 state, next_state = th.chunk(combined_out, 2, dim=0)
                 additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
