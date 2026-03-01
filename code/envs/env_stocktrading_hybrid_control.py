@@ -260,9 +260,10 @@ class StockTradingEnv(gym.Env):
             if len(returns) > 1 and np.std(returns) != 0:
                 sharpe = np.sqrt(252) * np.mean(returns) / np.std(returns)
 
-            self.reward = tot_reward_ratio + (tot_reward_ratio - market_value_growth_ratio) * 1.5
-            self.reward /= (self.day - self.start_day + 1)
-            self.reward *= self.reward_scaling
+            self.reward = 0.0
+            # self.reward = tot_reward_ratio + (tot_reward_ratio - market_value_growth_ratio)
+            # self.reward /= (self.day - self.start_day + 1)
+            # self.reward *= self.reward_scaling
 
             if self.episode % self.print_verbosity == 0:
                 print(self.mode, f"episode: {self.episode}")
