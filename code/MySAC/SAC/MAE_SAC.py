@@ -530,8 +530,12 @@ class SAC(SAC_SB3):
 
         # 保存当前训练模式，确保评估后恢复
         # 这是防御性编程，确保 predict 调用不会影响后续的训练
-        was_training = self.state_transformer.training
+        was_training_state = self.state_transformer.training
+        was_training_actor = self.actor_transformer.training
+        
         self.state_transformer.eval()
+        self.actor_transformer.eval()
+        
         try:
             with th.no_grad():
                 obs = th.FloatTensor(test_obs).to(self.transformer_device)
@@ -544,8 +548,10 @@ class SAC(SAC_SB3):
             return super(SAC, self).predict(observation=obs_array, deterministic=deterministic)
         finally:
             # 确保恢复之前的训练模式
-            if was_training:
+            if was_training_state:
                 self.state_transformer.train()
+            if was_training_actor:
+                self.actor_transformer.train()
 
     def _excluded_save_params(self) -> List[str]:
         return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
