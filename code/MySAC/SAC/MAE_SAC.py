@@ -420,10 +420,12 @@ class SAC(SAC_SB3):
             
             critic_losses.append(critic_loss.item())
 
+            #重置 critic 和 critic Transformer, MAE 优化器的梯度，以确保它们只接收来自当前 critic_loss 的梯度
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
             self.transformer_optim.zero_grad() # 重置 MAE 优化器
             
+            #更新 critic 和 critic Transformer 的参数，同时允许梯度流回 MAE 以进行微调
             if scaler is not None:
                 scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 微调 MAE
                 scaler.step(self.critic.optimizer)
@@ -445,16 +447,17 @@ class SAC(SAC_SB3):
 
             actor_losses.append(actor_loss.item())
 
+            #重置 Actor 和 Actor Transformer 的梯度，同时保留 MAE 优化器的梯度以供累积
             self.actor.optimizer.zero_grad()
             self.actor_transformer.optimizer.zero_grad()
             # self.transformer_optim.zero_grad() # 不要重置，因为要累积来自 Critic 的梯度
             
+            #更新 Actor 和 Actor Transformer 的参数，同时允许梯度流回 MAE 以进行微调
             if scaler is not None:
                 scaler.scale(actor_loss).backward()
                 scaler.step(self.actor.optimizer)
                 scaler.step(self.actor_transformer.optimizer)
                 # scaler.step(self.transformer_optim) # 暂时不更新 MAE
-                # 在每个梯度步结束时必须调用 update()，否则下次 step() 会报错
                 # scaler.update() # 移到最后统一步进
             else:
                 actor_loss.backward()
@@ -462,9 +465,10 @@ class SAC(SAC_SB3):
                 self.actor_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
           
-            # 最后统一步进 MAE 优化器，应用来自 RL 的反馈
+            # 最后统一更新 MAE 优化器，应用来自 RL 的反馈
             if scaler is not None:
                 scaler.step(self.transformer_optim)
+                # 在梯度步结束时必须调用 update()，否则下次 step() 会报错
                 scaler.update()
             else:
                 self.transformer_optim.step()

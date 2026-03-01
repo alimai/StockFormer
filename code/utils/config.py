@@ -98,7 +98,7 @@ MAESAC_PARAMS = {
     "buffer_max_load": 50000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
     "learning_rate": 1e-5,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
-    "ent_coef": "auto_0.001",#0.001#key
+    "ent_coef": "auto_0.001",#0.001#熵系数,key
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
@@ -112,7 +112,7 @@ MAESAC_PARAMS = {
     
     # 更新频率与折扣优化
     "train_freq": 150,#每 * 步训练一次,更新目标网络的频率也由此决定
-    "gradient_steps": 30,#每次训练进行 * 个梯度更新
+    "gradient_steps": 30,#每次训练进行 * 个梯度更新,越大critic_loss越平滑
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     
     # MAE 梯度控制 - 关键优化
