@@ -100,16 +100,6 @@ MAESAC_PARAMS = {
     "learning_rate": 1e-5,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
     "ent_coef": "auto_0.001",#0.001#熵系数,key
     
-    # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
-    "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
-    "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
-    "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
-    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络),位于 MAE 编码/解码 block 内
-    "n_heads":4,#多头注意力机制的头数
-    "e_layers":2,#编码器层数
-    "d_layers":1,#解码器层数
-    "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层输出维度（解码后,线性层前,输入给SAC模型）#与policy_transformer共用!!!
-    
     # 更新频率与折扣优化
     "train_freq": 150,#每 * 步训练一次,更新目标网络的频率也由此决定
     "gradient_steps": 30,#每次训练进行 * 个梯度更新,越大critic_loss越平滑
@@ -120,13 +110,23 @@ MAESAC_PARAMS = {
     "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
     "critic_alpha": 0.0,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
+    # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
+    "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
+    "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
+    "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
+    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络),位于 MAE 编码/解码 block 内
+    "n_heads":4,#多头注意力机制的头数
+    "e_layers":2,#编码器层数
+    "d_layers":1,#解码器层数
+    "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层输出维度（编码后解码前,输入给SAC模型policy_transformer）
+    
     "transformer_path": '',#mae_model_path,
     "transformer_device": device,
     
-    # # 设备配置
-    # "optimize_memory_usage": True, # 【新增】开启内存优化,减少 ReplayBuffer 占用
+    # 设备配置
+    # "optimize_memory_usage": True, # 开启内存优化,减少 ReplayBuffer 占用
     # "replay_buffer_kwargs": {
-    #     "handle_timeout_termination": False,  # 【新增】与 optimize_memory_usage=True 互斥
+    #     "handle_timeout_termination": False, # 与 optimize_memory_usage=True 互斥
     # },
 }
 
