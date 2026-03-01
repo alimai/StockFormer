@@ -106,7 +106,7 @@ MAESAC_PARAMS = {
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.8,#与policy_transformer共用
+    "dropout": 0.5,#与policy_transformer共用
     "actor_alpha": 0.1,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
     "critic_alpha": 0.9,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
