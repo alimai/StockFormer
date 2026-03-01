@@ -152,6 +152,7 @@ if __name__ == '__main__':
 
         # 定义 Buffer 文件的存储路径
         buffer_path = os.path.join(model_path, "replay_buffer.npz")
+        buffer_path_out = os.path.join(model_path, "replay_buffer_out.npz")
 
         print('Start training...')
 
@@ -178,7 +179,7 @@ if __name__ == '__main__':
 
         # 训练完成后保存最新的 Buffer，供下次使用
         try:
-            trained_sac.save_replay_buffer(buffer_path)
+            trained_sac.save_replay_buffer(buffer_path_out)
         except Exception as e:
             print(f"保存 Buffer 失败: {e}")
 
