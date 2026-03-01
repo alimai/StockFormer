@@ -352,12 +352,10 @@ class SAC(SAC_SB3):
 
             # 批次融合在 CPU 上也能大幅减少算子调用开销
             combined_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
-            seed = random.randint(0, 2**31 - 1)
             
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(
-                    combined_obs, seed=seed, mask_mode='mixed')
+                combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs)#, mask_mode='mixed')
                 
                 state, next_state = th.chunk(combined_out, 2, dim=0)
                 additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
@@ -799,7 +797,10 @@ class SAC(SAC_SB3):
         else:  # if mask_mode == 'nope':
             # ==================== 模式4: 不屏蔽任何特征或股票 ====================
             enc_inp = batch_enc1
-            # 只运行 Encoder 部分
+            # 只运行 Encoder 部分，跳过 Decoder
+            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
+            # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
+            # enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
             enc_out = self.state_transformer.enc_embedding(enc_inp)
             enc_out, _ = self.state_transformer.encoder(enc_out)
 
