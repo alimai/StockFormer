@@ -351,12 +351,12 @@ class SAC(SAC_SB3):
             combined_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
             seed = random.randint(0, 2**31 - 1)
             
-            # 只有在最后一步或特定间隔才计算 reconstruction loss
-            should_compute_loss = ((gradient_step+1)%(gradient_steps//5)==0)
+            # 停掉重建损失的计算和反向传播，仅保留 MAE 输出
+            should_compute_loss = False # ((gradient_step+1)%(gradient_steps//5)==0)
             
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                combined_out, temporal_short, temporal_long, combined_additional, combined_loss = self._state_transfer(
+                combined_out, temporal_short, temporal_long, combined_additional, _ = self._state_transfer(
                     combined_obs, seed=seed, mask_mode='mixed', compute_loss=should_compute_loss)
                 
                 state, next_state = th.chunk(combined_out, 2, dim=0)
@@ -427,7 +427,7 @@ class SAC(SAC_SB3):
             self.transformer_optim.zero_grad() # 重置 MAE 优化器
             
             if scaler is not None:
-                scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 和 MAE 更新
+                scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 微调 MAE
                 scaler.step(self.critic.optimizer)
                 scaler.step(self.critic_transformer.optimizer)
                 # scaler.step(self.transformer_optim) # 暂时不更新 MAE，等待梯度累积
@@ -452,33 +452,33 @@ class SAC(SAC_SB3):
             # self.transformer_optim.zero_grad() # 不要重置，因为要累积来自 Critic 的梯度
             
             if scaler is not None:
-                scaler.scale(actor_loss).backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
+                scaler.scale(actor_loss).backward() # 彻底停掉 combined_loss 的 backward
                 scaler.step(self.actor.optimizer)
                 scaler.step(self.actor_transformer.optimizer)
                 # scaler.step(self.transformer_optim) # 暂时不更新 MAE
                 # 在每个梯度步结束时必须调用 update()，否则下次 step() 会报错
                 # scaler.update() # 移到最后统一步进
             else:
-                actor_loss.backward(retain_graph=should_compute_loss) # 如果有重建损失则保留计算图
+                actor_loss.backward() # 彻底停掉 combined_loss 的 backward
                 self.actor.optimizer.step()
                 self.actor_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
 
-            if should_compute_loss:
-                # 正式更新 MAE 模型（自监督部分）
-                # self.transformer_optim.zero_grad() # 不要重置，累积之前的梯度
-                if scaler is not None:
-                    scaler.scale(combined_loss).backward()
-                    # scaler.step(self.transformer_optim)
-                    # scaler.update()
-                else:
-                    combined_loss.backward()
-                    # self.transformer_optim.step()
-                transformer_losses.append(combined_loss.item())
+            # if should_compute_loss:
+            #     # 正式更新 MAE 模型（自监督部分）
+            #     # self.transformer_optim.zero_grad() # 不要重置，累积之前的梯度
+            #     if scaler is not None:
+            #         scaler.scale(combined_loss).backward()
+            #         # scaler.step(self.transformer_optim)
+            #         # scaler.update()
+            #     else:
+            #         combined_loss.backward()
+            #         # self.transformer_optim.step()
+            #     transformer_losses.append(combined_loss.item())
             
-            # 最后统一步进 MAE 优化器，避免 inplace 错误
+            # 最后统一步进 MAE 优化器，应用来自 RL 的反馈
             if scaler is not None:
-                #scaler.step(self.transformer_optim)
+                # scaler.step(self.transformer_optim)
                 scaler.update()
             # else:
             #     self.transformer_optim.step()
