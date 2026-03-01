@@ -110,10 +110,10 @@ MAESAC_PARAMS = {
     "d_layers":1,#解码器层数
     "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层输出维度（解码后,线性层前,输入给SAC模型）#与policy_transformer共用!!!
     
-    # 折扣与更新频率优化
-    "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
-    "train_freq": 50,#每 * 步训练一次
+    # 更新频率与折扣优化
+    "train_freq": 50,#每 * 步训练一次,更新目标网络的频率也由此决定
     "gradient_steps": 10,#每次训练进行 * 个梯度更新
+    "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     
     # MAE 梯度控制 - 关键优化
     "dropout": 0.2,#与policy_transformer共用

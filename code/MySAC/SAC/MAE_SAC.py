@@ -334,7 +334,7 @@ class SAC(SAC_SB3):
         actor_losses, critic_losses = [], []
         transformer_losses = []
 
-        # 老大，动态判断设备。只有 CUDA 模式才使用 GradScaler
+        # 动态判断设备。只有 CUDA 模式才使用 GradScaler
         device_type = self.device.type
         use_amp = (device_type == "cuda")
         scaler = getattr(self, "scaler", None)
