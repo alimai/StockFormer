@@ -461,19 +461,7 @@ class SAC(SAC_SB3):
                 self.actor.optimizer.step()
                 self.actor_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
-
-            # if should_compute_loss:
-            #     # 正式更新 MAE 模型（自监督部分）
-            #     # self.transformer_optim.zero_grad() # 不要重置，累积之前的梯度
-            #     if scaler is not None:
-            #         scaler.scale(combined_loss).backward()
-            #         # scaler.step(self.transformer_optim)
-            #         # scaler.update()
-            #     else:
-            #         combined_loss.backward()
-            #         # self.transformer_optim.step()
-            #     transformer_losses.append(combined_loss.item())
-            
+          
             # 最后统一步进 MAE 优化器，应用来自 RL 的反馈
             if scaler is not None:
                 scaler.step(self.transformer_optim)
