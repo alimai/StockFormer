@@ -113,7 +113,7 @@ class SAC(SAC_SB3):
         dropout=0.05,
         transformer_device = None,
         transformer_path = None,
-        actor_alpha=0.0,
+        actor_alpha=0.1,
         critic_alpha=1.0,
         **kwargs,
     ):
@@ -237,6 +237,9 @@ class SAC(SAC_SB3):
         
         self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
         self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        self.critic_transformer_target = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        self.critic_transformer_target.load_state_dict(self.critic_transformer.state_dict())
+        self.critic_transformer_target.eval()
 
         self.in_feat = enc_in
 
@@ -353,7 +356,7 @@ class SAC(SAC_SB3):
             
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                combined_out, temporal_short, temporal_long, combined_additional, _ = self._state_transfer(
+                combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(
                     combined_obs, seed=seed, mask_mode='mixed')
                 
                 state, next_state = th.chunk(combined_out, 2, dim=0)
@@ -403,7 +406,7 @@ class SAC(SAC_SB3):
                 with th.amp.autocast(device_type=device_type, enabled=use_amp):
                     next_actions, next_log_prob = self.actor.action_log_prob(next_policy_embed)
                     
-                    next_critic_embed = self.critic_transformer(next_state.detach(), temporal_short_next, temporal_long_next, next_additional_feature)
+                    next_critic_embed = self.critic_transformer_target(next_state.detach(), temporal_short_next, temporal_long_next, next_additional_feature)
                     next_q_values = th.cat(self.critic_target(next_critic_embed, next_actions), dim=1)
                     next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                     next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
@@ -475,14 +478,15 @@ class SAC(SAC_SB3):
             
             # 最后统一步进 MAE 优化器，应用来自 RL 的反馈
             if scaler is not None:
-                # scaler.step(self.transformer_optim)
+                scaler.step(self.transformer_optim)
                 scaler.update()
-            # else:
-            #     self.transformer_optim.step()
+            else:
+                self.transformer_optim.step()
 
         # 更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
         #if gradient_step % self.target_update_interval == 0:
         polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
+        polyak_update(self.critic_transformer.parameters(), self.critic_transformer_target.parameters(), self.tau)
 
         self._n_updates += gradient_steps
 
@@ -537,7 +541,7 @@ class SAC(SAC_SB3):
         try:
             with th.no_grad():
                 obs = th.FloatTensor(test_obs).to(self.transformer_device)
-                obs_tensor, temporal_short, temporal_long, additional_feature,_ = self._state_transfer(obs)
+                obs_tensor, temporal_short, temporal_long, additional_feature = self._state_transfer(obs)
                 state_tensor = self.actor_transformer(obs_tensor, temporal_short, temporal_long, additional_feature)
                 obs_array = state_tensor.detach().cpu().numpy()
 
@@ -552,7 +556,7 @@ class SAC(SAC_SB3):
                 self.actor_transformer.train()
 
     def _excluded_save_params(self) -> List[str]:
-        return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
+        return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target", "critic_transformer_target"]
 
     # 优化了 save_replay_buffer：导出速度更快（不压缩），且限制最多保存最新的 5 万条数据
     def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 50000) -> None:
@@ -736,7 +740,6 @@ class SAC(SAC_SB3):
             # enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
             enc_out = self.state_transformer.enc_embedding(enc_inp)
             enc_out, _ = self.state_transformer.encoder(enc_out)
-            loss = th.tensor(0.0, device=x.device)
 
         elif mask_mode == 'feature':
             # ==================== 模式2: 屏蔽技术指标 - 最快版 ====================
@@ -760,7 +763,6 @@ class SAC(SAC_SB3):
             # 只运行 Encoder 部分
             enc_out = self.state_transformer.enc_embedding(enc_inp)
             enc_out, _ = self.state_transformer.encoder(enc_out)
-            loss = th.tensor(0.0, device=x.device)
 
         elif mask_mode == 'mixed':
             # ==================== 模式3: 混合模式，同时屏蔽股票和特征  - 优化版 ====================
@@ -793,7 +795,6 @@ class SAC(SAC_SB3):
             # 只运行 Encoder 部分
             enc_out = self.state_transformer.enc_embedding(enc_inp)
             enc_out, _ = self.state_transformer.encoder(enc_out)
-            loss = th.tensor(0.0, device=x.device)
 
         else:  # if mask_mode == 'nope':
             # ==================== 模式4: 不屏蔽任何特征或股票 ====================
@@ -801,7 +802,6 @@ class SAC(SAC_SB3):
             # 只运行 Encoder 部分
             enc_out = self.state_transformer.enc_embedding(enc_inp)
             enc_out, _ = self.state_transformer.encoder(enc_out)
-            loss = th.tensor(0.0, device=x.device)
 
         #temporal_feature_short = None
         #temporal_feature_long = None
@@ -824,5 +824,5 @@ class SAC(SAC_SB3):
         additional_feature = th.cat((tech_features, date_features), dim=-1)
 
         #各元素维度：[bs, stock_num, d_model], [bs, stock_num, hidden_channel], [bs, stock_num, hidden_channel],
-        # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2], loss (标量)
-        return enc_out, temporal_feature_short, temporal_feature_long, additional_feature, loss
+        # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2]
+        return enc_out, temporal_feature_short, temporal_feature_long, additional_feature
