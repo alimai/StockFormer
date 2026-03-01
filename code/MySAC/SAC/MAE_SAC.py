@@ -115,6 +115,7 @@ class SAC(SAC_SB3):
         transformer_path = None,
         actor_alpha=0.0,
         critic_alpha=1.0,
+        **kwargs,
     ):
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
         # 否则父类初始化过程中调用 _setup_model 时会因找不到 hidden_state_space 报错
