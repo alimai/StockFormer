@@ -450,14 +450,14 @@ class SAC(SAC_SB3):
             # self.transformer_optim.zero_grad() # 不要重置，因为要累积来自 Critic 的梯度
             
             if scaler is not None:
-                scaler.scale(actor_loss).backward() # 彻底停掉 combined_loss 的 backward
+                scaler.scale(actor_loss).backward()
                 scaler.step(self.actor.optimizer)
                 scaler.step(self.actor_transformer.optimizer)
                 # scaler.step(self.transformer_optim) # 暂时不更新 MAE
                 # 在每个梯度步结束时必须调用 update()，否则下次 step() 会报错
                 # scaler.update() # 移到最后统一步进
             else:
-                actor_loss.backward() # 彻底停掉 combined_loss 的 backward
+                actor_loss.backward()
                 self.actor.optimizer.step()
                 self.actor_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
