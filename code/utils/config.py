@@ -112,8 +112,8 @@ MAESAC_PARAMS = {
     
     # 折扣与更新频率优化
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
-    "train_freq": 249,#每 * 步训练一次
-    "gradient_steps": 50,#每次训练进行 * 个梯度更新
+    "train_freq": 50,#每 * 步训练一次
+    "gradient_steps": 10,#每次训练进行 * 个梯度更新
     # "target_update_interval": 10,#每 * 个梯度更新后更新一次目标网络, <gradient_steps
     
     # MAE 梯度控制 - 关键优化
