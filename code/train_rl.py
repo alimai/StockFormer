@@ -159,8 +159,9 @@ if __name__ == '__main__':
         # 在正式开始 learn 之前尝试加载旧的 Buffer
         if os.path.exists(buffer_path):
             try:
-                print(f"发现已有的 Buffer 文件，正在加载以实现热启动: {buffer_path}")
-                model_sac.load_replay_buffer(buffer_path)
+                max_load = config.MAESAC_PARAMS.get("buffer_max_load")
+                print(f"发现已有的 Buffer 文件，正在加载以实现热启动 (max_load={max_load}): {buffer_path}")
+                model_sac.load_replay_buffer(buffer_path, max_load=max_load)
                 print("Buffer 加载成功！")
             except Exception as e:
                 print(f"加载 Buffer 失败（可能是格式不匹配），将跳过加载阶段: {e}")

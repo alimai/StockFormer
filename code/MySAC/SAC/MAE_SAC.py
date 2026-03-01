@@ -556,9 +556,8 @@ class SAC(SAC_SB3):
     def _excluded_save_params(self) -> List[str]:
         return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
 
-    # 重写 save_replay_buffer 和 load_replay_buffer，只保存真正有数据的部分，解决 20G 巨型文件的问题
     # 优化了 save_replay_buffer：导出速度更快（不压缩），且限制最多保存最新的 5 万条数据
-    def save_replay_buffer(self, path: Union[str, os.PathLike]) -> None:
+    def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 50000) -> None:
         """
         保存 ReplayBuffer。使用 np.savez 存储，限制最多 50,000 条最新数据，优化导出速度。
         """
@@ -570,7 +569,6 @@ class SAC(SAC_SB3):
         buffer_size = self.replay_buffer.buffer_size
         
         # 这里限制最多导出 5 万条最新数据
-        max_save = 50000
         current_count = buffer_size if full else pos
         n_to_save = min(current_count, max_save)
 
@@ -618,9 +616,10 @@ class SAC(SAC_SB3):
         np.savez(save_path, **save_dict)
         print(f"最新 {n_to_save} 条 Buffer 数据保存成功！")
 
-    def load_replay_buffer(self, path: Union[str, os.PathLike]) -> None:
+    def load_replay_buffer(self, path: Union[str, os.PathLike], max_load: Optional[int] = None) -> None:
         """
         加载 ReplayBuffer。通过 mmap_mode 实现从磁盘到预分配空间的“串行写入”。
+        增加了 max_load 参数，用于指定加载多少条数据。
         """
         if self.replay_buffer is None:
             raise ValueError("The replay buffer is not defined.")
@@ -638,28 +637,37 @@ class SAC(SAC_SB3):
         # 核心：使用 mmap_mode='r'。这不会把数组读入 RAM，而是直接映射磁盘文件
         with np.load(path_str, mmap_mode='r') as data:
             loaded_pos = int(data["pos"][0])
-            loaded_full = bool(data["full"][0])
+            # loaded_full = bool(data["full"][0])
             
+            # 老大，如果指定了 max_load，则只加载文件里最后（最新）的这么多条数据
+            n_to_load = loaded_pos
+            if max_load is not None:
+                n_to_load = min(loaded_pos, max_load)
+            
+            # 计算起始索引，确保从文件末尾抓取最新的数据
+            start_idx = loaded_pos - n_to_load
+
             # 串行写入：直接将映射的磁盘数据拷贝到预分配的内存空间中
             # CPU 会在这一步执行高效的 Block Copy，不占用额外中转内存
-            print(f"正在将 {loaded_pos} 条经验串行拷贝至预分配内存...")
+            print(f"正在将文件中最新的 {n_to_load} 条经验（索引 {start_idx} 到 {loaded_pos}）串行拷贝至预分配内存...")
             
             # 处理 Observation (兼容 SB3 的 (n, 1, ...) 结构)
             source_obs = data["observations"]
             if len(source_obs.shape) == len(self.replay_buffer.observations.shape):
-                self.replay_buffer.observations[:loaded_pos] = source_obs
+                self.replay_buffer.observations[:n_to_load] = source_obs[start_idx:loaded_pos]
             else:
-                self.replay_buffer.observations[:loaded_pos, 0] = source_obs
+                self.replay_buffer.observations[:n_to_load, 0] = source_obs[start_idx:loaded_pos]
 
-            self.replay_buffer.actions[:loaded_pos] = data["actions"]
-            self.replay_buffer.rewards[:loaded_pos] = data["rewards"]
-            self.replay_buffer.dones[:loaded_pos] = data["dones"]
+            self.replay_buffer.actions[:n_to_load] = data["actions"][start_idx:loaded_pos]
+            self.replay_buffer.rewards[:n_to_load] = data["rewards"][start_idx:loaded_pos]
+            self.replay_buffer.dones[:n_to_load] = data["dones"][start_idx:loaded_pos]
             
             if "timeouts" in data and hasattr(self.replay_buffer, "timeouts"):
-                self.replay_buffer.timeouts[:loaded_pos] = data["timeouts"]
+                self.replay_buffer.timeouts[:n_to_load] = data["timeouts"][start_idx:loaded_pos]
             
-            self.replay_buffer.pos = loaded_pos
-            self.replay_buffer.full = loaded_full
+            self.replay_buffer.pos = n_to_load
+            # 如果加载的数据量达到了 buffer_size，则标记为已满
+            self.replay_buffer.full = n_to_load >= self.replay_buffer.buffer_size
             
         print(f"串行载入完成！当前 Buffer 状态: {'已满' if self.replay_buffer.full else '未满'}, 位置: {self.replay_buffer.pos}")
 
