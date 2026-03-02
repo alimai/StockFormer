@@ -333,10 +333,10 @@ class StockTradingEnv(gym.Env):
             market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
             self.reward = asset_for_reward_new / begin_total_asset - 1.0
             self.reward = self.reward + (self.reward - market_value_growth_ratio) * 1.5
-            self.reward = np.clip(self.reward, -0.05, 0.05)
+            self.reward = np.clip(self.reward, -0.03, 0.03)
             self.reward *= self.reward_scaling
-            # if self.rewards_memory:
-            #     self.reward -= np.average(self.rewards_memory[-5:]) * 0.1          
+            if self.rewards_memory:
+                self.reward -= np.average(self.rewards_memory[-5:]) * 0.1          
 
             self.actions_memory.append(actions)
             self.asset_memory.append(self.end_total_asset)
