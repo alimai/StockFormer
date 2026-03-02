@@ -336,7 +336,7 @@ class StockTradingEnv(gym.Env):
             self.reward = np.clip(self.reward, -0.03, 0.03)
             self.reward *= self.reward_scaling
             if self.rewards_memory:
-                self.reward -= np.average(self.rewards_memory[-5:]) * 0.1          
+                self.reward -= np.average(self.rewards_memory) * 0.1          
 
             self.actions_memory.append(actions)
             self.asset_memory.append(self.end_total_asset)
