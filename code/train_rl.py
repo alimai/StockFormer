@@ -103,7 +103,11 @@ if __name__ == '__main__':
 
     print("Initial Env...")
     train_mode = True#False#
-    if train_mode:
+    if train_mode:        
+        timestamp = datetime.datetime.now().strftime("%m%d%H%M")
+        tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
+        print(f"log name: {tb_log_name_with_timestamp}")
+
         env_name = "train"
         env_kwargs["mode"] = env_name
         train_trade_gym = Env(df = train, data_all = train_data, **env_kwargs)
@@ -139,10 +143,6 @@ if __name__ == '__main__':
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
             model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed, policy_kwargs=policy_kwargs)
 
-        timestamp = datetime.datetime.now().strftime("%m%d%H%M")
-        tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
-        print(f"log name: {tb_log_name_with_timestamp}")
-
         # 在训练正式开始前保存参数配置到 tensorboard 日志目录
         config_save_dir = os.path.join(tensorboard_log_dir, tb_log_name_with_timestamp)
         os.makedirs(config_save_dir, exist_ok=True)
@@ -152,7 +152,7 @@ if __name__ == '__main__':
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
         # 定义 Buffer 文件的存储路径
-        buffer_path = os.path.join(model_path, "replay_buffer.npz")
+        buffer_path = os.path.join(model_path, "replay_buffer---.npz")
         buffer_path_out = os.path.join(model_path, "replay_buffer_out.npz")
 
         # 在正式开始 learn 之前尝试加载旧的 Buffer
