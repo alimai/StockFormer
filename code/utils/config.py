@@ -97,7 +97,7 @@ MAESAC_PARAMS = {
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
     "buffer_max_load": 50000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
-    "learning_rate": 1e-3,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
+    "learning_rate": 1e-4,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
     "ent_coef": "auto_0.003",#0.001#熵系数,key
     
     # 训练频率与折扣优化
@@ -108,7 +108,7 @@ MAESAC_PARAMS = {
     # MAE 梯度控制 - 关键优化
     "dropout": 0.2,#与policy_transformer共用
     "actor_alpha": 0.1,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
-    "critic_alpha": 0.5,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
+    "critic_alpha": 0.2,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8

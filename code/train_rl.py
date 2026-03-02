@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
-        final_model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_train_model---.zip')
+        final_model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_train_model.zip')
         if os.path.exists(final_model_path):
             load_pretrain = True
 
