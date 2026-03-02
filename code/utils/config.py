@@ -101,14 +101,14 @@ MAESAC_PARAMS = {
     "ent_coef": "auto_0.001",#0.001#熵系数,key
     
     # 训练频率与折扣优化
-    "train_freq": 50,#每 * 步训练一次,更新目标网络的频率也由此决定
+    "train_freq": 150,#每 * 步训练一次,更新目标网络的频率也由此决定
     "gradient_steps": 30,#每次训练进行 * 个梯度更新,越大critic_loss越平滑
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.5,#与policy_transformer共用
-    "actor_alpha": 0.1,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
-    "critic_alpha": 0.9,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
+    "dropout": 0.2,#与policy_transformer共用
+    "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
+    "critic_alpha": 0.0,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
