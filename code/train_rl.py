@@ -15,7 +15,7 @@ from torch.optim import AdamW
 
 if __name__ == '__main__':
     fix_seed = 2022
-    #config.set_seed(fix_seed)
+    config.set_seed(fix_seed)
     version_name = config.version_name
     model_name = config.model_name
 
@@ -152,7 +152,7 @@ if __name__ == '__main__':
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
         # 定义 Buffer 文件的存储路径
-        buffer_path = os.path.join(model_path, "replay_buffer---.npz")
+        buffer_path = os.path.join(model_path, "replay_buffer.npz")
         buffer_path_out = os.path.join(model_path, "replay_buffer_out.npz")
 
         # 在正式开始 learn 之前尝试加载旧的 Buffer
