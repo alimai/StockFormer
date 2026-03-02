@@ -107,8 +107,8 @@ MAESAC_PARAMS = {
     
     # MAE 梯度控制 - 关键优化
     "dropout": 0.2,#与policy_transformer共用
-    "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
-    "critic_alpha": 0.0,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
+    "actor_alpha": 0.1,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
+    "critic_alpha": 0.5,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
     # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
