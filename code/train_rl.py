@@ -4,6 +4,7 @@ import sys
 import time
 import datetime
 import json
+import random
 
 from utils import config
 from MySAC.Agent.DRLAgent import DRLAgent
@@ -14,7 +15,7 @@ from utils.data.stock_data_handle import Stock_Data
 from torch.optim import AdamW
 
 if __name__ == '__main__':
-    fix_seed = 2022
+    fix_seed = random.randint(1, 5000)  # 2022
     config.set_seed(fix_seed)
     version_name = config.version_name
     model_name = config.model_name
@@ -188,7 +189,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=69000)
+                                    total_timesteps=99000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
