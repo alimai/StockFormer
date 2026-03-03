@@ -94,7 +94,7 @@ U_STRUCTURE = False #True # 是否使用 U 结构
 if U_STRUCTURE:
     dropout_default = 0.05
 else:
-    dropout_default = 0.1
+    dropout_default = 0.05
 
 ##transformer Model Parameters
 MAESAC_PARAMS = {
