@@ -35,7 +35,7 @@ END_DATE = datetime.now().strftime("%Y-%m-%d")#"2025-12-31"
 USE_TICKET = os.listdir('data/'+ version_name)
 USE_CSI_300_TICKET = [file.replace('.csv', '') for file in USE_TICKET]
 MAX_TICKET_NUM = 88 # CSI 300 中的股票数量
-if len(USE_CSI_300_TICKET) > MAX_TICKET_NUM:#如果大于 88,取前 88 个
+if len(USE_CSI_300_TICKET) > MAX_TICKET_NUM:#如果大于 88，取前 88 个
     USE_CSI_300_TICKET = USE_CSI_300_TICKET[:MAX_TICKET_NUM]
 
 #'train', 'valid', 'test' 三个阶段
@@ -43,7 +43,7 @@ if len(USE_CSI_300_TICKET) > MAX_TICKET_NUM:#如果大于 88,取前 88 个
 CSI_date_trans = ['20110419', '20220415', '20220630', '20250331',  '20220630', '20251231']
 
 step_len = 800  # 每个 Episode 的时间步长度
-stride = int(step_len * 0.6) # 滑动窗口步长,<step_len,确保相邻 Episode 之间有数据重叠
+stride = int(step_len * 0.6) # 滑动窗口步长，<step_len，确保相邻 Episode 之间有数据重叠
 
 ## stockstats technical indicator column names
 ## check https://pypi.org/project/stockstats/ for different names
@@ -97,43 +97,59 @@ else:
     dropout_default = 0.05
 
 ##transformer Model Parameters
-MAESAC_PARAMS = {
+
+# ===== 可调节的超参数（加载预训练模型时可修改） =====
+MAESAC_TUNABLE_PARAMS = {
     # 训练超参数 - 稳定性优化
     "batch_size": 128,
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
     "buffer_max_load": 50000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
     "learning_rate": 1e-4,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
-    "ent_coef": "auto_0.003",#0.001#熵系数,key
-    
+    "ent_coef": "auto_0.003",#0.001#熵系数，key
+
     # 训练频率与折扣优化
-    "train_freq": 150,#每 * 步训练一次,更新目标网络的频率也由此决定
-    "gradient_steps": 30,#每次训练进行 * 个梯度更新,越大critic_loss越平滑
-    "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
-    
+    "train_freq": 150,#每 * 步训练一次，更新目标网络的频率也由此决定
+    "gradient_steps": 30,#每次训练进行 * 个梯度更新，越大 critic_loss 越平滑
+    "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
+
     # MAE 梯度控制 - 关键优化
-    "dropout": dropout_default,#与policy_transformer共用
-    "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
-    "critic_alpha": 0.1,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
-    
-    # MAE Transformer 架构参数 - 保持不变（与预训练模型兼容）
+    "dropout": dropout_default,#与 policy_transformer 共用
+    "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
+    "critic_alpha": 0.1,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
+}
+
+# ===== 完整的 MAESAC 参数（包含不可调节的架构参数） =====
+MAESAC_PARAMS = {
+    # --- 可调节的训练超参数 ---
+    **MAESAC_TUNABLE_PARAMS,
+
+    # --- 不可调节的架构参数（固化在模型中，加载时不可修改） ---
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
     "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
-    "d_ff":256,#demension of Feed-Forward Network(FFN,前馈神经网络),位于 MAE 编码/解码 block 内
+    "d_ff":256,#demension of Feed-Forward Network(FFN，前馈神经网络),位于 MAE 编码/解码 block 内
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "d_model":128,#即hidden_channel,MAE/short/long模型的隐藏层输出维度（编码后解码前,输入给SAC模型policy_transformer）
-    
+    "d_model":128,#即 hidden_channel,MAE/short/long 模型的隐藏层输出维度（编码后解码前，输入给 SAC 模型 policy_transformer）
+
     "transformer_path": '',#mae_model_path,
     "transformer_device": device,
-    
+
     # 设备配置
-    # "optimize_memory_usage": True, # 开启内存优化,减少 ReplayBuffer 占用
+    # "optimize_memory_usage": True, # 开启内存优化，减少 ReplayBuffer 占用
     # "replay_buffer_kwargs": {
     #     "handle_timeout_termination": False, # 与 optimize_memory_usage=True 互斥
     # },
+}
+
+#策略网络参数 (MlpPolicy Policy Network，包括 act/critic/critic_target)
+policy_kwargs = {
+    #"optimizer_kwargs": {"weight_decay": 1e-3},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
+    #"optimizer_class": AdamW, # 配合权重衰减使用
+    "net_arch": [128, 128], # 与 d_model 保持一致，默认 [256,256]
+    "use_sde": False
 }
 
 # MAESAC_PARAMS_PRED = {
