@@ -36,7 +36,7 @@ if __name__ == '__main__':
     full_stock_dir = os.path.join('data', version_name)
     prediction_len = [1,5]
     data_manager = Stock_Data(
-        full_stock_path=full_stock_dir, 
+        full_stock_path=full_stock_dir,
         temporal_len=60,
         prediction_len=prediction_len,
         a=config.SCALE_A
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     # 注意：由于数据处理中包含了多只股票的数据，实际长度为交易日数量×股票数量
     train_length = train['date'].nunique()  # 获取唯一日期数量
     eval_length = eval['date'].nunique()    # 获取唯一日期数量
-    test_length = test['date'].nunique()    # 获取唯一日期数量    
+    test_length = test['date'].nunique()    # 获取唯一日期数量
     print(f"Train length: {train_length}, Eval length: {eval_length}, Test length: {test_length}")
 
     stock_dimension = len(train.tic.unique())
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     print("Initial Env...")
     train_mode = True#False#
-    if train_mode:        
+    if train_mode:
         timestamp = datetime.datetime.now().strftime("%m%d%H%M")
         tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
         print(f"log name: {tb_log_name_with_timestamp}")
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
-        final_model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'tmp_mode.zip')
+        final_model_path = os.path.join(model_path, 'tmp_model.zip')
         if os.path.exists(final_model_path):
             load_pretrain = True
 
@@ -129,13 +129,13 @@ if __name__ == '__main__':
         env_train_vm = VecMonitor(env_train, log_path_train)
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
-        # 训练强化学习代理,加载模型
+        # 训练强化学习代理，加载模型
         agent = DRLAgent(env = env_train_vm)
         policy_kwargs = {#"optimizer_kwargs": {"weight_decay": 1e-3},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
                          #"optimizer_class": AdamW, # 配合权重衰减使用
-                         "net_arch": [128, 128], # 与 d_model 保持一致，默认[256,256]
+                         "net_arch": [128, 128], # 与 d_model 保持一致，默认 [256,256]
                          "use_sde": False
-                        }#策略网络参数(MlpPolicy Policy Network,包括act/critic/critic_target)
+                        }#策略网络参数 (MlpPolicy Policy Network，包括 act/critic/critic_target)
         if load_pretrain:
             print(f"load: {final_model_path}...")
             model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
@@ -163,32 +163,36 @@ if __name__ == '__main__':
                 model_sac.load_replay_buffer(buffer_path, max_load=max_load)
                 print("Buffer 加载成功！")
             except Exception as e:
-                print(f"加载 Buffer 失败（可能是格式不匹配），将跳过加载阶段: {e}")
+                print(f"加载 Buffer 失败，将跳过加载阶段：{e}")
 
         print('Start training...')
         start = time.time()
         trained_sac = agent.train_model(model=model_sac,
                                     tb_log_name=tb_log_name_with_timestamp,
                                     check_freq=2000,
-                                    train_log_dir=log_path_train,#callback路径
-                                    eval_log_dir=log_path_eval,#callback路径
+                                    train_log_dir=log_path_train,#callback 路径
+                                    eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
                                     total_timesteps=99000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
+        # 训练完成后保存最终模型
+        trained_sac.save(final_model_path)
+        print(f"最终训练模型已保存到：{final_model_path}")
+
         # 训练完成后保存最新的 Buffer，供下次使用
         try:
             trained_sac.save_replay_buffer(buffer_path_out)
         except Exception as e:
-            print(f"保存 Buffer 失败: {e}")
+            print(f"保存 Buffer 失败：{e}")
 
-    #强化学习训练后保存的模型（如best_train_model.zip）是一个复合模型，它包含了：
-    #   - 更新后的MAE模型（state_transformer）---对应原mae/checkpoint.pth
-    #   - SAC策略actor网络和价值critic网络 ---全连接层
-    #   - 其他Transformer组件（actor_transformer, critic_transformer）
-    model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name, 'best_model.zip')
+    #强化学习训练后保存的模型（如 best_train_model.zip）是一个复合模型，它包含了：
+    #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
+    #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
+    #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
+    test_model_path = os.path.join(model_path, 'best_model.zip')
 
     env_name = "test"
     env_kwargs["mode"] = env_name
@@ -197,7 +201,7 @@ if __name__ == '__main__':
     env_test, _ = test_trade_gym.get_sb_env()
     # 测试阶段：使用原始环境
     start = time.time()
-    results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test, cwd=model_path)
+    results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test, cwd=test_model_path)
     end = time.time()
     print("Test time: %.3f"%(end-start))
 

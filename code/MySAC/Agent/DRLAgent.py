@@ -94,7 +94,7 @@ class CombinedCallback(BaseCallback):
 
             # 每10个episode保存一个备份
             if self.episode_count % 10 == 0:
-                tmp_path = os.path.join(self.model_save_path, "tmp_mode.zip")
+                tmp_path = os.path.join(self.model_save_path, "tmp_model.zip")
                 self.model.save(tmp_path)
                 if self.verbose > 0:
                     print(f"Episode {self.episode_count}: Saved checkpoint to {tmp_path}")

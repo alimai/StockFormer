@@ -86,7 +86,7 @@ env_train_vm = VecMonitor(env_train, log_path_train)
 
 ### 4.2 CombinedCallback
 - **职责**: 
-  - **模型备份**: 每 2 个 episode 保存一次 `tmp_mode.zip`。
+  - **模型备份**: 每 2 个 episode 保存一次 `tmp_model.zip`。
   - **训练奖励监控**: 定时加载日志，记录过去 10 个 episode 的平均奖励。
   - **最佳模型保存**: 当 `mean_reward` 创新高时，保存 `best_train_model.zip`。
 - **唯一计数机制**: 放弃不稳定的 `done/dones` 布尔值，改为检查 `info` 中是否存在 `"episode"` 键。这确保了 `episode_count` 增加 1 的操作在每个 episode 结束时**有且仅触发一次**。
