@@ -125,6 +125,10 @@ if __name__ == '__main__':
         final_model_path = os.path.join(model_path, 'tmp_model.zip')
         if os.path.exists(final_model_path):
             load_pretrain = True
+        
+        # 定义 Buffer 文件的存储路径
+        buffer_path = os.path.join(model_path, "replay_buffer.npz")
+        buffer_path_out = os.path.join(model_path, "replay_buffer_out.npz")
 
         # 使用 VecMonitor 包装环境以记录训练和评估的统计信息
         env_train_vm = VecMonitor(env_train, log_path_train)
@@ -151,10 +155,6 @@ if __name__ == '__main__':
             # 处理不可序列化项为字符串
             serializable_config = {k: str(v) for k, v in config.MAESAC_PARAMS.items()}
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
-
-        # 定义 Buffer 文件的存储路径
-        buffer_path = os.path.join(model_path, "replay_buffer.npz")
-        buffer_path_out = os.path.join(model_path, "replay_buffer_out.npz")
 
         # 在正式开始 learn 之前尝试加载旧的 Buffer
         if os.path.exists(buffer_path):
