@@ -1,9 +1,8 @@
-from email import iterators
-from Transformer.models.embed import DataEmbedding
-from torch import nn
 import torch
-import itertools
+from torch import nn
+from utils import config
 
+from Transformer.models.embed import DataEmbedding
 from Transformer.models.attn import AttentionLayer, FullAttention
 from Transformer.models.layer import MultiHeadAttention
 
@@ -77,17 +76,19 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
         hybrid_feature = self.norm2(feature_attn)
 
-
         # 2) Output Processing
-        #fused_output = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
-        #fused_output = torch.cat((relational_feature, temporal_feature_long, temporal_feature_short, additional_feature), dim=-1)
-        #fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
-        #fused_output_adapted = 0.5 * relational_feature + 0.5 * temporal_hybrid_feature
-        
-        # Late Fusion (Skip Connection with Clean Context)
-        # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        #combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
-        return hybrid_feature
+        if config.U_STRUCTURE:
+            #fused_output = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
+            #fused_output = torch.cat((relational_feature, temporal_feature_long, temporal_feature_short, additional_feature), dim=-1)
+            fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
+            
+            # Late Fusion (Skip Connection with Clean Context)
+            # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
+            combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+            return combined_feature
+        else:
+            #fused_output_adapted = 0.5 * relational_feature + 0.5 * temporal_hybrid_feature
+            return hybrid_feature
 
 
     def forward_02241920(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):

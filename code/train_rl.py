@@ -120,16 +120,21 @@ if __name__ == '__main__':
         eval_trade_gym = Env(df = eval, data_all = eval_data, **env_kwargs)
         env_eval, _ = eval_trade_gym.get_sb_env()
 
+        if config.U_STRUCTURE:
+            final_model_name = 'final_train_model_u'
+            buffer_name = 'replay_buffer_u'
+            print("使用 U 结构的 Transformer 模型")
+        else:
+            final_model_name = 'final_train_model_no_u'
+            buffer_name = 'replay_buffer_no_u'
+            print("使用非 U 结构的 Transformer 模型")
+
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
-        final_model_path = os.path.join(model_path, 'tmp_model.zip')
-        if os.path.exists(final_model_path):
+        load_model_path = os.path.join(model_path, final_model_name+'.zip')
+        if os.path.exists(load_model_path):
             load_pretrain = True
         
-        # 定义 Buffer 文件的存储路径
-        buffer_path = os.path.join(model_path, "replay_buffer.npz")
-        buffer_path_out = os.path.join(model_path, "replay_buffer_out.npz")
-
         # 使用 VecMonitor 包装环境以记录训练和评估的统计信息
         env_train_vm = VecMonitor(env_train, log_path_train)
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
@@ -142,8 +147,8 @@ if __name__ == '__main__':
                          "use_sde": False
                         }#策略网络参数 (MlpPolicy Policy Network，包括 act/critic/critic_target)
         if load_pretrain:
-            print(f"load: {final_model_path}...")
-            model_sac = SAC_MAE.load(final_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
+            print(f"load: {load_model_path}...")
+            model_sac = SAC_MAE.load(load_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
             model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed, policy_kwargs=policy_kwargs)
@@ -157,6 +162,8 @@ if __name__ == '__main__':
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
         # 在正式开始 learn 之前尝试加载旧的 Buffer
+        # 定义 Buffer 文件的存储路径
+        buffer_path = os.path.join(model_path, buffer_name+'.npz')
         if os.path.exists(buffer_path):
             try:
                 max_load = config.MAESAC_PARAMS.get("buffer_max_load")
@@ -180,11 +187,13 @@ if __name__ == '__main__':
         print("Training time: %.3f"%(end-start))
 
         # 训练完成后保存最终模型
+        final_model_path = os.path.join(model_path, final_model_name+'_out.zip')
         trained_sac.save(final_model_path)
         print(f"最终训练模型已保存到：{final_model_path}")
 
         # 训练完成后保存最新的 Buffer，供下次使用
         try:
+            buffer_path_out = os.path.join(model_path, buffer_name+'_out.npz')
             trained_sac.save_replay_buffer(buffer_path_out)
         except Exception as e:
             print(f"保存 Buffer 失败：{e}")
