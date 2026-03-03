@@ -98,7 +98,7 @@ MAESAC_PARAMS = {
     "buffer_max_load": 50000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
     "learning_rate": 1e-4,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
-    "ent_coef": "auto_0.01",#0.001#熵系数,key
+    "ent_coef": "auto_0.003",#0.001#熵系数,key
     
     # 训练频率与折扣优化
     "train_freq": 150,#每 * 步训练一次,更新目标网络的频率也由此决定
@@ -106,7 +106,7 @@ MAESAC_PARAMS = {
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.05,#与policy_transformer共用
+    "dropout": 0.2,#与policy_transformer共用
     "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
     "critic_alpha": 0.1,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
