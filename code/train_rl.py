@@ -164,6 +164,7 @@ if __name__ == '__main__':
         with open(os.path.join(config_save_dir, 'maesac_config.json'), 'w', encoding='utf-8') as f:
             # 处理不可序列化项为字符串
             serializable_config = {k: str(v) for k, v in config.MAESAC_PARAMS.items()}
+            serializable_config['fix_seed'] = str(fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
         # 在正式开始 learn 之前尝试加载旧的 Buffer

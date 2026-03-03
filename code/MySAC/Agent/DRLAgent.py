@@ -103,7 +103,7 @@ class CombinedCallback(BaseCallback):
         if self.check_freq > 0 and self.n_calls % self.check_freq == 0:
             # 从内存中获取最近10个episode的平均奖励，不再从磁盘读取
             if len(self.episode_rewards) > 0:
-                mean_reward = np.mean(self.episode_rewards[-10:])
+                mean_reward = np.mean(self.episode_rewards[-10:])/np.std(self.episode_rewards[-10:])
                 if self.verbose > 0:
                     print(f"Best training mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
 
@@ -189,6 +189,18 @@ class FinancialEvalCallback(EvalCallback):
                         avg_sharpe_ratio = np.mean(sharpe_ratios)
                         self.logger.record("eval/sharpe_ratio", avg_sharpe_ratio)
 
+                        # 检查是否为最佳模型
+                        if self.verbose > 0:
+                            print(f"Best eval sharpe ratio: {self.best_sharp_ratio:.2f} - new sharpe ratio: {avg_sharpe_ratio:.2f}")
+
+                        if avg_sharpe_ratio > self.best_sharp_ratio:
+                            if self.verbose > 0:
+                                print(f"Saving new best eval model to {self.best_model_save_path}")
+
+                            if self.best_model_save_path is not None:
+                                self.model.save(os.path.join(self.best_model_save_path, "best_sharp_model.zip"))
+                            self.best_sharp_ratio = avg_sharpe_ratio
+
                 # 添加到当前Logger
                 self.logger.record("eval/mean_reward", float(mean_reward))
                 self.logger.record("eval/mean_ep_length", mean_ep_length)
@@ -196,18 +208,6 @@ class FinancialEvalCallback(EvalCallback):
                 # Dump log so the evaluation results are printed with the correct timestep
                 self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
                 self.logger.dump(self.num_timesteps)
-
-                # 检查是否为最佳模型
-                if self.verbose > 0:
-                    print(f"Best eval mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
-
-                if mean_reward > self.best_mean_reward:
-                    if self.verbose > 0:
-                        print(f"Saving new best eval model to {self.best_model_save_path}")
-
-                    if self.best_model_save_path is not None:
-                        self.model.save(os.path.join(self.best_model_save_path, "best_model"))
-                    self.best_mean_reward = mean_reward
 
                 # 评估完成，直接返回 True 避免 super()._on_step() 再次执行评估
                 return True
