@@ -90,6 +90,12 @@ INDICATORS_SIZE = len(TECHNICAL_INDICATORS_LIST)
 TEMPORAL_FEATURE_SIZE = len(TEMPORAL_FEATURE)
 ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
+U_STRUCTURE = False # True # 是否使用 U 结构
+if U_STRUCTURE:
+    dropout_default = 0.05
+else:
+    dropout_default = 0.2
+
 ##transformer Model Parameters
 MAESAC_PARAMS = {
     # 训练超参数 - 稳定性优化
@@ -106,7 +112,7 @@ MAESAC_PARAMS = {
     "gamma": 0.99,#折扣因子,越小越重视短期奖励,最大为 1
     
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.5,#与policy_transformer共用
+    "dropout": dropout_default,#与policy_transformer共用
     "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端,默认值0.1）
     "critic_alpha": 0.1,# MAE 反向梯度更新的权重（Critic 端,默认值1.0）    
     
