@@ -130,7 +130,7 @@ class CombinedCallback(BaseCallback):
                     # 同时保存对应的步数和当前极值
                     para_path = os.path.join(self.model_save_path, 'best_train_model_para.json')
                     with open(para_path, 'w') as f:
-                        json.dump({'step': self.n_calls, 'best_mean_reward': self.best_mean_reward}, f)
+                        json.dump({'step': int(self.n_calls), 'best_mean_reward': float(self.best_mean_reward)}, f)
 
         return True
 
@@ -230,12 +230,12 @@ class FinancialEvalCallback(EvalCallback):
                                 print(f"Saving new best eval model to {self.best_model_save_path}")
 
                             if self.best_model_save_path is not None:
-                                self.model.save(os.path.join(self.best_model_save_path, "best_eval_model.zip"))
+                                self.model.save(os.path.join(self.best_model_save_path, "best_sharp_model.zip"))
                                 # 同时保存对应的步数和当前极值
-                                para_path = os.path.join(self.best_model_save_path, 'best_eval_model_para.json')
+                                para_path = os.path.join(self.best_model_save_path, 'best_sharp_model_para.json')
                                 with open(para_path, 'w') as f:
-                                    json.dump({'step': self.n_calls, 'best_sharp_ratio': avg_sharpe_ratio}, f)
-                            self.best_sharp_ratio = avg_sharpe_ratio
+                                    json.dump({'step': int(self.n_calls), 'best_sharp_ratio': float(avg_sharpe_ratio)}, f)
+                                self.best_sharp_ratio = avg_sharpe_ratio
 
                 # 添加到当前Logger
                 self.logger.record("eval/mean_reward", float(mean_reward))
