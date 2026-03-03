@@ -96,9 +96,9 @@ if U_STRUCTURE:
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
 else:
-    dropout_default = 0.2
-    actor_alpha_default = 0.5
-    critic_alpha_default = 0.5
+    dropout_default = 0.05
+    actor_alpha_default = 0.0
+    critic_alpha_default = 0.1
 
 ##transformer Model Parameters
 
