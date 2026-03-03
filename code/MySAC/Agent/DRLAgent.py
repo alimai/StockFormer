@@ -1,5 +1,6 @@
 # DRL models from Stable Baselines 3
 
+import json
 import time
 
 import numpy as np
@@ -73,6 +74,18 @@ class CombinedCallback(BaseCallback):
         
         if self.model_save_path is not None:
             os.makedirs(self.model_save_path, exist_ok=True)
+            # 初始化时从对应文件取极值
+            para_path = os.path.join(self.model_save_path, 'best_train_model_para.json')
+            if os.path.exists(para_path):
+                try:
+                    with open(para_path, 'r') as f:
+                        para_data = json.load(f)
+                        self.best_mean_reward = para_data.get('best_mean_reward', -np.inf)
+                        if self.verbose > 0:
+                            print(f"Loaded best_mean_reward: {self.best_mean_reward:.2f} from {para_path}")
+                except Exception as e:
+                    if self.verbose > 0:
+                        print(f"Error loading {para_path}: {e}")
 
     def _init_callback(self) -> None:
         # Create folder if needed
@@ -114,6 +127,10 @@ class CombinedCallback(BaseCallback):
                     if self.verbose > 0:
                         print(f"Saving new best training model to {self.model_save_path}")
                     self.model.save(self.model_save_path+'/best_train_model.zip')
+                    # 同时保存对应的步数和当前极值
+                    para_path = os.path.join(self.model_save_path, 'best_train_model_para.json')
+                    with open(para_path, 'w') as f:
+                        json.dump({'step': self.n_calls, 'best_mean_reward': self.best_mean_reward}, f)
 
         return True
 
@@ -132,6 +149,20 @@ class FinancialEvalCallback(EvalCallback):
             render=render
         )
         self.best_sharp_ratio = -np.inf
+        
+        if self.best_model_save_path is not None:
+            # 初始化时从对应文件取极值
+            para_path = os.path.join(self.best_model_save_path, 'best_eval_model_para.json')
+            if os.path.exists(para_path):
+                try:
+                    with open(para_path, 'r') as f:
+                        para_data = json.load(f)
+                        self.best_sharp_ratio = para_data.get('best_sharp_ratio', -np.inf)
+                        if self.verbose > 0:
+                            print(f"Loaded best_sharp_ratio: {self.best_sharp_ratio:.2f} from {para_path}")
+                except Exception as e:
+                    if self.verbose > 0:
+                        print(f"Error loading {para_path}: {e}")
 
     def _on_step(self) -> bool:
         # 检查是否到了评估频率
@@ -199,7 +230,11 @@ class FinancialEvalCallback(EvalCallback):
                                 print(f"Saving new best eval model to {self.best_model_save_path}")
 
                             if self.best_model_save_path is not None:
-                                self.model.save(os.path.join(self.best_model_save_path, "best_sharp_model.zip"))
+                                self.model.save(os.path.join(self.best_model_save_path, "best_eval_model.zip"))
+                                # 同时保存对应的步数和当前极值
+                                para_path = os.path.join(self.best_model_save_path, 'best_eval_model_para.json')
+                                with open(para_path, 'w') as f:
+                                    json.dump({'step': self.n_calls, 'best_sharp_ratio': avg_sharpe_ratio}, f)
                             self.best_sharp_ratio = avg_sharpe_ratio
 
                 # 添加到当前Logger
