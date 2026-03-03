@@ -147,8 +147,12 @@ if __name__ == '__main__':
                          "use_sde": False
                         }#策略网络参数 (MlpPolicy Policy Network，包括 act/critic/critic_target)
         if load_pretrain:
-            print(f"load: {load_model_path}...")
-            model_sac = SAC_MAE.load(load_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
+            try:
+                print(f"load: {load_model_path}...")
+                model_sac = SAC_MAE.load(load_model_path, env=env_train_vm, tensorboard_log=tensorboard_log_dir, policy_kwargs=policy_kwargs)
+            except Exception as e:
+                print(f"Failed to load model: {e}")                
+                sys.exit(1)#退出训练
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
             model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed, policy_kwargs=policy_kwargs)
@@ -182,7 +186,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=99000)
+                                    total_timesteps=69000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
@@ -222,6 +226,5 @@ if __name__ == '__main__':
     assets_test.to_csv(os.path.join(df_root, 'df_assets_test.csv'))
     print("=================================")
     print("end.")
-    print("=================================")
     print("=================================")
     print("=================================\n\n\n")
