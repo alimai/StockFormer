@@ -19,6 +19,7 @@ if __name__ == '__main__':
     version_name = config.version_name
     model_name = config.model_name
 
+    print("start:")
     working_path = os.path.dirname(os.path.abspath(__file__))
     short_prediction_model_path = working_path + '/../trained_models/'+version_name+'/Short/checkpoint.pth'
     long_prediction_model_path =  working_path + '/../trained_models/'+version_name+'/Long/checkpoint.pth'
@@ -159,7 +160,7 @@ if __name__ == '__main__':
         if os.path.exists(buffer_path):
             try:
                 max_load = config.MAESAC_PARAMS.get("buffer_max_load")
-                print(f"发现已有的 Buffer 文件，正在加载以实现热启动 (max_load={max_load}): {buffer_path}")
+                print(f"正在加载 Buffer 文件以实现热启动 (max_load={max_load}): {buffer_path}")
                 model_sac.load_replay_buffer(buffer_path, max_load=max_load)
                 print("Buffer 加载成功！")
             except Exception as e:
@@ -212,6 +213,6 @@ if __name__ == '__main__':
     assets_test.to_csv(os.path.join(df_root, 'df_assets_test.csv'))
     print("=================================")
     print("end.")
-    print("=================================\n")
-    print("=================================\n")
+    print("=================================")
+    print("=================================")
     print("=================================\n\n\n")
