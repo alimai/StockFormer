@@ -105,7 +105,7 @@ class CombinedCallback(BaseCallback):
             if len(self.episode_rewards) > 0:
                 mean_reward = np.mean(self.episode_rewards[-10:])/np.std(self.episode_rewards[-10:])
                 if self.verbose > 0:
-                    print(f"Best training mean reward: {self.best_mean_reward:.2f} - new mean reward: {mean_reward:.2f}")
+                    print(f"Best training mean reward(adjusted): {self.best_mean_reward:.2f} - new mean reward(adjusted): {mean_reward:.2f}")
 
                 # New best model, you could save the agent here
                 if mean_reward > self.best_mean_reward:
@@ -131,6 +131,7 @@ class FinancialEvalCallback(EvalCallback):
             deterministic=deterministic,
             render=render
         )
+        self.best_sharp_ratio = -np.inf
 
     def _on_step(self) -> bool:
         # 检查是否到了评估频率
