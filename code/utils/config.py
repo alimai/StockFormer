@@ -95,12 +95,12 @@ if COMP_ON_BACK:
     dropout_default = 0.8
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
-    pt_dim_default = 128
+    ac_input_default = 128
 else:
     dropout_default = 0.8
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
-    pt_dim_default = 32
+    ac_input_default = 32
 
 ##transformer Model Parameters
 
@@ -123,7 +123,7 @@ MAESAC_TUNABLE_PARAMS = {
     "dropout": dropout_default,#与 policy_transformer 共用
     "actor_alpha": actor_alpha_default,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": critic_alpha_default,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
-    "ac_input_dim": pt_dim_default,# actor/critic输入维度,对应policy_transformer 的输出层维度（默认值 128）
+    "ac_input_dim": ac_input_default,# actor/critic输入维度,对应policy_transformer 的输出层维度（默认值 128）
 }
 
 # ===== 完整的 MAESAC 参数（包含不可调节的架构参数） =====
