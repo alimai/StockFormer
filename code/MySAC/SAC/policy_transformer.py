@@ -37,16 +37,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.GELU()
         )
         
-        self.projection_input2 = nn.Sequential(
-            nn.Linear(d_model, d_atten),
-            nn.LayerNorm(d_atten),
-            nn.GELU()
-        )
-        self.projection_input3 = nn.Sequential(
-            nn.Linear(d_model, d_atten),
-            nn.LayerNorm(d_atten),
-            nn.GELU()
-        )
+        # self.projection_input2 = nn.Sequential(
+        #     nn.Linear(d_model, d_atten),
+        #     nn.LayerNorm(d_atten),
+        #     nn.GELU()
+        # )
+        # self.projection_input3 = nn.Sequential(
+        #     nn.Linear(d_model, d_atten),
+        #     nn.LayerNorm(d_atten),
+        #     nn.GELU()
+        # )
 
         # # Gated Fusion Mechanism
         # self.fusion_gate = nn.Sequential(
