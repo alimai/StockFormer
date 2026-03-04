@@ -105,26 +105,27 @@ if __name__ == '__main__':
     model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name)
     os.makedirs(model_path, exist_ok=True)
 
-    print("Initial Env...")
+    if config.COMP_ON_BACK:
+        final_model_name = 'final_train_model_b'
+        buffer_name = 'replay_buffer_b'
+        print("使用后压缩的 Transformer 模型")
+    else:
+        final_model_name = 'final_train_model_f'
+        buffer_name = 'replay_buffer_f'
+        print("使用前压缩的 Transformer 模型")
+
     train_mode = True#False#
     if train_mode:
+        print("Initial train Env...")
         env_kwargs["mode"] = "train"
         train_trade_gym = Env(df = train, data_all = train_data, **env_kwargs)
         env_train, _ = train_trade_gym.get_sb_env()
 
+        print("Initial eval Env...")
         env_kwargs["mode"] = "eval"
         env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
         eval_trade_gym = Env(df = eval, data_all = eval_data, **env_kwargs)
         env_eval, _ = eval_trade_gym.get_sb_env()
-
-        if config.COMP_ON_BACK:
-            final_model_name = 'final_train_model_b'
-            buffer_name = 'replay_buffer_b'
-            print("使用后压缩的 Transformer 模型")
-        else:
-            final_model_name = 'final_train_model_f'
-            buffer_name = 'replay_buffer_f'
-            print("使用前压缩的 Transformer 模型")
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
@@ -210,8 +211,9 @@ if __name__ == '__main__':
     #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
     #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
     #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
-    test_model_path = os.path.join(model_path, 'best_train_model.zip')
+    test_model_path = os.path.join(model_path, final_model_name+'_out.zip')#'best_train_model.zip')
 
+    print("Initial test Env...")
     env_kwargs["mode"] = "test"
     env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
     test_trade_gym = Env(df = test, data_all = test_data, **env_kwargs)
