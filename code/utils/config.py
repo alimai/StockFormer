@@ -90,7 +90,7 @@ INDICATORS_SIZE = len(TECHNICAL_INDICATORS_LIST)
 TEMPORAL_FEATURE_SIZE = len(TEMPORAL_FEATURE)
 ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
-U_STRUCTURE = False #True # 是否使用 U 结构
+U_STRUCTURE = True # False #是否使用 U 结构
 if U_STRUCTURE:
     dropout_default = 0.8
     actor_alpha_default = 0.0
@@ -152,7 +152,7 @@ MAESAC_PARAMS = {
 policy_kwargs = {
     #"optimizer_kwargs": {"weight_decay": 1e-3},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
     #"optimizer_class": AdamW, # 配合权重衰减使用
-    "net_arch": [96], # 默认 [256,256]
+    "net_arch": [128,128], # 默认 [256,256]
     "use_sde": False
 }
 

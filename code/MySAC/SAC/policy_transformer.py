@@ -21,18 +21,19 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 device = 'cpu'
         self.device = device
         
+        d_atten = d_model # d_model // 4 
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
-                                      output_attention=output_attention), d_model, n_heads)
+                                      output_attention=output_attention), d_atten, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
-                                      output_attention=output_attention), d_model, n_heads)
+                                      output_attention=output_attention), d_atten, n_heads)
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
         # 特征融合后投影回 d_model
         self.projection_input = nn.Sequential(
-            nn.Linear(d_model + additional_dim, d_model),
-            nn.LayerNorm(d_model),
+            nn.Linear(d_model + additional_dim, d_atten),
+            nn.LayerNorm(d_atten),
             nn.GELU()
         )
 
@@ -49,7 +50,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.Linear(d_model, tmp_hid_dim),
             # nn.LayerNorm(tmp_hid_dim),
             # nn.GELU(),
-            nn.Linear(tmp_hid_dim, tmp_out_dim)
+            # nn.Linear(tmp_hid_dim, tmp_out_dim)
         )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
@@ -84,8 +85,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             
             # Late Fusion (Skip Connection with Clean Context)
             # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-            combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
-            return combined_feature
+            #combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+            return fused_output_adapted
         else:
             #fused_output_adapted = 0.5 * relational_feature + 0.5 * temporal_hybrid_feature
             return hybrid_feature
