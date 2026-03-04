@@ -92,7 +92,7 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
 U_STRUCTURE = True #False # 是否使用 U 结构
 if U_STRUCTURE:
-    dropout_default = 0.05
+    dropout_default = 0.5
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
 else:
