@@ -37,35 +37,33 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.GELU()
         )
         
+        self.projection_input2 = nn.Sequential(
+            nn.Linear(d_model, d_atten),
+            nn.LayerNorm(d_atten),
+            nn.GELU()
+        )
+        self.projection_input3 = nn.Sequential(
+            nn.Linear(d_model, d_atten),
+            nn.LayerNorm(d_atten),
+            nn.GELU()
+        )
+
         # # Gated Fusion Mechanism
         # self.fusion_gate = nn.Sequential(
         #     nn.Linear(d_model * 2, d_model),
         #     nn.Sigmoid()
         # )
 
-        if not config.U_STRUCTURE:
-            self.projection_input2 = nn.Sequential(
-                nn.Linear(d_model, d_atten),
-                nn.LayerNorm(d_atten),
-                nn.GELU()
-            )
-            self.projection_input3 = nn.Sequential(
-                nn.Linear(d_model, d_atten),
-                nn.LayerNorm(d_atten),
-                nn.GELU()
-            )
-
-        else:
-            # 2. Output Projection: 
-            tmp_hid_dim = d_model//4 # additional_dim # 21//2=10
-            tmp_out_dim = d_model - additional_dim # 128 - 20 = 108
-            self.projection_output = nn.Linear(d_model, tmp_hid_dim)
-            # self.projection_output = nn.Sequential(
-            #     nn.Linear(d_model, tmp_hid_dim),
-            #     nn.LayerNorm(tmp_hid_dim),
-            #     nn.GELU(),
-            #     nn.Linear(tmp_hid_dim, tmp_out_dim)
-            # )
+        # 2. Output Projection: 
+        tmp_hid_dim = d_model//4 # additional_dim # 21//2=10
+        tmp_out_dim = d_model - additional_dim # 128 - 20 = 108
+        self.projection_output = nn.Linear(d_model, tmp_hid_dim)
+        # self.projection_output = nn.Sequential(
+        #     nn.Linear(d_model, tmp_hid_dim),
+        #     nn.LayerNorm(tmp_hid_dim),
+        #     nn.GELU(),
+        #     nn.Linear(tmp_hid_dim, tmp_out_dim)
+        # )
 
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=1e-4)
         
@@ -129,71 +127,6 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         hybrid_feature = self.norm2(feature_attn)
 
         return hybrid_feature
-
-    def forward_02241920(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
-        # relational_feature: [B, N, 128] (From MAE)
-        # additional_feature: [B, N, additional_dim] (Tech + Date)
-        
-        # 1) 处理时序特征 (Refinement)
-        temporal_fused_input = torch.cat([temporal_feature_short, temporal_feature_long, additional_feature], dim=-1)
-        temporal_input_adapted = self.projection_temporal(temporal_fused_input) # [B, N, 128]
-
-        tmp_feature_1, attn = self.attention1(
-            temporal_input_adapted, temporal_input_adapted, temporal_input_adapted,
-            attn_mask=mask
-        )
-        temporal_feature_attn = temporal_input_adapted + self.dropout(tmp_feature_1)
-        temporal_hybrid_feature = self.norm1(temporal_feature_attn)
-
-
-        # 2) 处理关系特征 (Refinement)
-        relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
-
-        tmp_feature_2, attn = self.attention2(
-            relational_input_adapted, relational_input_adapted, relational_input_adapted,
-            attn_mask=mask
-        )
-        relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
-        relational_hybrid_feature = self.norm2(relational_feature_attn)
-
-
-        # 3) Output Processing
-        fused_input = relational_hybrid_feature + temporal_hybrid_feature
-        fused_output_adapted = self.projection_output(fused_input) # [B, N, 128]
-        
-        # Late Fusion (Skip Connection with Clean Context)
-        # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
-        return combined_feature
-
-
-    def forward_02221315(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
-        # relational_feature: [B, N, 128] (From MAE)
-        # additional_feature: [B, N, additional_dim] (Tech + Date)
-        
-        # Early Fusion & Adaptation
-        # 拼接关系特征与附加上下文（Tech + Date）并投影回 d_model
-        relational_fused_input = torch.cat([relational_feature, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        relational_input_adapted = self.projection_relational(relational_fused_input) # [B, N, 128]
-
-        # 处理关系特征 (Refinement)
-        tmp_feature_2, attn = self.attention2(
-            relational_input_adapted, relational_input_adapted, relational_input_adapted,
-            attn_mask=mask
-        )
-        # Residual Connection & Independent LayerNorm
-        relational_feature_attn = relational_input_adapted + self.dropout(tmp_feature_2)
-        relational_hybrid_feature = self.norm2(relational_feature_attn)
-
-        # Output Processing
-        fused_output_adapted = self.projection_output(relational_hybrid_feature) # [B, N, 128]
-        
-        # Late Fusion (Skip Connection with Clean Context)
-        # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
-        return combined_feature
-
 
     def forward_orig(self, relational_feature, temporal_feature_short, temporal_feature_long, holding, mask=None):
         # relational_feature shape [B, N, D]
