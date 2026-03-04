@@ -189,7 +189,7 @@ class StockTradingEnv(gym.Env):
             else:
                 sell_num_shares = 0
 
-            return sell_num_shares
+            return sell_num_shares * (-1)
 
         sell_num_shares = _do_sell_normal()
 
@@ -307,8 +307,10 @@ class StockTradingEnv(gym.Env):
             shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
             begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
 
-            actions = (actions + 1) * self.hmax / 2
-            actions = actions.astype(int)
+            #actions = (actions + 1) * self.hmax / 2
+            #actions = actions.astype(int)
+            actions = actions * begin_total_asset * 0.1 # 将动作缩放到总资产的10%，避免过度交易
+            actions = actions / (zero_day_prices + 1e-8) # 转换为股票数量，避免除零
             actions = actions - shares
 
             argsort_actions = np.argsort(actions)
@@ -319,7 +321,7 @@ class StockTradingEnv(gym.Env):
             buy_index = argsort_actions[::-1][:buy_num]
 
             for index in sell_index:
-                actions[index] = self._sell_stock(index, actions[index]) * (-1)
+                actions[index] = self._sell_stock(index, actions[index])
 
             for index in buy_index:
                 actions[index] = self._buy_stock(index, actions[index])
