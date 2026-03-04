@@ -90,22 +90,13 @@ class StockTradingEnv(gym.Env):
 
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
         tech_dim = len(self.tech_indicator_list)#8
-        # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
         # observation_space：self._update_state()生成数据维度；Modified: date features now take 12 dimensions (One-hot)
+        # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
         # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+tech_dim+self.hidden_channel*2+12))
         
-        # Modified: Update hidden_state_space to strictly include MAE output (128)# + Tech + Date
-        # This excludes redundant Covariance data from the SAC input stream
-        # hidden_state_space: actor/critic输入维度，对应 actor_transformer/critic_transformer输出维度
-        # 亦即policy_transformer_stock_atten2.forward()生成数据维度
-        # self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.hidden_channel//4))
-        
-        # observation_space用于指定state的维度，hidden_state_space用于指定SAC的输入维度
-        # 二者在最后的+m/+n的不同表示输出了m维额外信息，但SAC只接受n维额外信息(差值在policy_transformer_stock_atten2中处理)
         print("action_space shape: ",self.action_space.shape)
         print("observation_space shape: ",self.observation_space.shape)
-        #print("hidden_state_space shape: ",self.hidden_state_space.shape)
 
         self.data = self.data_all[self.day] # 使用 numpy 索引
         self.tic = self.df.tic.unique()

@@ -119,6 +119,8 @@ class SAC(SAC_SB3):
         pt_dim=128,
         **kwargs,
     ):
+        # hidden_state_space: actor/critic输入维度，对应 actor_transformer/critic_transformer输出维度
+        # 亦即policy_transformer_stock_atten2.forward()生成数据维度
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
         # 否则父类初始化过程中调用 _setup_model 时会因找不到 hidden_state_space 报错
         self.hidden_state_space = None
