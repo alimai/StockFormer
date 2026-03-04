@@ -76,14 +76,14 @@ if __name__ == '__main__':
         "mode":'train',
         "model_name":model_name,#'StockFormer'
         "version_name": version_name,#'CSI_2',
-        "hmax": 100,
+        "ratio_max": 0.1,#单股占比
         "initial_amount": 100000,
         "transaction_cost_pct": 0,
+        "reward_scaling": 100,
         "stock_dim": stock_dimension,
         "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST,
         "temporal_feature_list": config.TEMPORAL_FEATURE,
         "type_list": config.TYPE_FEATURE,
-        "reward_scaling": 100,
         "time_window_start":[i for i in range(60, train_length - config.stride, config.stride)],
         "step_len": config.step_len,
         "temporal_len": 60,

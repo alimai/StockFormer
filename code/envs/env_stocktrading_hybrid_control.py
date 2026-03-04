@@ -25,7 +25,7 @@ class StockTradingEnv(gym.Env):
         self,
         df,
         stock_dim,
-        hmax,
+        ratio_max,
         initial_amount,
         transaction_cost_pct,
         reward_scaling,
@@ -73,7 +73,7 @@ class StockTradingEnv(gym.Env):
         self.max_day = len(self.dates_all) - 1
         
         self.initial_amount = initial_amount
-        self.hmax = hmax
+        self.ratio_max = ratio_max
         self.transaction_cost_pct = transaction_cost_pct
 
         self.reward_scaling = reward_scaling
@@ -292,9 +292,8 @@ class StockTradingEnv(gym.Env):
             shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
             begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
 
-            #actions = (actions + 1) * self.hmax / 2
             #actions = actions.astype(int)
-            actions = actions * begin_total_asset * 0.1 # 将动作缩放到总资产的10%，避免过度交易
+            actions = actions * begin_total_asset * self.ratio_max # 将动作缩放到总资产的10%，避免过度交易
             actions = actions / (zero_day_prices + 1e-8) # 转换为股票数量，避免除零
             actions = actions - shares
 
