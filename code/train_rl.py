@@ -15,7 +15,7 @@ from utils.data.stock_data_handle import Stock_Data
 from torch.optim import AdamW
 
 if __name__ == '__main__':
-    fix_seed = random.randint(1, 5000)  # 2022
+    fix_seed = 2022 #random.randint(1, 5000) 
     config.set_seed(fix_seed)
     version_name = config.version_name
     model_name = config.model_name
@@ -168,7 +168,8 @@ if __name__ == '__main__':
         os.makedirs(config_save_dir, exist_ok=True)
         with open(os.path.join(config_save_dir, 'maesac_config.json'), 'w', encoding='utf-8') as f:
             # 处理不可序列化项为字符串
-            serializable_config = {k: str(v) for k, v in config.MAESAC_PARAMS.items()}
+            serializable_config = {k: str(v) for k, v in config.MAESAC_TUNABLE_PARAMS.items()}
+            serializable_config['U_STRUCTURE'] = str(config.U_STRUCTURE)
             serializable_config['fix_seed'] = str(fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
@@ -213,7 +214,7 @@ if __name__ == '__main__':
     #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
     #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
     #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
-    test_model_path = os.path.join(model_path, 'best_model.zip')
+    test_model_path = os.path.join(model_path, 'best_eval_model.zip')
 
     env_name = "test"
     env_kwargs["mode"] = env_name
