@@ -214,7 +214,7 @@ if __name__ == '__main__':
     #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
     #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
     #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
-    test_model_path = os.path.join(model_path, 'best_eval_model.zip')
+    test_model_path = os.path.join(model_path, 'best_train_model.zip')
 
     env_name = "test"
     env_kwargs["mode"] = env_name
