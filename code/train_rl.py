@@ -16,7 +16,7 @@ from torch.optim import AdamW
 
 if __name__ == '__main__':
     print("start:")
-    fix_seed = 2022 #random.randint(1, 5000) 
+    fix_seed = random.randint(1, 5000) # 2022 #
     config.set_seed(fix_seed)
     version_name = config.version_name
     model_name = config.model_name
