@@ -157,7 +157,11 @@ if __name__ == '__main__':
                 sys.exit(1)#退出训练
         else:
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
-            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,tensorboard_log=tensorboard_log_dir, seed=fix_seed, policy_kwargs=policy_kwargs)
+            model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,
+                                        tensorboard_log=tensorboard_log_dir,
+                                        seed=fix_seed, 
+                                        policy_kwargs=config.policy_kwargs
+                                        )
 
         # 在训练正式开始前保存参数配置到 tensorboard 日志目录
         config_save_dir = os.path.join(tensorboard_log_dir, tb_log_name_with_timestamp)
