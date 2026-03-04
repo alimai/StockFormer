@@ -38,7 +38,7 @@ class StockTradingEnv(gym.Env):
         version_name='CSI',
         step_len=1000,
         temporal_len=60,
-        hidden_channel=128,#MAESAC_PARAMS["d_model"],MAE/short/long 模型的隐藏层输出维度
+        hidden_out=128,#MAE/short/long 模型的隐藏层输出维度
         make_plots=True,
         print_verbosity=1,
         initial=True,
@@ -77,19 +77,19 @@ class StockTradingEnv(gym.Env):
         self.transaction_cost_pct = transaction_cost_pct
 
         self.reward_scaling = reward_scaling
-        self.state_space = stock_dim
         self.tech_indicator_list = tech_indicator_list
         self.temporal_feature_list = temporal_feature_list
         self.type_list = type_list
         self.temporal_len = temporal_len
-        self.hidden_channel = hidden_channel
+        self.hidden_out = hidden_out
 
+        self.state_space = stock_dim
         self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim,))
         tech_dim = len(self.tech_indicator_list)#8
         # observation_space：self._update_state()生成数据维度；Modified: date features now take 12 dimensions (One-hot)
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
         # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+tech_dim+self.hidden_channel*2+12))
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+tech_dim+self.hidden_out*2+12))
         
         print("action_space shape: ",self.action_space.shape)
         print("observation_space shape: ",self.observation_space.shape)
@@ -553,8 +553,8 @@ class StockTradingEnv(gym.Env):
         all_features = all_features.reshape(total_days, self.stock_dim, feature_dim)
         
         # 初始化存储数组
-        self.precomputed_short = np.zeros((total_days, self.stock_dim, self.hidden_channel), dtype=np.float32)
-        self.precomputed_long = np.zeros((total_days, self.stock_dim, self.hidden_channel), dtype=np.float32)
+        self.precomputed_short = np.zeros((total_days, self.stock_dim, self.hidden_out), dtype=np.float32)
+        self.precomputed_long = np.zeros((total_days, self.stock_dim, self.hidden_out), dtype=np.float32)
         
         batch_size_days = 64 # 每次处理 64 天的数据 -> 64 * 88 = 5632 样本
         
@@ -593,7 +593,7 @@ class StockTradingEnv(gym.Env):
                 hidden_long_np = hidden_long.cpu().numpy().reshape(current_batch_days, self.stock_dim, -1)
                 
                 # 生成伪hidden feature数据
-                # hidden_feature_dim = self.hidden_channel
+                # hidden_feature_dim = self.hidden_out
                 # hidden_short_np = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
                 # hidden_long_np = np.random.randn(self.stock_dim, hidden_feature_dim).astype(np.float32)
         

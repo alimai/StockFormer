@@ -106,7 +106,7 @@ class SAC(SAC_SB3):
         enc_in=96,
         dec_in=96,
         c_out_construction=96,
-        d_model=128,
+        hidden_out=128,#即 MAE/short/long 模型的隐藏层输出维度
         n_heads=4,
         e_layers=2,
         d_layers=1,
@@ -116,31 +116,16 @@ class SAC(SAC_SB3):
         transformer_path = None,
         actor_alpha=0.1,
         critic_alpha=1.0,
-        pt_dim=128,
+        stock_dim=88,
+        ac_input_dim=128,
         **kwargs,
     ):
         # hidden_state_space: actor/critic输入维度，对应 actor_transformer/critic_transformer输出维度
         # 亦即policy_transformer_stock_atten2.forward()生成数据维度
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
         # 否则父类初始化过程中调用 _setup_model 时会因找不到 hidden_state_space 报错
-        self.hidden_state_space = None
-        if hasattr(env, "state_space"):
-            self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(env.state_space, pt_dim))
-        elif hasattr(env, "get_attr"):
-            try:
-                state_space = env.get_attr("state_space")[0]
-                self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(state_space, pt_dim))
-            except Exception:
-                pass
+        self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(stock_dim, ac_input_dim))
         
-        if self.hidden_state_space is None and hasattr(self, "env") and self.env is not None:
-            if hasattr(self.env, "get_attr"):
-                try:
-                    state_space = self.env.get_attr("state_space")[0]
-                    self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(state_space, pt_dim))
-                except Exception:
-                    pass
-
         super(SAC, self).__init__(
             policy=policy,
             env=env,
@@ -191,7 +176,7 @@ class SAC(SAC_SB3):
         # MAE 模型
         self.state_transformer = Transformer(enc_in=enc_in, dec_in=dec_in, c_out=c_out_construction,
                                              n_heads=n_heads, e_layers=e_layers, d_layers=d_layers,
-                                             d_model=d_model, d_ff=d_ff, dropout=dropout).to(transformer_device)
+                                             d_model=hidden_out, d_ff=d_ff, dropout=dropout).to(transformer_device)
 
         if transformer_path is not None and transformer_path != '':
             state_dict = th.load(transformer_path, map_location=transformer_device, weights_only=True)
@@ -216,37 +201,23 @@ class SAC(SAC_SB3):
         self.transformer_device = transformer_device
         self.transformer_optim = th.optim.Adam(self.state_transformer.parameters(), lr=learning_rate, weight_decay=1e-4)
         self.transformer_criteria = th.nn.MSELoss()
+        self.env_hidden_dim = hidden_out
 
         self.critic_alpha = critic_alpha
         self.actor_alpha = actor_alpha
 
-
-        # 获取环境的时序特征隐藏维度 (即 prediction model 的 hidden_channel)
-        if hasattr(env, "hidden_channel"):
-            self.env_hidden_dim = env.hidden_channel
-        elif hasattr(env, "get_attr"):
-            try:
-                self.env_hidden_dim = env.get_attr("hidden_channel")[0]
-            except Exception:
-                self.env_hidden_dim = d_model
-        else:
-            self.env_hidden_dim = d_model
-
         # 向 Policy Transformer 传递附加信号维度(Tech + Date)
-        # self.in_feat (enc_in) = stock_num + tech_dim
-        # additional_dim = self.in_feat - stock_num + 12(Tech + Date)
-        #additional_dim = self.hidden_state_space.shape[1] - d_model
-        stock_num = env.observation_space.shape[0]
         # 使用环境隐藏维度进行计算，确保与环境生成的 Observation 结构对齐
-        additional_dim = env.observation_space.shape[1] - stock_num  - self.env_hidden_dim * 2
-        # additional_dim = env.observation_space.shape[1] - stock_num  - d_model* 2
+        additional_dim = env.observation_space.shape[1] - stock_dim  - self.env_hidden_dim * 2
+        # additional_dim = env.observation_space.shape[1] - stock_num  - hidden_out* 2
         
-        self.actor_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
-        self.critic_transformer = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
-        self.critic_transformer_target = policy_transformer_attn2(d_model=d_model, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        self.actor_transformer = policy_transformer_attn2(hidden_out=hidden_out, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        self.critic_transformer = policy_transformer_attn2(hidden_out=hidden_out, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
+        self.critic_transformer_target = policy_transformer_attn2(hidden_out=hidden_out, dropout=dropout, lr=learning_rate, device=transformer_device, additional_dim=additional_dim).to(transformer_device)
         self.critic_transformer_target.load_state_dict(self.critic_transformer.state_dict())
         self.critic_transformer_target.eval()
 
+        # self.in_feat (enc_in) = stock_num + tech_dim = 96
         self.in_feat = enc_in
 
     def _setup_model(self) -> None:
@@ -734,7 +705,7 @@ class SAC(SAC_SB3):
             enc_inp = mask * batch_enc1
             
             # 只运行 Encoder 部分，跳过 Decoder
-            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
+            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, hidden_out])
             # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
             # enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
             enc_out = self.state_transformer.enc_embedding(enc_inp)
@@ -799,7 +770,7 @@ class SAC(SAC_SB3):
             # ==================== 模式4: 不屏蔽任何特征或股票 ====================
             enc_inp = batch_enc1
             # 只运行 Encoder 部分，跳过 Decoder
-            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, d_model])
+            # 中间层特征enc_out真正用于actor和critic(shape: [Batch_size, Stock_num, hidden_out])
             # 重建结果output只用于评估重建损失( Shape: [Batch_size, Stock_num, c_out_construction])
             # enc_out, _, output = self.state_transformer(enc_inp, enc_inp)
             enc_out = self.state_transformer.enc_embedding(enc_inp)
@@ -807,24 +778,21 @@ class SAC(SAC_SB3):
 
         #temporal_feature_short = None
         #temporal_feature_long = None
-        # 使用环境对应的隐藏维度进行切片，而非 MAE 的 d_model (防止维度不一致导致切片错位)
+        # 使用环境对应的隐藏维度进行切片，而非 MAE 的 hidden_out (防止维度不一致导致切片错位)
         env_hidden_dim = self.env_hidden_dim
-        # hidden_channel = enc_out.shape[-1]
         temporal_feature_short = x[:, :, feat_dim: env_hidden_dim + feat_dim]
-        # temporal_feature_short = x[:, :, feat_dim: hidden_channel+feat_dim]
         temporal_feature_long = x[:, :, env_hidden_dim + feat_dim: env_hidden_dim * 2 + feat_dim]
-        # temporal_feature_long = x[:, :, hidden_channel+feat_dim: hidden_channel*2+feat_dim]
 
         # 【精准特征切片：仅包含技术指标和日期】
         # 1. 提取技术指标 (位于协方差矩阵之后)
-        # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)][hidden_channel][Date (12)]
+        # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)][hidden_out][Date (12)]
         tech_features = x[:, :, stock_num : feat_dim] 
         # 2. 提取日期特征 (在时序特征之后)
         date_features = x[:, :, feat_dim + env_hidden_dim * 2:]        
-        # date_features = x[:, :, feat_dim+hidden_channel*2:]        
+        # date_features = x[:, :, feat_dim+hidden_out*2:]        
         # 3. 合并为纯净的 additional_feature (排除协方差数据)
         additional_feature = th.cat((tech_features, date_features), dim=-1)
 
-        #各元素维度：[bs, stock_num, d_model], [bs, stock_num, hidden_channel], [bs, stock_num, hidden_channel],
-        # [bs, stock_num, x.shape[-1] - feat_dim - hidden_channel*2]
+        #各元素维度：[bs, stock_num, hidden_out], [bs, stock_num, hidden_out], [bs, stock_num, hidden_out],
+        # [bs, stock_num, x.shape[-1] - feat_dim - hidden_out*2]
         return enc_out, temporal_feature_short, temporal_feature_long, additional_feature

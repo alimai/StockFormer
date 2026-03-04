@@ -10,7 +10,7 @@ from Transformer.models.layer import MultiHeadAttention
 
 
 class policy_transformer_stock_atten2(nn.Module): # attention(long, short), attention(hybrid, relational) 
-    def __init__(self, d_model=128, n_heads=4, dropout=0.1, lr=0.0001, output_attention=False, device=None, additional_dim=20):
+    def __init__(self, hidden_out=128, n_heads=4, dropout=0.1, lr=0.0001, output_attention=False, device=None, additional_dim=20):
         super().__init__()
         
         # 检测GPU可用性并决定使用GPU还是CPU
@@ -21,7 +21,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 device = 'cpu'
         self.device = device
         
-        d_atten = d_model if config.COMP_ON_BACK else d_model // 4
+        d_atten = hidden_out if config.COMP_ON_BACK else hidden_out // 4
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_atten, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
@@ -30,35 +30,35 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.norm2 = nn.LayerNorm(d_atten)
         self.dropout = nn.Dropout(dropout)
 
-        # 特征融合后投影回 d_model
+        # 特征融合后投影回 hidden_out
         self.projection_input = nn.Sequential(
-            nn.Linear(d_model + additional_dim, d_atten),
+            nn.Linear(hidden_out + additional_dim, d_atten),
             nn.LayerNorm(d_atten),
             nn.GELU()
         )
         
         self.projection_input2 = nn.Sequential(
-            nn.Linear(d_model, d_atten),
+            nn.Linear(hidden_out, d_atten),
             nn.LayerNorm(d_atten),
             nn.GELU()
         )
         self.projection_input3 = nn.Sequential(
-            nn.Linear(d_model, d_atten),
+            nn.Linear(hidden_out, d_atten),
             nn.LayerNorm(d_atten),
             nn.GELU()
         )
 
         # # Gated Fusion Mechanism
         # self.fusion_gate = nn.Sequential(
-        #     nn.Linear(d_model * 2, d_model),
+        #     nn.Linear(hidden_out * 2, hidden_out),
         #     nn.Sigmoid()
         # )
 
         # 2. Output Projection: 
-        tmp_hid_dim = d_model//4 # additional_dim # 21//2=10
-        tmp_out_dim = d_model - additional_dim # 128 - 20 = 108
+        tmp_hid_dim = hidden_out//4 # additional_dim # 21//2=10
+        tmp_out_dim = hidden_out - additional_dim # 128 - 20 = 108
         self.projection_output = nn.Sequential(
-            nn.Linear(d_model, tmp_hid_dim),
+            nn.Linear(hidden_out, tmp_hid_dim),
             # nn.LayerNorm(tmp_hid_dim),
             # nn.GELU(),
             nn.Linear(tmp_hid_dim, tmp_out_dim)

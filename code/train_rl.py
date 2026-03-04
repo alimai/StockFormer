@@ -87,7 +87,7 @@ if __name__ == '__main__':
         "time_window_start":[i for i in range(60, train_length - config.stride, config.stride)],
         "step_len": config.step_len,
         "temporal_len": 60,
-        "hidden_channel":config.MAESAC_PARAMS["d_model"],#128,MAE/short/long 模型的隐藏层输出维度
+        "hidden_out":config.MAESAC_PARAMS["hidden_out"],#128,MAE/short/long 模型的隐藏层输出维度
         "result_path":config.RESULTS_DIR,#os.path.join(config.RESULTS_DIR, 'figures', version_name, model_name),
         "short_prediction_model_path": short_prediction_model_path,
         "long_prediction_model_path": long_prediction_model_path,

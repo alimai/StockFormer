@@ -123,7 +123,7 @@ MAESAC_TUNABLE_PARAMS = {
     "dropout": dropout_default,#与 policy_transformer 共用
     "actor_alpha": actor_alpha_default,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": critic_alpha_default,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
-    "pt_dim": pt_dim_default,# policy_transformer 的输出层维度,对应actor/critic输入维度（默认值 128）
+    "ac_input_dim": pt_dim_default,# actor/critic输入维度,对应policy_transformer 的输出层维度（默认值 128）
 }
 
 # ===== 完整的 MAESAC 参数（包含不可调节的架构参数） =====
@@ -139,8 +139,9 @@ MAESAC_PARAMS = {
     "n_heads":4,#多头注意力机制的头数
     "e_layers":2,#编码器层数
     "d_layers":1,#解码器层数
-    "d_model":128,#即 hidden_channel,MAE/short/long 模型的隐藏层输出维度（编码后解码前，输入给 SAC 模型 policy_transformer）
+    "hidden_out":128,#即 d_model, MAE/short/long 模型的隐藏层输出维度（编码后解码前，输入给 SAC 模型 policy_transformer）
 
+    "stock_dim": TICKET_SIZE,
     "transformer_path": '',#mae_model_path,
     "transformer_device": device,
 
@@ -168,7 +169,7 @@ policy_kwargs = {
 #     "enc_in":TEMPORAL_FEATURE_SIZE,#时序特征数 10
 #     "dec_in":TEMPORAL_FEATURE_SIZE,
 #     "c_out_prediction":1,#不同于 MAESAC_PARAMS
-#     "d_model":128,
+#     "hidden_out":128,#d_model
 #     "d_ff":256,
 #     "n_heads":8,#不同于 MAESAC_PARAMS
 #     "e_layers":3,#不同于 MAESAC_PARAMS
@@ -207,7 +208,7 @@ TRANSFORMER_PARAMS_DEFAULT = {
     "pred_type": "label_long_term",               # [label_long_term|label_short_term]
     "short_term_len": 1,                          # short term prediction len
     "long_term_len": 5,                           # long term prediction len
-    "d_model": 128,                               # dimension of model
+    "d_model": 128,                               # dimension of hidden out 
     "n_heads": 4,                                 # num of heads
     "e_layers": 2,                                # num of encoder layers
     "d_layers": 1,                                # num of decoder layers
