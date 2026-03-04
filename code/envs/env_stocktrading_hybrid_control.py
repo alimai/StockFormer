@@ -29,28 +29,25 @@ class StockTradingEnv(gym.Env):
         initial_amount,
         transaction_cost_pct,
         reward_scaling,
-        state_space,#state_space = stock_num
-        action_space,#action_space = stock_num
         tech_indicator_list,
         temporal_feature_list,
         type_list,
         time_window_start, # should be a list
-        short_prediction_model_path = None,
-        long_prediction_model_path = None,
+        mode="train",
+        model_name="StockFormer",
+        version_name='CSI',
         step_len=1000,
         temporal_len=60,
-        figure_path='results/',
-        csv_path = 'results/',
-        mode="train",
-        hidden_channel=128,
+        hidden_channel=128,#MAESAC_PARAMS["d_model"],MAE/short/long 模型的隐藏层输出维度
         make_plots=True,
         print_verbosity=1,
         initial=True,
-        model_name="",
         iteration="",
+        result_path='results/',
+        short_prediction_model_path = None,
+        long_prediction_model_path = None,
         device=None,
-        print_additional_flag=0,
-        data_all=None, # 新增参数
+        data_all=None, # 新增参数, 保存全量数据矩阵
     ):
         super().__init__()
         # start time
@@ -61,10 +58,10 @@ class StockTradingEnv(gym.Env):
         self.step_len = step_len
 
         # help file
-        self.figure_path = figure_path
-        self.csv_path = csv_path
-        os.makedirs(figure_path, exist_ok=True)
-        os.makedirs(csv_path, exist_ok=True)
+        self.figure_path = os.path.join(result_path, 'figures', version_name, model_name)
+        self.csv_path = os.path.join(result_path, 'csv', version_name, model_name)
+        os.makedirs(self.figure_path, exist_ok=True)
+        os.makedirs(self.csv_path, exist_ok=True)
 
         self.df = df
         self.data_all = data_all # 保存全量数据矩阵
@@ -80,15 +77,14 @@ class StockTradingEnv(gym.Env):
         self.transaction_cost_pct = transaction_cost_pct
 
         self.reward_scaling = reward_scaling
-        self.state_space = state_space
-        self.action_dim = action_space
+        self.state_space = stock_dim
         self.tech_indicator_list = tech_indicator_list
         self.temporal_feature_list = temporal_feature_list
         self.type_list = type_list
         self.temporal_len = temporal_len
         self.hidden_channel = hidden_channel
 
-        self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_dim,))
+        self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim,))
         tech_dim = len(self.tech_indicator_list)#8
         # observation_space：self._update_state()生成数据维度；Modified: date features now take 12 dimensions (One-hot)
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
@@ -126,7 +122,6 @@ class StockTradingEnv(gym.Env):
         self.warmup_steps = 15 # 新增：预热步数
 
         # additional list
-        self.print_additional_flag = print_additional_flag
         self.short_hidden_feature = []
         self.long_hidden_feature = []
 

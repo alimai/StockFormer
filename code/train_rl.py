@@ -73,24 +73,22 @@ if __name__ == '__main__':
     print(f"Stock Dimension: {stock_dimension}, State Space: {state_space}")
 
     env_kwargs = {
+        "mode":'train',
+        "model_name":model_name,#'StockFormer'
+        "version_name": version_name,#'CSI_2',
         "hmax": 100,
         "initial_amount": 100000,
         "transaction_cost_pct": 0,
-        "state_space": state_space,
         "stock_dim": stock_dimension,
         "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST,
         "temporal_feature_list": config.TEMPORAL_FEATURE,
         "type_list": config.TYPE_FEATURE,
-        "action_space": stock_dimension,
         "reward_scaling": 100,
-        "figure_path":os.path.join(config.RESULTS_DIR, 'figures', version_name, model_name),
-        "csv_path": os.path.join(config.RESULTS_DIR, 'csv', version_name, model_name),
-        "mode":'train',
         "time_window_start":[i for i in range(60, train_length - config.stride, config.stride)],
         "step_len": config.step_len,
         "temporal_len": 60,
-        "hidden_channel":config.MAESAC_PARAMS["d_model"],#128
-        "model_name":model_name,
+        "hidden_channel":config.MAESAC_PARAMS["d_model"],#128,MAE/short/long 模型的隐藏层输出维度
+        "result_path":config.RESULTS_DIR,#os.path.join(config.RESULTS_DIR, 'figures', version_name, model_name),
         "short_prediction_model_path": short_prediction_model_path,
         "long_prediction_model_path": long_prediction_model_path,
         "device": config.device,
@@ -110,13 +108,11 @@ if __name__ == '__main__':
     print("Initial Env...")
     train_mode = True#False#
     if train_mode:
-        env_name = "train"
-        env_kwargs["mode"] = env_name
+        env_kwargs["mode"] = "train"
         train_trade_gym = Env(df = train, data_all = train_data, **env_kwargs)
         env_train, _ = train_trade_gym.get_sb_env()
 
-        env_name = "eval"
-        env_kwargs["mode"] = env_name
+        env_kwargs["mode"] = "eval"
         env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
         eval_trade_gym = Env(df = eval, data_all = eval_data, **env_kwargs)
         env_eval, _ = eval_trade_gym.get_sb_env()
@@ -216,8 +212,7 @@ if __name__ == '__main__':
     #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
     test_model_path = os.path.join(model_path, 'best_train_model.zip')
 
-    env_name = "test"
-    env_kwargs["mode"] = env_name
+    env_kwargs["mode"] = "test"
     env_kwargs["time_window_start"] = [env_kwargs["temporal_len"]]#60
     test_trade_gym = Env(df = test, data_all = test_data, **env_kwargs)
     env_test, _ = test_trade_gym.get_sb_env()
