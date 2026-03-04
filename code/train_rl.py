@@ -117,14 +117,14 @@ if __name__ == '__main__':
         eval_trade_gym = Env(df = eval, data_all = eval_data, **env_kwargs)
         env_eval, _ = eval_trade_gym.get_sb_env()
 
-        if config.U_STRUCTURE:
-            final_model_name = 'final_train_model_u'
-            buffer_name = 'replay_buffer_u'
-            print("使用 U 结构的 Transformer 模型")
+        if config.COMP_ON_BACK:
+            final_model_name = 'final_train_model_b'
+            buffer_name = 'replay_buffer_b'
+            print("使用后压缩的 Transformer 模型")
         else:
-            final_model_name = 'final_train_model_no_u'
-            buffer_name = 'replay_buffer_no_u'
-            print("使用非 U 结构的 Transformer 模型")
+            final_model_name = 'final_train_model_f'
+            buffer_name = 'replay_buffer_f'
+            print("使用前压缩的 Transformer 模型")
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False

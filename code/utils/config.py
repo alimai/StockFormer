@@ -90,8 +90,8 @@ INDICATORS_SIZE = len(TECHNICAL_INDICATORS_LIST)
 TEMPORAL_FEATURE_SIZE = len(TEMPORAL_FEATURE)
 ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
-U_STRUCTURE = False #True # 是否使用 U 结构
-if U_STRUCTURE:
+COMP_ON_BACK = False #True # 压缩位置
+if COMP_ON_BACK:
     dropout_default = 0.8
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1

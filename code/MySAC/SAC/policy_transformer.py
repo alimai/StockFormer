@@ -21,7 +21,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 device = 'cpu'
         self.device = device
         
-        d_atten = d_model if config.U_STRUCTURE else d_model // 4
+        d_atten = d_model if config.COMP_ON_BACK else d_model // 4
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_atten, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
@@ -70,7 +70,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
-        if not config.U_STRUCTURE:
+        if not config.COMP_ON_BACK:
             return self.forward_front(relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask) 
             
         # 1) 处理输入特征 (Refinement)
