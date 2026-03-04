@@ -59,8 +59,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         tmp_out_dim = d_model - additional_dim # 128 - 20 = 108
         self.projection_output = nn.Sequential(
             nn.Linear(d_model, tmp_hid_dim),
-            nn.LayerNorm(tmp_hid_dim),
-            nn.GELU(),
+            # nn.LayerNorm(tmp_hid_dim),
+            # nn.GELU(),
             nn.Linear(tmp_hid_dim, tmp_out_dim)
         )
 
