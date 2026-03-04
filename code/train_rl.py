@@ -15,12 +15,16 @@ from utils.data.stock_data_handle import Stock_Data
 from torch.optim import AdamW
 
 if __name__ == '__main__':
+    print("start:")
     fix_seed = 2022 #random.randint(1, 5000) 
     config.set_seed(fix_seed)
     version_name = config.version_name
     model_name = config.model_name
 
-    print("start:")
+    timestamp = datetime.datetime.now().strftime("%m%d%H%M")
+    tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
+    print(f"log name: {tb_log_name_with_timestamp}")
+
     working_path = os.path.dirname(os.path.abspath(__file__))
     short_prediction_model_path = working_path + '/../trained_models/'+version_name+'/Short/checkpoint.pth'
     long_prediction_model_path =  working_path + '/../trained_models/'+version_name+'/Long/checkpoint.pth'
@@ -106,10 +110,6 @@ if __name__ == '__main__':
     print("Initial Env...")
     train_mode = True#False#
     if train_mode:
-        timestamp = datetime.datetime.now().strftime("%m%d%H%M")
-        tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
-        print(f"log name: {tb_log_name_with_timestamp}")
-
         env_name = "train"
         env_kwargs["mode"] = env_name
         train_trade_gym = Env(df = train, data_all = train_data, **env_kwargs)
