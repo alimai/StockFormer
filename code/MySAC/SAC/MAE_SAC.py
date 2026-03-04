@@ -3,6 +3,7 @@ import random
 import os
 
 import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 import torch as th
 from torch.nn import functional as F
@@ -115,23 +116,26 @@ class SAC(SAC_SB3):
         transformer_path = None,
         actor_alpha=0.1,
         critic_alpha=1.0,
+        pt_dim=128,
         **kwargs,
     ):
         # 【关键修复】在 super().__init__ 之前获取并设置隐藏状态空间
         # 否则父类初始化过程中调用 _setup_model 时会因找不到 hidden_state_space 报错
         self.hidden_state_space = None
-        if hasattr(env, "hidden_state_space"):
-            self.hidden_state_space = env.hidden_state_space
+        if hasattr(env, "state_space"):
+            self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(env.state_space, pt_dim))
         elif hasattr(env, "get_attr"):
             try:
-                self.hidden_state_space = env.get_attr("hidden_state_space")[0]
+                state_space = env.get_attr("state_space")[0]
+                self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(state_space, pt_dim))
             except Exception:
                 pass
         
         if self.hidden_state_space is None and hasattr(self, "env") and self.env is not None:
             if hasattr(self.env, "get_attr"):
                 try:
-                    self.hidden_state_space = self.env.get_attr("hidden_state_space")[0]
+                    state_space = self.env.get_attr("state_space")[0]
+                    self.hidden_state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(state_space, pt_dim))
                 except Exception:
                     pass
 

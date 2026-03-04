@@ -95,10 +95,12 @@ if U_STRUCTURE:
     dropout_default = 0.8
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
+    pt_dim_default = 128
 else:
     dropout_default = 0.8
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
+    pt_dim_default = 32
 
 ##transformer Model Parameters
 
@@ -121,6 +123,7 @@ MAESAC_TUNABLE_PARAMS = {
     "dropout": dropout_default,#与 policy_transformer 共用
     "actor_alpha": actor_alpha_default,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": critic_alpha_default,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
+    "pt_dim": pt_dim_default,# policy_transformer 的输出层维度,对应actor/critic输入维度（默认值 128）
 }
 
 # ===== 完整的 MAESAC 参数（包含不可调节的架构参数） =====
@@ -128,7 +131,7 @@ MAESAC_PARAMS = {
     # --- 可调节的训练超参数 ---
     **MAESAC_TUNABLE_PARAMS,
 
-    # --- 不可调节的架构参数（固化在模型中，加载时不可修改） ---
+    # --- 不可调节的架构参数（固化在MAE模型中，加载时不可修改） ---
     "enc_in": ENCODER_INPUT_SIZE,#MAE 编码器的输入维度#股票数 88+ 技术指标数 8
     "dec_in": ENCODER_INPUT_SIZE,#MAE 解码器的输入维度
     "c_out_construction": ENCODER_INPUT_SIZE,#MAE 模型的输出维度（只用来评估重建损失）
