@@ -75,7 +75,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        temporal_input_adapted = self.projection_input(temporal_fused_input) # [B, N, 128]
+        temporal_input_adapted = self.dropout(self.projection_input(temporal_fused_input)) # [B, N, 128]
 
         tmp_feature_1, attn = self.attention1(
             temporal_input_adapted, temporal_feature_short, temporal_feature_short,
@@ -94,7 +94,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 2) Output Processing
         #fused_output = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
         #fused_output = torch.cat((relational_feature, temporal_feature_long, temporal_feature_short, additional_feature), dim=-1)
-        fused_output_adapted = self.dropout(self.projection_output(hybrid_feature)) # [B, N, 128]
+        fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
