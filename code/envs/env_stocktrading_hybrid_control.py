@@ -261,7 +261,7 @@ class StockTradingEnv(gym.Env):
                 print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
 
-            if self.make_plots and self.model_name != "" and self.mode != "":
+            if self.make_plots and self.model_name != "" and self.mode != "train":
                 self._make_plot()
                 
                 df_total_value = self.save_asset_memory()
