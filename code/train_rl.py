@@ -132,8 +132,8 @@ if __name__ == '__main__':
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
         # 已训练的模型和buffer，如果存在则加载继续训练
-        load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
-        buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
+        load_model_path = os.path.join(model_path, final_model_name+'.zip')
+        buffer_path = os.path.join(model_path, buffer_name+'.npz')
         
         # 训练强化学习代理，加载模型
         agent = DRLAgent(env = env_train_vm)
