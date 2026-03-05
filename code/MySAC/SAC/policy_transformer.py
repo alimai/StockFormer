@@ -1,4 +1,4 @@
-import torch
+﻿import torch
 from torch import nn
 from utils import config
 
@@ -71,7 +71,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         self.update_number +=1
-        update_type = (self.update_number%3e4)//1e4 #update_type取值范围为0-2
+        update_type = int((self.update_number % 30000) // 10000) #update_type取值范围为0-2
 
         if not config.COMP_ON_BACK:
             return self.forward_front(relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask) 
