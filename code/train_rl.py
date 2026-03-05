@@ -127,19 +127,17 @@ if __name__ == '__main__':
         eval_trade_gym = Env(df = eval, data_all = eval_data, **env_kwargs)
         env_eval, _ = eval_trade_gym.get_sb_env()
 
-        # 检查是否存在已训练的模型，如果存在则加载继续训练
-        load_pretrain = False
-        load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
-        if os.path.exists(load_model_path):
-            load_pretrain = True
-        
         # 使用 VecMonitor 包装环境以记录训练和评估的统计信息
         env_train_vm = VecMonitor(env_train, log_path_train)
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
+        # 已训练的模型和buffer，如果存在则加载继续训练
+        load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
+        buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
+        
         # 训练强化学习代理，加载模型
         agent = DRLAgent(env = env_train_vm)
-        if load_pretrain:
+        if os.path.exists(load_model_path):
             try:
                 print(f"load: {load_model_path}...")
                 model_sac = SAC_MAE.load(
@@ -160,6 +158,16 @@ if __name__ == '__main__':
                                         policy_kwargs=config.policy_kwargs
                                         )
 
+        # 加载已有的 Buffer
+        if os.path.exists(buffer_path):
+            try:
+                max_load = config.MAESAC_PARAMS.get("buffer_max_load")
+                print(f"正在加载 Buffer 文件以实现热启动 (max_load={max_load}): {buffer_path}")
+                model_sac.load_replay_buffer(buffer_path, max_load=max_load)
+                print("Buffer 加载成功！")
+            except Exception as e:
+                print(f"加载 Buffer 失败，将跳过加载阶段：{e}")
+
         # 在训练正式开始前保存参数配置到 tensorboard 日志目录
         config_save_dir = os.path.join(tensorboard_log_dir, tb_log_name_with_timestamp)
         os.makedirs(config_save_dir, exist_ok=True)
@@ -169,18 +177,6 @@ if __name__ == '__main__':
             serializable_config['COMP_ON_BACK'] = str(config.COMP_ON_BACK)
             serializable_config['fix_seed'] = str(fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
-
-        # 在正式开始 learn 之前尝试加载旧的 Buffer
-        # 定义 Buffer 文件的存储路径
-        buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
-        if os.path.exists(buffer_path):
-            try:
-                max_load = config.MAESAC_PARAMS.get("buffer_max_load")
-                print(f"正在加载 Buffer 文件以实现热启动 (max_load={max_load}): {buffer_path}")
-                model_sac.load_replay_buffer(buffer_path, max_load=max_load)
-                print("Buffer 加载成功！")
-            except Exception as e:
-                print(f"加载 Buffer 失败，将跳过加载阶段：{e}")
 
         print('Start training...')
         start = time.time()
@@ -195,23 +191,17 @@ if __name__ == '__main__':
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
-        # 训练完成后保存最终模型
+        # 训练完成后保存最终模型和 buffer
+        # 强化学习训练后保存的模型（如 best_train_model.zip）是一个复合模型，它包含了：
+        #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
+        #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
+        #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
         final_model_path = os.path.join(model_path, final_model_name+'_out.zip')
         trained_sac.save(final_model_path)
         print(f"最终训练模型已保存到：{final_model_path}")
+        buffer_path_out = os.path.join(model_path, buffer_name+'_out.npz')
+        trained_sac.save_replay_buffer(buffer_path_out)
 
-        # 训练完成后保存最新的 Buffer，供下次使用
-        try:
-            buffer_path_out = os.path.join(model_path, buffer_name+'_out.npz')
-            trained_sac.save_replay_buffer(buffer_path_out)
-        except Exception as e:
-            print(f"保存 Buffer 失败：{e}")
-
-    #强化学习训练后保存的模型（如 best_train_model.zip）是一个复合模型，它包含了：
-    #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
-    #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
-    #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
-    test_model_path = os.path.join(model_path, final_model_name+'_out.zip')#'best_train_model.zip')
 
     print("Initial test Env...")
     env_kwargs["mode"] = "test"
@@ -219,10 +209,8 @@ if __name__ == '__main__':
     test_trade_gym = Env(df = test, data_all = test_data, **env_kwargs)
     env_test, _ = test_trade_gym.get_sb_env()
     # 测试阶段：使用原始环境
-    start = time.time()
+    test_model_path = os.path.join(model_path, final_model_name+'_out.zip')#'best_train_model.zip')
     results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test, cwd=test_model_path)
-    end = time.time()
-    print("Test time: %.3f"%(end-start))
 
     df_root = os.path.join(config.RESULTS_DIR, 'test', version_name, model_name)
     os.makedirs(df_root, exist_ok=True)
