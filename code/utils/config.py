@@ -92,12 +92,12 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
 COMP_ON_BACK = True #False # 压缩位置
 if COMP_ON_BACK:
-    dropout_default = 0.5
+    dropout_default = 0.7
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
     ac_input_default = 128
 else:
-    dropout_default = 0.8
+    dropout_default = 0.7
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
     ac_input_default = 32
