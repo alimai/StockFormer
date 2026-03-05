@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
         # 检查是否存在已训练的模型，如果存在则加载继续训练
         load_pretrain = False
-        load_model_path = os.path.join(model_path, final_model_name+'.zip')
+        load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
         if os.path.exists(load_model_path):
             load_pretrain = True
         
@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
         # 在正式开始 learn 之前尝试加载旧的 Buffer
         # 定义 Buffer 文件的存储路径
-        buffer_path = os.path.join(model_path, buffer_name+'.npz')
+        buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
         if os.path.exists(buffer_path):
             try:
                 max_load = config.MAESAC_PARAMS.get("buffer_max_load")
@@ -191,7 +191,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=199000)
+                                    total_timesteps=99000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
