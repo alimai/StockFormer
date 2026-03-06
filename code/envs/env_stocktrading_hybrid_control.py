@@ -317,14 +317,14 @@ class StockTradingEnv(gym.Env):
             asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
 
             market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
-            reward_relative = (self.reward - market_value_growth_ratio) * 1.5
-            self.reward = asset_for_reward_new / begin_total_asset - 1.0
-            self.reward *= self.reward_scaling
-            # 使用对数形式：保留符号，使用 log1p 计算对数
-            if self.reward > -1.0:#只针对绝对收益,对应reward_scaling缩放前-0.01
-                self.reward = np.sign(self.reward) * np.log1p(np.abs(self.reward))
-            self.reward += reward_relative * self.reward_scaling
-            #self.reward -= np.average(self.rewards_memory)* 0.1 if self.rewards_memory else 0.0
+            reward_absolut = asset_for_reward_new / begin_total_asset - 1.0
+            reward_relative = (reward_absolut - market_value_growth_ratio) * 1.5
+            reward_absolut *= self.reward_scaling
+            reward_relative *= self.reward_scaling
+            # 只针对绝对收益,使用对数形式：保留符号，使用 log1p 计算对数
+            if reward_absolut > -1.0:#对应reward_scaling缩放前-0.01
+                reward_absolut = np.sign(reward_absolut) * np.log1p(np.abs(reward_absolut))
+            self.reward += reward_absolut + reward_relative
 
 
             self.actions_memory.append(actions)
