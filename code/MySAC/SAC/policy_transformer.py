@@ -71,7 +71,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         if config.struct_base_flag:
-            update_type = 0
+            update_type = 1
         else:
             self.update_number +=1
             update_type = int((self.update_number % 20000) // 10000) + 1 #update_type取值范围为0-2
