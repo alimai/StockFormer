@@ -321,7 +321,7 @@ class StockTradingEnv(gym.Env):
             self.reward = asset_for_reward_new / begin_total_asset - 1.0
             self.reward *= self.reward_scaling
             # 使用对数形式：保留符号，使用 log1p 计算对数
-            if self.reward > 1.0:#只针对绝对收益,对应reward_scaling缩放前0.01
+            if self.reward > -1.0:#只针对绝对收益,对应reward_scaling缩放前-0.01
                 self.reward = np.sign(self.reward) * np.log1p(np.abs(self.reward))
             self.reward += reward_relative * self.reward_scaling
             #self.reward -= np.average(self.rewards_memory)* 0.1 if self.rewards_memory else 0.0
