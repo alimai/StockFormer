@@ -185,7 +185,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=69000)
+                                    total_timesteps=99000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
