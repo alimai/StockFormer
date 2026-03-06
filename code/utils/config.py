@@ -90,8 +90,8 @@ INDICATORS_SIZE = len(TECHNICAL_INDICATORS_LIST)
 TEMPORAL_FEATURE_SIZE = len(TEMPORAL_FEATURE)
 ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
-COMP_ON_BACK = True #False # 压缩位置
-if COMP_ON_BACK:
+para_flag = True #False # 压缩位置
+if para_flag:
     dropout_default = 0.7
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1

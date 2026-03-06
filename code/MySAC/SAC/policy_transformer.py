@@ -22,7 +22,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.device = device
         self.update_number = 0
         
-        d_atten = hidden_out if config.COMP_ON_BACK else hidden_out // 4
+        d_atten = hidden_out
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), d_atten, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
@@ -38,16 +38,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.GELU()
         )
         
-        self.projection_input2 = nn.Sequential(
-            nn.Linear(hidden_out, d_atten),
-            nn.LayerNorm(d_atten),
-            nn.GELU()
-        )
-        self.projection_input3 = nn.Sequential(
-            nn.Linear(hidden_out, d_atten),
-            nn.LayerNorm(d_atten),
-            nn.GELU()
-        )
+        # self.projection_input2 = nn.Sequential(
+        #     nn.Linear(hidden_out, d_atten),
+        #     nn.LayerNorm(d_atten),
+        #     nn.GELU()
+        # )
+        # self.projection_input3 = nn.Sequential(
+        #     nn.Linear(hidden_out, d_atten),
+        #     nn.LayerNorm(d_atten),
+        #     nn.GELU()
+        # )
 
         # # Gated Fusion Mechanism
         # self.fusion_gate = nn.Sequential(
@@ -72,9 +72,6 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         self.update_number +=1
         update_type = int((self.update_number % 30000) // 10000) #update_type取值范围为0-2
-
-        if not config.COMP_ON_BACK:
-            return self.forward_front(relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask) 
             
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
