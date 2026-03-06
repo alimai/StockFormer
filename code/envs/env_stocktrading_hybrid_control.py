@@ -321,7 +321,7 @@ class StockTradingEnv(gym.Env):
             self.reward = self.reward + (self.reward - market_value_growth_ratio) * 1.5
             self.reward *= self.reward_scaling
             # 使用对数形式：保留符号，使用 log1p 计算对数
-            if self.reward > -1.0:
+            if self.reward > -1.0:#对应reward_scaling缩放前-0.01
                 self.reward = np.sign(self.reward) * np.log1p(np.abs(self.reward))
 
 

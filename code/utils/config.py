@@ -100,7 +100,7 @@ else:
     dropout_default = 0.7
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
-    ac_input_default = 32
+    ac_input_default = 128
 
 ##transformer Model Parameters
 
