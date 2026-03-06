@@ -105,8 +105,8 @@ if __name__ == '__main__':
     model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name)
     os.makedirs(model_path, exist_ok=True)
 
-    final_model_name = 'final_train_model_b'
-    buffer_name = 'replay_buffer_b'
+    final_model_name = 'final_train_model'
+    buffer_name = 'replay_buffer'
 
     train_mode = True#False#
     if train_mode:
@@ -168,7 +168,7 @@ if __name__ == '__main__':
         with open(os.path.join(config_save_dir, 'maesac_config.json'), 'w', encoding='utf-8') as f:
             # 处理不可序列化项为字符串
             serializable_config = {k: str(v) for k, v in config.MAESAC_TUNABLE_PARAMS.items()}
-            serializable_config['para_flag'] = str(config.structpara_flag_flag)
+            serializable_config['para_flag'] = str(config.para_flag)
             serializable_config['fix_seed'] = str(fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
