@@ -92,7 +92,7 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
 para_flag = True #False # 压缩位置
 if para_flag:
-    dropout_default = 0.8
+    dropout_default = 0.7
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
     ac_input_default = 128
