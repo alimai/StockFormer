@@ -321,9 +321,11 @@ class StockTradingEnv(gym.Env):
             reward_relative = (reward_absolut - market_value_growth_ratio) * 1.5
             reward_absolut *= self.reward_scaling
             reward_relative *= self.reward_scaling
-            # 只针对绝对收益,使用对数形式：保留符号，使用 log1p 计算对数
+            # 使用对数形式：保留符号，使用 log1p 计算对数
             if reward_absolut > -1.0:#对应reward_scaling缩放前-0.01
                 reward_absolut = np.sign(reward_absolut) * np.log1p(np.abs(reward_absolut))
+            if reward_relative > -1.0:#对应reward_scaling缩放前-0.01
+                reward_relative = np.sign(reward_relative) * np.log1p(np.abs(reward_relative))
             self.reward = reward_absolut + reward_relative
 
 
