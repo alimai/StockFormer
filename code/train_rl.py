@@ -126,8 +126,8 @@ if __name__ == '__main__':
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
         # 已训练的模型和buffer，如果存在则加载继续训练
-        load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
-        buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
+        load_model_path = os.path.join(model_path, final_model_name+'_out--.zip')
+        buffer_path = os.path.join(model_path, buffer_name+'_out--.npz')
         
         # 训练强化学习代理，加载模型
         agent = DRLAgent(env = env_train_vm)
@@ -168,7 +168,7 @@ if __name__ == '__main__':
         with open(os.path.join(config_save_dir, 'maesac_config.json'), 'w', encoding='utf-8') as f:
             # 处理不可序列化项为字符串
             serializable_config = {k: str(v) for k, v in config.MAESAC_TUNABLE_PARAMS.items()}
-            serializable_config['para_flag'] = str(config.para_flag)
+            serializable_config['struct_base_flag'] = str(config.struct_base_flag)
             serializable_config['fix_seed'] = str(fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
@@ -181,7 +181,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=39000)
+                                    total_timesteps=69000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 

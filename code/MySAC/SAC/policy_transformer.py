@@ -70,15 +70,18 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
-        self.update_number +=1
-        update_type = int((self.update_number % 20000) // 10000) #update_type取值范围为0-2
+        if config.struct_base_flag:
+            update_type = 0
+        else:
+            self.update_number +=1
+            update_type = int((self.update_number % 20000) // 10000) + 1 #update_type取值范围为0-2
             
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        if update_type==0:
-            temporal_input_adapted = self.projection_input(temporal_fused_input) # [B, N, 128]
-        else:
+        if update_type==1:
             temporal_input_adapted = self.dropout(self.projection_input(temporal_fused_input)) # [B, N, 128]
+        else:
+            temporal_input_adapted = self.projection_input(temporal_fused_input) # [B, N, 128]
 
         tmp_feature_1, attn = self.attention1(
             temporal_input_adapted, temporal_feature_short, temporal_feature_short,
@@ -97,10 +100,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 2) Output Processing
         #fused_output = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
         #fused_output = torch.cat((relational_feature, temporal_feature_long, temporal_feature_short, additional_feature), dim=-1)
-        if update_type==1:
-            fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
-        else:
+        if update_type==2:
             fused_output_adapted = self.dropout(self.projection_output(hybrid_feature)) # [B, N, 128]
+        else:
+            fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）

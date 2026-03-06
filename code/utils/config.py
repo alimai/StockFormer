@@ -1,7 +1,9 @@
 import os
+import sys
 import random
 import numpy as np
 import torch
+import argparse
 from datetime import datetime
 
 INF = 1100
@@ -90,9 +92,18 @@ INDICATORS_SIZE = len(TECHNICAL_INDICATORS_LIST)
 TEMPORAL_FEATURE_SIZE = len(TEMPORAL_FEATURE)
 ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 
-para_flag = True #False # 压缩位置
-if para_flag:
-    dropout_default = 0.7
+# 解析命令行参数
+def parse_args():
+    parser = argparse.ArgumentParser(description='StockFormer Training Configuration')
+    parser.add_argument('--struct_base_flag', type=str, default='True',
+                        help='是否使用 struct_base 模式 (True/False)')
+    args, unknown = parser.parse_known_args()
+    return args
+
+_args = parse_args()
+struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
+if struct_base_flag:
+    dropout_default = 0.5
     actor_alpha_default = 0.0
     critic_alpha_default = 0.1
     ac_input_default = 128
