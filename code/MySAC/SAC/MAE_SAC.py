@@ -652,19 +652,6 @@ class SAC(SAC_SB3):
             
         print(f"串行载入完成！当前 Buffer 状态: {'已满' if self.replay_buffer.full else '未满'}, 位置: {self.replay_buffer.pos}")
 
-    # def set_parameters(self, load_path_or_dict, exact_match: bool = True, device: Union[th.device, str] = "auto") -> None:
-    #     """
-    #     重置参数加载逻辑，使其在 A 轮转 B 轮时能够跳过缺失的新参数。
-    #     """
-    #     # 老大，我们将 exact_match 强制设为 False，这样如果 zip 里没找到优化器或 Target 网络，
-    #     # 它会跳过并打印警告，而不是直接报错崩溃。
-    #     super().set_parameters(load_path_or_dict, exact_match=False, device=device)
-        
-    #     # 【关键补丁】如果加载的是不带目标网络状态的旧模型（如 A 轮模型），
-    #     # 加载后立即从当前已恢复的主网络同步一次权重，防止训练初期目标网络乱跑。
-    #     self.critic_transformer_target.load_state_dict(self.critic_transformer.state_dict())
-    #     self.critic_target.load_state_dict(self.critic.state_dict())
-
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         # 保存基础 SAC 组件
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
