@@ -221,11 +221,6 @@ class SAC(SAC_SB3):
         self.actor_transformer_optim = self.actor_transformer.optimizer
         self.critic_transformer_optim = self.critic_transformer.optimizer
 
-        # 【修复】提前初始化 scaler，确保其 state_dict 能被 SB3 的 save/load 系统识别
-        self.scaler = None
-        if self.device.type == "cuda":
-            self.scaler = th.amp.GradScaler('cuda')
-
         # self.in_feat (enc_in) = stock_num + tech_dim = 96
         self.in_feat = enc_in
 
@@ -652,20 +647,21 @@ class SAC(SAC_SB3):
             
         print(f"串行载入完成！当前 Buffer 状态: {'已满' if self.replay_buffer.full else '未满'}, 位置: {self.replay_buffer.pos}")
 
+    # def set_parameters(self, load_path_or_dict, exact_match: bool = True, device: Union[th.device, str] = "auto") -> None:
+    #     """
+    #     重置参数加载逻辑，使其在 A 轮转 B 轮时能够跳过缺失的新参数。
+    #     """
+    #     # 老大，我们将 exact_match 强制设为 False，这样如果 zip 里没找到新定义的优化器或 Target 网络，
+    #     # 它会跳过并打印警告，而不是直接报错崩溃。
+    #     super().set_parameters(load_path_or_dict, exact_match=False, device=device)
+
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         # 保存基础 SAC 组件
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
-
-        # 保存更新步数，确保 Polyak 更新和学习率调度的连续性
-        saved_pytorch_variables = ["_n_updates"]
-
+        saved_pytorch_variables = ["log_ent_coef"]  # 无论是否学习 ent_coef，都保存 log_ent_coef 以保持接口一致
         # 保存 entropy coefficient 相关
         if self.ent_coef_optimizer is not None:
-            saved_pytorch_variables.append("log_ent_coef")
             state_dicts.append("ent_coef_optimizer")
-        else:
-            saved_pytorch_variables.append("ent_coef_tensor")
-
         # 保存 SAC_MAE 特有的 Transformer 组件
         # state_transformer: Transformer 模型及其优化器
         state_dicts.extend(["state_transformer", "transformer_optim"])
@@ -674,10 +670,6 @@ class SAC(SAC_SB3):
         state_dicts.extend(["actor_transformer", "actor_transformer_optim"])
         state_dicts.extend(["critic_transformer", "critic_transformer_optim"])
         state_dicts.extend(["critic_transformer_target"])
-
-        # 保存混合精度训练的 Scaler 状态
-        if hasattr(self, "scaler") and self.scaler is not None:
-            state_dicts.append("scaler")
 
         return state_dicts, saved_pytorch_variables
 
