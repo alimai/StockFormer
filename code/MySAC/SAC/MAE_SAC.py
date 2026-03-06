@@ -217,6 +217,10 @@ class SAC(SAC_SB3):
         self.critic_transformer_target.load_state_dict(self.critic_transformer.state_dict())
         self.critic_transformer_target.eval()
 
+        # 【修复】将内部优化器提升为直接属性，方便 SB3 通过 getattr 加载（SB3 不支持 'a.b' 这种路径）
+        self.actor_transformer_optim = self.actor_transformer.optimizer
+        self.critic_transformer_optim = self.critic_transformer.optimizer
+
         # self.in_feat (enc_in) = stock_num + tech_dim = 96
         self.in_feat = enc_in
 
@@ -658,9 +662,10 @@ class SAC(SAC_SB3):
         # state_transformer: Transformer 模型及其优化器
         state_dicts.extend(["state_transformer", "transformer_optim"])
 
-        # actor_transformer 和 critic_transformer: 每个都有内部的 optimizer
-        state_dicts.extend(["actor_transformer", "actor_transformer.optimizer"])
-        state_dicts.extend(["critic_transformer", "critic_transformer.optimizer"])
+        # 【修复】使用提升后的属性名，并增加对目标网络的保存
+        state_dicts.extend(["actor_transformer", "actor_transformer_optim"])
+        state_dicts.extend(["critic_transformer", "critic_transformer_optim"])
+        state_dicts.extend(["critic_transformer_target"])
 
         return state_dicts, saved_pytorch_variables
 
