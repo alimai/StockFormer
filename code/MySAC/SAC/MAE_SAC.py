@@ -529,9 +529,6 @@ class SAC(SAC_SB3):
             if was_training_actor:
                 self.actor_transformer.train()
 
-    def _excluded_save_params(self) -> List[str]:
-        return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target", "critic_transformer_target"]
-
     # 优化了 save_replay_buffer：导出速度更快（不压缩），且限制最多保存最新的 5 万条数据
     def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 50000) -> None:
         """
@@ -655,11 +652,16 @@ class SAC(SAC_SB3):
     #     # 它会跳过并打印警告，而不是直接报错崩溃。
     #     super().set_parameters(load_path_or_dict, exact_match=False, device=device)
 
+    # 定在保存模型时需要排除（不保存）的参数名称列表
+    # 这些组件的实际权重已经通过 _get_torch_save_params() 方法单独保存为 PyTorch state_dict 格式
+    def _excluded_save_params(self) -> List[str]:
+        return super(SAC, self)._excluded_save_params() + ["actor", "critic", "critic_target", "critic_transformer_target"]
+
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         # 保存基础 SAC 组件
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
-        saved_pytorch_variables = ["log_ent_coef"]  # 无论是否学习 ent_coef，都保存 log_ent_coef 以保持接口一致
         # 保存 entropy coefficient 相关
+        saved_pytorch_variables = ["log_ent_coef"]  # 无论是否学习 ent_coef，都保存 log_ent_coef 以保持接口一致
         if self.ent_coef_optimizer is not None:
             state_dicts.append("ent_coef_optimizer")
         # 保存 SAC_MAE 特有的 Transformer 组件
