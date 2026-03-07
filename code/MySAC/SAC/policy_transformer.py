@@ -74,7 +74,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             update_type = 1
         else:
             self.update_number +=1
-            update_type = int((self.update_number % 20000) // 10000) + 1 #update_type取值范围为0-2
+            update_type = 2#int((self.update_number % 20000) // 10000) + 1 #update_type取值范围为0-2
             
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
