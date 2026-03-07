@@ -394,5 +394,6 @@ class DRLAgent:
         # 从 terminal 时的 info 获取数据（避免被 DummyVecEnv 自动 reset 清空）
         account_memory = final_info.get('account_memory')
         actions_memory = final_info.get('actions_memory')
+        amount_memory = final_info.get('amount_memory')
 
-        return episode_total_assets, account_memory, actions_memory
+        return episode_total_assets, account_memory, actions_memory, amount_memory

@@ -214,6 +214,19 @@ class StockTradingEnv(gym.Env):
         plt.savefig(self.figure_path+"/account_value_{}_{}.png".format(self.mode, self.episode))
         plt.close()
 
+    def _make_csv(self):
+        df_total_value = self.save_asset_memory()
+        df_total_value.to_csv(self.csv_path+"/account_value_{}_{}.csv".format(self.mode, self.episode), index=False)
+        df_rewards = pd.DataFrame(self.rewards_memory, columns=["account_rewards"])
+        df_rewards.to_csv(self.csv_path+"/account_rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
+        
+        df_actions = self.save_action_memory()
+        df_actions.to_csv(self.csv_path+"/actions_{}_{}.csv".format(self.mode, self.episode))
+        df_stock_amount = self.save_holding_amount()
+        df_stock_amount.to_csv(self.csv_path+"/amount_{}_{}.csv".format(self.mode, self.episode))
+        return df_total_value, df_rewards, df_actions, df_stock_amount
+
+
     def _get_future_price(self, days_ahead=5):
         future_day = min(self.day + days_ahead, self.max_day)
         return self.prices_all[future_day]
@@ -263,17 +276,8 @@ class StockTradingEnv(gym.Env):
                 print("=================================")
 
             if self.make_plots and self.model_name != "" and self.mode != "train":
-                self._make_plot()
-                
-                df_total_value = self.save_asset_memory()
-                df_rewards = pd.DataFrame(self.rewards_memory, columns=["account_rewards"])
-                
-                df_actions = self.save_action_memory()
-                df_actions.to_csv(self.csv_path+"/actions_{}_{}.csv".format(self.mode, self.episode))
-                df_stock_amount = self.save_holding_amount()
-                df_stock_amount.to_csv(self.csv_path+"/amount_{}_{}.csv".format(self.mode, self.episode))
-                df_total_value.to_csv(self.csv_path+"/account_value_{}_{}.csv".format(self.mode, self.episode), index=False)
-                df_rewards.to_csv(self.csv_path+"/account_rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
+                self._make_plot()# just asset_memory by now
+                df_total_value, df_rewards, df_actions, df_stock_amount = self._make_csv()
 
             # 在 info 中返回 memory 数据
             return self.state, self.reward, self.terminal, False, {
@@ -282,6 +286,7 @@ class StockTradingEnv(gym.Env):
                 'sharpe': sharpe,
                 'account_memory': df_total_value if self.mode == 'test' else None,
                 'actions_memory': df_actions if self.mode == 'test' else None,
+                'amount_memory': df_stock_amount if self.mode == 'test' else None,
             }
 
         else:

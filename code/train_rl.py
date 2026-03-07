@@ -214,9 +214,10 @@ if __name__ == '__main__':
 
     df_root = os.path.join(config.RESULTS_DIR, 'test', version_name, model_name)
     os.makedirs(df_root, exist_ok=True)
-    assets_test, actions_test = results[1], results[2]
-    actions_test.to_csv(os.path.join(df_root, 'df_actions_test.csv'))
+    assets_test, actions_test, holding_test = results[1], results[2], results[3]
     assets_test.to_csv(os.path.join(df_root, 'df_assets_test.csv'))
+    actions_test.to_csv(os.path.join(df_root, 'df_actions_test.csv'))
+    holding_test.to_csv(os.path.join(df_root, 'df_holding_test.csv'))
     print("=================================")
     print("end.")
     print("=================================")
