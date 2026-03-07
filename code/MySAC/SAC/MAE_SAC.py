@@ -530,7 +530,7 @@ class SAC(SAC_SB3):
                 self.actor_transformer.train()
 
     # 优化了 save_replay_buffer：导出速度更快（不压缩），且限制最多保存最新的 5 万条数据
-    def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 50000) -> None:
+    def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 30000) -> None:
         """
         保存 ReplayBuffer。使用 np.savez 存储，限制最多 50,000 条最新数据，优化导出速度。
         """
@@ -574,13 +574,14 @@ class SAC(SAC_SB3):
         # 注意：导出的数据在加载时会被放在新 Buffer 的 0 到 n_to_save 位置
         save_dict = {
             "observations": self.replay_buffer.observations[idx],
+            "next_observations": self.replay_buffer.next_observations[idx],  # 【修复】保存 next_observations
             "actions": self.replay_buffer.actions[idx],
             "rewards": self.replay_buffer.rewards[idx],
             "dones": self.replay_buffer.dones[idx],
             "pos": np.array([n_to_save]), # 加载后，下一个数据将从 n_to_save 开始存
             "full": np.array([False])      # 导出的子集通常视为未满状态
         }
-        
+
         # 如果有 timeouts (SB3 默认会有)
         if hasattr(self.replay_buffer, "timeouts"):
             save_dict["timeouts"] = self.replay_buffer.timeouts[idx]
@@ -617,6 +618,9 @@ class SAC(SAC_SB3):
             if max_load is not None:
                 n_to_load = min(loaded_pos, max_load)
             
+            # 【修复】老大，这里必须限制 n_to_load 不得超过当前 Buffer 的容量，否则切片赋值会报错
+            n_to_load = min(n_to_load, self.replay_buffer.buffer_size)
+            
             # 计算起始索引，确保从文件末尾抓取最新的数据
             start_idx = loaded_pos - n_to_load
 
@@ -631,6 +635,17 @@ class SAC(SAC_SB3):
             else:
                 self.replay_buffer.observations[:n_to_load, 0] = source_obs[start_idx:loaded_pos]
 
+            # 【修复】加载 next_observations
+            if "next_observations" in data:
+                source_next_obs = data["next_observations"]
+                if len(source_next_obs.shape) == len(self.replay_buffer.next_observations.shape):
+                    self.replay_buffer.next_observations[:n_to_load] = source_next_obs[start_idx:loaded_pos]
+                else:
+                    self.replay_buffer.next_observations[:n_to_load, 0] = source_next_obs[start_idx:loaded_pos]
+            else:
+                # 兼容旧版 buffer 文件（没有 next_observations）
+                print("警告：旧版 Buffer 文件缺少 next_observations，训练可能异常，建议重新收集数据")
+
             self.replay_buffer.actions[:n_to_load] = data["actions"][start_idx:loaded_pos]
             self.replay_buffer.rewards[:n_to_load] = data["rewards"][start_idx:loaded_pos]
             self.replay_buffer.dones[:n_to_load] = data["dones"][start_idx:loaded_pos]
@@ -638,7 +653,8 @@ class SAC(SAC_SB3):
             if "timeouts" in data and hasattr(self.replay_buffer, "timeouts"):
                 self.replay_buffer.timeouts[:n_to_load] = data["timeouts"][start_idx:loaded_pos]
             
-            self.replay_buffer.pos = n_to_load
+            # 【修复】pos 必须取模，如果加载了 buffer_size 条数据，pos 应该回绕到 0
+            self.replay_buffer.pos = n_to_load % self.replay_buffer.buffer_size
             # 如果加载的数据量达到了 buffer_size，则标记为已满
             self.replay_buffer.full = n_to_load >= self.replay_buffer.buffer_size
             

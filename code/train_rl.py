@@ -132,8 +132,8 @@ if __name__ == '__main__':
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         else:# 已训练的模型和buffer，如果存在则加载继续训练
-            load_model_path = os.path.join(model_path, final_model_name+'_out1.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_out1.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
@@ -161,14 +161,14 @@ if __name__ == '__main__':
                                         )
 
         # 加载已有的 Buffer
-        # if os.path.exists(buffer_path):
-        #     try:
-        #         max_load = config.MAESAC_PARAMS.get("buffer_max_load")
-        #         print(f"正在加载 Buffer 文件以实现热启动 (max_load={max_load}): {buffer_path}")
-        #         model_sac.load_replay_buffer(buffer_path, max_load=max_load)
-        #         print("Buffer 加载成功！")
-        #     except Exception as e:
-        #         print(f"加载 Buffer 失败，将跳过加载阶段：{e}")
+        if os.path.exists(buffer_path):
+            try:
+                max_load = config.MAESAC_PARAMS.get("buffer_max_load")
+                print(f"正在加载 Buffer 文件以实现热启动 (max_load={max_load}): {buffer_path}")
+                model_sac.load_replay_buffer(buffer_path, max_load=max_load)
+                print("Buffer 加载成功！")
+            except Exception as e:
+                print(f"加载 Buffer 失败，将跳过加载阶段：{e}")
 
         # 在训练正式开始前保存参数配置到 tensorboard 日志目录
         config_save_dir = os.path.join(tensorboard_log_dir, tb_log_name_with_timestamp)
