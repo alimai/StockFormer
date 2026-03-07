@@ -129,9 +129,13 @@ if __name__ == '__main__':
         if config.struct_base_flag:
             load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
+            final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
+            buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         else:# 已训练的模型和buffer，如果存在则加载继续训练
-            load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_out1.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_out1.npz')
+            final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
+            buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
         # 训练强化学习代理，加载模型
         agent = DRLAgent(env = env_train_vm)
@@ -194,10 +198,8 @@ if __name__ == '__main__':
         #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
         #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
         #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
-        final_model_path = os.path.join(model_path, final_model_name+'_out.zip')
         trained_sac.save(final_model_path)
         print(f"最终训练模型已保存到：{final_model_path}")
-        buffer_path_out = os.path.join(model_path, buffer_name+'_out.npz')
         trained_sac.save_replay_buffer(buffer_path_out)
 
 
