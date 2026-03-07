@@ -70,11 +70,13 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, additional_dim] (Tech + Date)
-        if config.struct_base_flag:
-            update_type = 1
-        else:
-            self.update_number +=1
-            update_type = 2#int((self.update_number % 20000) // 10000) + 1 #update_type取值范围为0-2
+        
+        # #update_type取值范围为0-3，分别对应不同的处理方式
+        # if config.struct_base_flag:
+        #     update_type = 0
+        # else:
+        self.update_number +=1
+        update_type = int((self.update_number % 30000) // 10000)
             
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
@@ -107,7 +109,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        if update_type==3:
+            combined_feature = self.dropout(torch.cat((fused_output_adapted, additional_feature), dim=-1))  # [B, N, 128+additional_dim]
+        else:
+            combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
         return combined_feature
 
     def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):

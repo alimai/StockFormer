@@ -105,12 +105,12 @@ struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
 if struct_base_flag:
     dropout_default = 0.7
     actor_alpha_default = 0.0
-    critic_alpha_default = 0.1
+    critic_alpha_default = 1.0
     ac_input_default = 128
 else:
-    dropout_default = 0.7
+    dropout_default = 0.8
     actor_alpha_default = 0.0
-    critic_alpha_default = 0.1
+    critic_alpha_default = 0.0
     ac_input_default = 128
 
 ##transformer Model Parameters

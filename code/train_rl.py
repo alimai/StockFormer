@@ -127,13 +127,13 @@ if __name__ == '__main__':
 
         
         if config.struct_base_flag:
-            load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_out0.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_out0.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         else:# 已训练的模型和buffer，如果存在则加载继续训练
-            load_model_path = os.path.join(model_path, final_model_name+'_out.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_out.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_out1.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_out1.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
