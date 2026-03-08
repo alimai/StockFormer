@@ -20,7 +20,6 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             else:
                 device = 'cpu'
         self.device = device
-        self.update_number = 0
         
         d_atten = hidden_out
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
@@ -72,12 +71,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # additional_feature: [B, N, additional_dim] (Tech + Date)
         
         # #update_type取值范围为0-3，分别对应不同的处理方式
-        # if config.struct_base_flag:
-        #     update_type = 0
-        # else:
-        self.update_number +=1
-        update_type = int(self.update_number % 4)
-        #update_type = int((self.update_number % 30000) // 10000)
+        if config.struct_base_flag:
+            update_type = 1
+        else:
+            update_type = 2
             
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
@@ -103,17 +100,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 2) Output Processing
         #fused_output = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
         #fused_output = torch.cat((relational_feature, temporal_feature_long, temporal_feature_short, additional_feature), dim=-1)
-        if update_type==2:
-            fused_output_adapted = self.dropout(self.projection_output(hybrid_feature)) # [B, N, 128]
-        else:
-            fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
+        fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
         if update_type==2:
-            combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
-        else:
             combined_feature = self.dropout(torch.cat((fused_output_adapted, additional_feature), dim=-1))  # [B, N, 128+additional_dim]
+        else:
+            combined_feature = torch.cat((fused_output_adapted, self.dropout(additional_feature)), dim=-1)  # [B, N, 128+additional_dim]
         return combined_feature
 
     def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):

@@ -127,8 +127,8 @@ if __name__ == '__main__':
 
         
         if config.struct_base_flag:
-            load_model_path = os.path.join(model_path, final_model_name+'_out0.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_out0.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_out2.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_out2.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         else:# 已训练的模型和buffer，如果存在则加载继续训练
@@ -189,7 +189,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=99000)
+                                    total_timesteps=39000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
