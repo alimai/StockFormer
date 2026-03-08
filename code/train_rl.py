@@ -23,7 +23,8 @@ if __name__ == '__main__':
     model_name = config.model_name
 
     timestamp = datetime.datetime.now().strftime("%m%d%H%M")
-    tb_log_name_with_timestamp = model_name + '_' + timestamp + '/'
+    struct_base_str = 'true' if config.struct_base_flag else 'false'
+    tb_log_name_with_timestamp = model_name + '_' + timestamp + '_' + struct_base_str + '/'
     print(f"log name: {tb_log_name_with_timestamp}")
 
     working_path = os.path.dirname(os.path.abspath(__file__))
@@ -128,13 +129,13 @@ if __name__ == '__main__':
 
         
         if config.struct_base_flag:
-            load_model_path = os.path.join(model_path, final_model_name+'_out2.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_out2.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_true.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_true.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         else:# 已训练的模型和buffer，如果存在则加载继续训练
-            load_model_path = os.path.join(model_path, final_model_name+'_out1.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_out1.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_false.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_false.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
