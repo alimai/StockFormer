@@ -200,7 +200,7 @@ class SAC(SAC_SB3):
         
         #for MAE
         self.transformer_device = transformer_device
-        self.transformer_optim = th.optim.AdamW(self.state_transformer.parameters(), lr=learning_rate, weight_decay=1e-3)
+        self.transformer_optim = th.optim.AdamW(self.state_transformer.parameters(), lr=learning_rate, weight_decay=1e-4)
         self.transformer_criteria = th.nn.MSELoss()
         self.env_hidden_dim = hidden_out
 
@@ -417,11 +417,24 @@ class SAC(SAC_SB3):
             #更新 critic 和 critic Transformer 的参数，同时允许梯度流回 MAE 以进行微调
             if scaler is not None:
                 scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 微调 MAE
+                
+                # 【P0防过拟合】Critic梯度裁剪 (需先反缩放)
+                scaler.unscale_(self.critic.optimizer)
+                scaler.unscale_(self.critic_transformer.optimizer)
+                th.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
+                th.nn.utils.clip_grad_norm_(self.critic_transformer.parameters(), max_norm=1.0)
+                # 注意：此处不裁剪 MAE，等待梯度累积完成后统一裁剪
+                
                 scaler.step(self.critic.optimizer)
                 scaler.step(self.critic_transformer.optimizer)
                 # scaler.step(self.transformer_optim) # 暂时不更新 MAE，等待梯度累积
             else:
                 critic_loss.backward(retain_graph=True) # 保留计算图
+                # 【P0防过拟合】Critic梯度裁剪
+                th.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
+                th.nn.utils.clip_grad_norm_(self.critic_transformer.parameters(), max_norm=1.0)
+                # 注意：此处不裁剪 MAE，等待梯度累积完成后统一裁剪
+                
                 self.critic.optimizer.step()
                 self.critic_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
@@ -447,22 +460,38 @@ class SAC(SAC_SB3):
             #更新 Actor 和 Actor Transformer 的参数，同时允许梯度流回 MAE 以进行微调
             if scaler is not None:
                 scaler.scale(actor_loss).backward()
+                
+                # 【P0防过拟合】Actor梯度裁剪 (需先反缩放)
+                scaler.unscale_(self.actor.optimizer)
+                scaler.unscale_(self.actor_transformer.optimizer)
+                th.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
+                th.nn.utils.clip_grad_norm_(self.actor_transformer.parameters(), max_norm=1.0)
+                
                 scaler.step(self.actor.optimizer)
                 scaler.step(self.actor_transformer.optimizer)
                 # scaler.step(self.transformer_optim) # 暂时不更新 MAE
                 # scaler.update() # 移到最后统一步进
             else:
                 actor_loss.backward()
+                # 【P0防过拟合】Actor梯度裁剪
+                th.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
+                th.nn.utils.clip_grad_norm_(self.actor_transformer.parameters(), max_norm=1.0)
                 self.actor.optimizer.step()
                 self.actor_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
           
             # 最后统一更新 MAE 优化器，应用来自 RL 的反馈
             if scaler is not None:
+                # 【P0防过拟合】MAE梯度最终裁剪 (需先反缩放)
+                scaler.unscale_(self.transformer_optim)
+                th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
+                
                 scaler.step(self.transformer_optim)
                 # 在梯度步结束时必须调用 update()，否则下次 step() 会报错
                 scaler.update()
             else:
+                # 【P0防过拟合】MAE梯度最终裁剪
+                th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
                 self.transformer_optim.step()
 
         # 更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
@@ -476,6 +505,10 @@ class SAC(SAC_SB3):
         self.logger.record("train/ent_coef", np.mean(ent_coefs))
         self.logger.record("train/actor_loss", np.mean(actor_losses))
         self.logger.record("train/critic_loss", np.mean(critic_losses))
+        
+        # 【P0监控】梯度健康度记录
+        if self._n_updates % 1000 == 0 and self.verbose > 0:
+            print(f"[Step {self._n_updates}] P0防过拟合：梯度裁剪激活 + MAE权重(Actor={self.actor_alpha:.2f}, Critic={self.critic_alpha:.2f})")
         if transformer_losses:
             self.logger.record("train/transformer_loss", np.mean(transformer_losses))
         if len(ent_coef_losses) > 0:
