@@ -147,6 +147,7 @@ if __name__ == '__main__':
                     load_model_path,
                     env=env_train_vm,
                     tensorboard_log=tensorboard_log_dir,
+                    load_optimizer=True,  # 控制是否加载优化器
                     policy_kwargs=config.policy_kwargs,
                     **config.MAESAC_TUNABLE_PARAMS#解包传入可调节的超参数
                 )

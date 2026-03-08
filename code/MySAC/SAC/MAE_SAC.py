@@ -10,6 +10,7 @@ from torch.nn import functional as F
 from collections import OrderedDict
 
 
+from stable_baselines3.common.save_util import load_from_zip_file, recursive_getattr
 from stable_baselines3.common.buffers import ReplayBuffer, DictReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
@@ -823,3 +824,72 @@ class SAC(SAC_SB3):
         #各元素维度：[bs, stock_num, hidden_out], [bs, stock_num, hidden_out], [bs, stock_num, hidden_out],
         # [bs, stock_num, x.shape[-1] - feat_dim - hidden_out*2]
         return enc_out, temporal_feature_short, temporal_feature_long, additional_feature
+
+    @classmethod
+    def load(
+        cls,
+        path: str,
+        env: Optional[GymEnv] = None,
+        tensorboard_log: Optional[str] = None,
+        load_optimizer: bool = True,
+        custom_objects: Optional[Dict[str, Any]] = None,
+        print_system_info: bool = False,
+        device: Union[th.device, str] = "auto",
+        **kwargs,
+    ):
+        """
+        加载模型时添加 load_optimizer 参数控制是否加载优化器状态
+        
+        :param path: 模型文件路径
+        :param env: 环境对象（可选）
+        :param tensorboard_log: TensorBoard 日志目录
+        :param load_optimizer: 是否加载优化器状态，默认为 True
+        :param custom_objects: 自定义对象字典，用于替换加载时的对象
+        :param print_system_info: 是否打印系统信息
+        :param device: 设备类型
+        :param kwargs: 其他关键字参数
+        :return: 加载后的模型实例
+        """
+        
+        # 从 zip 文件加载数据
+        data, params, pytorch_variables = load_from_zip_file(
+            path, device=device, custom_objects=custom_objects, print_system_info=print_system_info
+        )
+        
+        # 创建模型实例（不初始化模型）
+        model = cls(
+            policy=data["policy_class"],
+            env=env,
+            tensorboard_log=tensorboard_log,
+            device=device,
+            _init_setup_model=False,
+            **kwargs,
+        )
+        
+        # 更新模型属性
+        model.__dict__.update(data)
+        
+        # 重新设置模型（创建网络和优化器）
+        model._setup_model()
+        
+        # 加载参数（包括优化器状态）
+        # 如果 load_optimizer=False，则跳过优化器状态的加载
+        if load_optimizer:
+            model.set_parameters(params, exact_match=True, device=device)
+        else:
+            # 只加载非优化器的参数（模型权重等）
+            for name in params:
+                if "optimizer" not in name.lower():
+                    attr = recursive_getattr(model, name)
+                    if isinstance(attr, th.optim.Optimizer):
+                        continue  # 跳过优化器
+                    else:
+                        attr.load_state_dict(params[name], strict=True)
+        
+        # 加载 PyTorch 变量
+        if pytorch_variables is not None:
+            for name in pytorch_variables:
+                attr = recursive_getattr(model, name)
+                attr.load_state_dict(pytorch_variables[name])
+        
+        return model
