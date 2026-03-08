@@ -529,10 +529,9 @@ class SAC(SAC_SB3):
             if was_training_actor:
                 self.actor_transformer.train()
 
-    # 优化了 save_replay_buffer：导出速度更快（不压缩），且限制最多保存最新的 5 万条数据
     def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 30000) -> None:
         """
-        保存 ReplayBuffer。使用 np.savez 存储，限制最多 50,000 条最新数据，优化导出速度。
+        保存 ReplayBuffer。使用 np.savez 存储
         """
         if self.replay_buffer is None:
             raise ValueError("The replay buffer is not defined.")
@@ -541,7 +540,7 @@ class SAC(SAC_SB3):
         full = self.replay_buffer.full
         buffer_size = self.replay_buffer.buffer_size
         
-        # 这里限制最多导出 5 万条最新数据
+        # 这里限制最多导出条数
         current_count = buffer_size if full else pos
         n_to_save = min(current_count, max_save)
 
