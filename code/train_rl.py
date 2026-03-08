@@ -16,6 +16,7 @@ from torch.optim import AdamW
 
 if __name__ == '__main__':
     print("start:")
+    print("struct_base_flag: ",config.struct_base_flag)
     fix_seed = random.randint(1, 5000) # 2022 #
     config.set_seed(fix_seed)
     version_name = config.version_name
@@ -168,7 +169,8 @@ if __name__ == '__main__':
                 model_sac.load_replay_buffer(buffer_path, max_load=max_load)
                 print("Buffer 加载成功！")
             except Exception as e:
-                print(f"加载 Buffer 失败，将跳过加载阶段：{e}")
+                print(f"加载 Buffer 失败：{e}")
+                sys.exit(1)#退出训练
 
         # 在训练正式开始前保存参数配置到 tensorboard 日志目录
         config_save_dir = os.path.join(tensorboard_log_dir, tb_log_name_with_timestamp)
@@ -189,7 +191,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=39000)
+                                    total_timesteps=69000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 

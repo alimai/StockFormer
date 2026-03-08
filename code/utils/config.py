@@ -100,7 +100,7 @@ def parse_args():
     args, unknown = parser.parse_known_args()
     return args
 
-_args = parse_args()
+_args = parse_args() #在模块被导入时立即执行
 struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
 if struct_base_flag:
     dropout_default = 0.8
