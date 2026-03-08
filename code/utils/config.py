@@ -103,12 +103,12 @@ def parse_args():
 _args = parse_args() #在模块被导入时立即执行
 struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
 if struct_base_flag:
-    dropout_default = 0.8
+    dropout_default = 0.5
     actor_alpha_default = 0.0
     critic_alpha_default = 0.0
     ac_input_default = 128
 else:
-    dropout_default = 0.8
+    dropout_default = 0.5
     actor_alpha_default = 0.0
     critic_alpha_default = 0.0
     ac_input_default = 128
@@ -135,6 +135,10 @@ MAESAC_TUNABLE_PARAMS = {
     "actor_alpha": actor_alpha_default,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": critic_alpha_default,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
     "ac_input_dim": ac_input_default,# actor/critic输入维度,对应policy_transformer 的输出层维度（默认值 128）
+
+    # gSDE 探索增强 - 强强联合
+    "use_sde": True,          # 启用状态依赖探索，让探索噪声与状态相关，保持策略一致性
+    "sde_sample_freq": -1,    # -1 表示每个 Episode 采样一次噪声矩阵（保持整个交易周期的探索一致性）
 }
 
 # ===== 完整的 MAESAC 参数（包含不可调节的架构参数） =====
@@ -165,10 +169,10 @@ MAESAC_PARAMS = {
 
 #策略网络参数 (MlpPolicy Policy Network，包括 act/critic/critic_target)
 policy_kwargs = {
-    "optimizer_kwargs": {"weight_decay": 1e-3},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
+    "optimizer_kwargs": {"weight_decay": 1e-4},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
     "optimizer_class": torch.optim.AdamW, # 配合weight_decay使用
     "net_arch": [128,128], # 默认 [256,256]
-    "use_sde": False
+    "use_sde": True # 保持与 MAESAC_TUNABLE_PARAMS 一致
 }
 
 # MAESAC_PARAMS_PRED = {
