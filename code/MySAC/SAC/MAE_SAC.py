@@ -497,6 +497,7 @@ class SAC(SAC_SB3):
         test_obs: np.ndarray,
         deterministic: bool = False,
         state: np.ndarray = None,
+        episode_start: np.ndarray = None,
     ) -> OffPolicyAlgorithm:
 
         flag = 0
@@ -508,10 +509,10 @@ class SAC(SAC_SB3):
         # 这是防御性编程，确保 predict 调用不会影响后续的训练
         was_training_state = self.state_transformer.training
         was_training_actor = self.actor_transformer.training
-        
+
         self.state_transformer.eval()
         self.actor_transformer.eval()
-        
+
         try:
             with th.no_grad():
                 obs = th.FloatTensor(test_obs).to(self.transformer_device)
@@ -521,7 +522,7 @@ class SAC(SAC_SB3):
 
             if flag:
                 obs_array = obs_array.squeeze(0)
-            return super(SAC, self).predict(observation=obs_array, deterministic=deterministic)
+            return super(SAC, self).predict(observation=obs_array, deterministic=deterministic, state=state, episode_start=episode_start)
         finally:
             # 确保恢复之前的训练模式
             if was_training_state:
