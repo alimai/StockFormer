@@ -269,9 +269,9 @@ class StockTradingEnv(gym.Env):
                 print(f"startday: {self.start_day}, endday: {self.day}")
                 print(f"begin_total_asset: {self.asset_memory[0]:0.2f}")
                 print(f"end_total_asset: {self.end_total_asset:0.2f}")
+                print(f"total_trades: {self.trades}")
                 print(f"total_reward: {tot_reward:0.2f}")
                 print(f"total_cost: {self.cost:0.2f}")
-                print(f"total_trades: {self.trades}")
                 print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
 

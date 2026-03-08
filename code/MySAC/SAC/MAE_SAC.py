@@ -200,7 +200,7 @@ class SAC(SAC_SB3):
         
         #for MAE
         self.transformer_device = transformer_device
-        self.transformer_optim = th.optim.AdamW(self.state_transformer.parameters(), lr=learning_rate, weight_decay=1e-4)
+        self.transformer_optim = th.optim.AdamW(self.state_transformer.parameters(), lr=learning_rate, weight_decay=1e-3)
         self.transformer_criteria = th.nn.MSELoss()
         self.env_hidden_dim = hidden_out
 
@@ -890,6 +890,10 @@ class SAC(SAC_SB3):
         if pytorch_variables is not None:
             for name in pytorch_variables:
                 attr = recursive_getattr(model, name)
-                attr.load_state_dict(pytorch_variables[name])
-        
+                # Tensor 类型直接赋值，nn.Module 类型调用 load_state_dict
+                if isinstance(attr, th.Tensor):
+                    attr.data = pytorch_variables[name].data.to(device=attr.device)
+                else:
+                    attr.load_state_dict(pytorch_variables[name])
+
         return model

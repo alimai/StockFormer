@@ -64,7 +64,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.Linear(tmp_hid_dim, tmp_out_dim)
         )
 
-        self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-4)
+        self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-3)
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
