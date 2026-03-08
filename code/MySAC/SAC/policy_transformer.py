@@ -76,7 +76,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         #     update_type = 0
         # else:
         self.update_number +=1
-        update_type = int((self.update_number % 30000) // 10000)
+        update_type = int(self.update_number % 4)
+        #update_type = int((self.update_number % 30000) // 10000)
             
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
@@ -109,10 +110,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        if update_type==3:
-            combined_feature = self.dropout(torch.cat((fused_output_adapted, additional_feature), dim=-1))  # [B, N, 128+additional_dim]
-        else:
+        if update_type==2:
             combined_feature = torch.cat((fused_output_adapted, additional_feature), dim=-1)  # [B, N, 128+additional_dim]
+        else:
+            combined_feature = self.dropout(torch.cat((fused_output_adapted, additional_feature), dim=-1))  # [B, N, 128+additional_dim]
         return combined_feature
 
     def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
