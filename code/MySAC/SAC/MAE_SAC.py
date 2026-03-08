@@ -328,6 +328,13 @@ class SAC(SAC_SB3):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
+            # --- [Quant Expert] Input Noise Injection ---
+            # 金融数据防过拟合关键：注入 0.5% 的高斯噪声，模拟市场微观结构噪声
+            # 迫使模型学习分布特征而非记忆特定价格点
+            noise = th.randn_like(replay_data.observations) * 0.005
+            replay_data = replay_data._replace(observations=replay_data.observations + noise)
+            # ------------------------------------------
+
             # We need to sample because 'log_std' may have changed between two gradient steps
             if self.use_sde:
                 self.actor.reset_noise()
