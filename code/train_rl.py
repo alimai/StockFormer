@@ -164,9 +164,9 @@ if __name__ == '__main__':
                                         )
 
         # 加载已有的 Buffer
+        max_load = config.MAESAC_PARAMS.get("buffer_max_load")
         if os.path.exists(buffer_path):
             try:
-                max_load = config.MAESAC_PARAMS.get("buffer_max_load")
                 print(f"正在加载 Buffer 文件以实现热启动 (max_load={max_load}): {buffer_path}")
                 model_sac.load_replay_buffer(buffer_path, max_load=max_load)
                 print("Buffer 加载成功！")
@@ -204,7 +204,7 @@ if __name__ == '__main__':
         #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
         trained_sac.save(final_model_path)
         print(f"最终训练模型已保存到：{final_model_path}")
-        #trained_sac.save_replay_buffer(buffer_path_out)
+        trained_sac.save_replay_buffer(buffer_path_out, max_save=max_load)
         
         # ===== [内存清理] 释放训练占用的空间，防止测试时 OOM =====
         # 1. 关闭训练环境

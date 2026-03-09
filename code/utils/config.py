@@ -109,7 +109,7 @@ MAESAC_TUNABLE_PARAMS = {
     # 训练超参数 - 稳定性优化
     "batch_size": 128,
     "buffer_size": 80000,#用于存储环境的"经验"(Obs, Action, Reward, Next_Obs, Done)
-    "buffer_max_load": 50000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
+    "buffer_max_load": 10000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
     "learning_rate": 1e-4,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
     "ent_coef": "auto_0.003",#0.001#熵系数，key

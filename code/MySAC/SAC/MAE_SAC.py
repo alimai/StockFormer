@@ -570,7 +570,7 @@ class SAC(SAC_SB3):
             if was_training_actor:
                 self.actor_transformer.train()
 
-    def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 30000) -> None:
+    def save_replay_buffer(self, path: Union[str, os.PathLike], max_save: Optional[int] = 10000) -> None:
         """
         保存 ReplayBuffer。使用 np.savez 存储
         """
