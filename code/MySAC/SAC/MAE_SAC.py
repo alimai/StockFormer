@@ -507,8 +507,7 @@ class SAC(SAC_SB3):
         self.logger.record("train/critic_loss", np.mean(critic_losses))
         
         # 【P0监控】梯度健康度记录
-        if self._n_updates % 1000 == 0 and self.verbose > 0:
-            print(f"[Step {self._n_updates}] P0防过拟合：梯度裁剪激活 + MAE权重(Actor={self.actor_alpha:.2f}, Critic={self.critic_alpha:.2f})")
+        # if self._n_updates % 1000 == 0 and self.verbose > 0:
         if transformer_losses:
             self.logger.record("train/transformer_loss", np.mean(transformer_losses))
         if len(ent_coef_losses) > 0:
