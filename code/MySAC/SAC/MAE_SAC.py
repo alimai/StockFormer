@@ -480,19 +480,19 @@ class SAC(SAC_SB3):
                 self.actor_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
           
-            # 最后统一更新 MAE 优化器，应用来自 RL 的反馈
+            # 最后统一更新 MAE 优化器 #暂时被注释掉
             if scaler is not None:
                 # 【P0防过拟合】MAE梯度最终裁剪 (需先反缩放)
-                scaler.unscale_(self.transformer_optim)
-                th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
+                # scaler.unscale_(self.transformer_optim)
+                # th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
                 
-                scaler.step(self.transformer_optim)
+                # scaler.step(self.transformer_optim)
                 # 在梯度步结束时必须调用 update()，否则下次 step() 会报错
                 scaler.update()
-            else:
-                # 【P0防过拟合】MAE梯度最终裁剪
-                th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
-                self.transformer_optim.step()
+            # else:
+            #     # 【P0防过拟合】MAE梯度最终裁剪
+            #     th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
+            #     self.transformer_optim.step()
 
         # 更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
         #if gradient_step % self.target_update_interval == 0:
