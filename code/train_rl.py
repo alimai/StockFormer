@@ -5,6 +5,7 @@ import time
 import datetime
 import json
 import random
+import torch
 
 from utils import config
 from MySAC.Agent.DRLAgent import DRLAgent
@@ -12,7 +13,6 @@ from MySAC.SAC.MAE_SAC import SAC as SAC_MAE
 from stable_baselines3.common.vec_env import VecMonitor
 from envs.env_stocktrading_hybrid_control import StockTradingEnv as Env
 from utils.data.stock_data_handle import Stock_Data
-from torch.optim import AdamW
 
 if __name__ == '__main__':
     print("start:")
@@ -205,6 +205,36 @@ if __name__ == '__main__':
         trained_sac.save(final_model_path)
         print(f"最终训练模型已保存到：{final_model_path}")
         trained_sac.save_replay_buffer(buffer_path_out)
+        
+        # ===== [内存清理] 释放训练占用的空间，防止测试时 OOM =====
+        # 1. 关闭训练环境
+        if 'env_train' in locals():
+            env_train.close()
+            del env_train
+        if 'env_train_vm' in locals():
+            del env_train_vm
+        if 'env_eval' in locals():
+            env_eval.close()
+            del env_eval
+        if 'env_eval_vm' in locals():
+            del env_eval_vm
+        
+        # 2. 清理训练模型和 buffer
+        del trained_sac
+        del agent
+        del model_sac
+        
+        # 3. 清理 CUDA 缓存 (如果使用 GPU)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        
+        # 4. 强制垃圾回收
+        import gc        
+        gc.collect()
+        
+        print("[内存清理完成] 训练资源已释放，准备进入测试阶段...")
+        # ========================================================
 
 
     print("Initial test Env...")
