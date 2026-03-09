@@ -134,8 +134,8 @@ if __name__ == '__main__':
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         else:# 已训练的模型和buffer，如果存在则加载继续训练
-            load_model_path = os.path.join(model_path, final_model_name+'_false.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_false.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_false1.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_false1.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
@@ -193,7 +193,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=39000)
+                                    total_timesteps=69000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
@@ -204,7 +204,7 @@ if __name__ == '__main__':
         #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
         trained_sac.save(final_model_path)
         print(f"最终训练模型已保存到：{final_model_path}")
-        trained_sac.save_replay_buffer(buffer_path_out)
+        #trained_sac.save_replay_buffer(buffer_path_out)
         
         # ===== [内存清理] 释放训练占用的空间，防止测试时 OOM =====
         # 1. 关闭训练环境

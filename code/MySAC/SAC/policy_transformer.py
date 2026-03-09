@@ -37,30 +37,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.GELU()
         )
         
-        # self.projection_input2 = nn.Sequential(
-        #     nn.Linear(hidden_out, d_atten),
-        #     nn.LayerNorm(d_atten),
-        #     nn.GELU()
-        # )
-        # self.projection_input3 = nn.Sequential(
-        #     nn.Linear(hidden_out, d_atten),
-        #     nn.LayerNorm(d_atten),
-        #     nn.GELU()
-        # )
-
-        # # Gated Fusion Mechanism
-        # self.fusion_gate = nn.Sequential(
-        #     nn.Linear(hidden_out * 2, hidden_out),
-        #     nn.Sigmoid()
-        # )
-
         # 2. Output Projection: 
         tmp_hid_dim = hidden_out//4 # additional_dim # 21//2=10
         tmp_out_dim = hidden_out - additional_dim # 128 - 20 = 108
         self.projection_output = nn.Sequential(
             nn.Linear(hidden_out, tmp_hid_dim),
-            # nn.LayerNorm(tmp_hid_dim),
-            # nn.GELU(),
             nn.Linear(tmp_hid_dim, tmp_out_dim)
         )
 
