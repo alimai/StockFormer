@@ -112,7 +112,7 @@ MAESAC_TUNABLE_PARAMS = {
     "buffer_max_load": 10000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
     "learning_rate": 1e-4,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
-    "ent_coef": "auto_0.01",#0.001#熵系数，key
+    "ent_coef": "auto_0.003",#0.001#熵系数，key
 
     # 训练频率与折扣优化
     "train_freq": 150,#每 * 步训练一次，更新目标网络的频率也由此决定
@@ -160,7 +160,7 @@ MAESAC_PARAMS = {
 policy_kwargs = {
     "optimizer_kwargs": {"weight_decay": 1e-4},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
     "optimizer_class": torch.optim.AdamW, # 配合weight_decay使用
-    "net_arch": [128, 128], # 默认 [256,256]
+    "net_arch": [96], # 默认 [256,256]
     "use_sde": True # 保持与 MAESAC_TUNABLE_PARAMS 一致
 }
 
