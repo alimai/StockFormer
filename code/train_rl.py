@@ -193,7 +193,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=69000)
+                                    total_timesteps=39000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
@@ -213,7 +213,7 @@ if __name__ == '__main__':
     test_trade_gym = Env(df = test, data_all = test_data, **env_kwargs)
     env_test, _ = test_trade_gym.get_sb_env()
     # 测试阶段：使用原始环境
-    test_model_path = os.path.join(model_path, final_model_name+'_out.zip')#'best_train_model.zip')
+    test_model_path = final_model_path#os.path.join(model_path, final_model_name+'_false.zip')#'best_train_model.zip')
     results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test, cwd=test_model_path)
 
     df_root = os.path.join(config.RESULTS_DIR, 'test', version_name, model_name)
