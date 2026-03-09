@@ -94,7 +94,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             temporal_hybrid_feature, relational_feature, relational_feature,
             attn_mask=mask
         )
-        feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
+        if update_type==2:
+            feature_attn = self.dropout(temporal_hybrid_feature) + self.dropout(tmp_feature_2)
+        else:
+            feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
         hybrid_feature = self.norm2(feature_attn)
 
         # 2) Output Processing
@@ -104,11 +107,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        if update_type==2:
-            combined_feature = self.dropout(torch.cat((hybrid_feature, additional_feature), dim=-1))  # [B, N, 128+additional_dim]
-        else:
-            combined_feature = torch.cat((hybrid_feature, self.dropout(additional_feature)), dim=-1)  # [B, N, 128+additional_dim]
-        return combined_feature
+        # if update_type==2:
+        #     combined_feature = self.dropout(torch.cat((fused_output_adapted, additional_feature), dim=-1))  # [B, N, 128+additional_dim]
+        # else:
+        #     combined_feature = torch.cat((fused_output_adapted, self.dropout(additional_feature)), dim=-1)  # [B, N, 128+additional_dim]
+        return hybrid_feature#combined_feature
 
     def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
