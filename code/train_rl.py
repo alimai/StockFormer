@@ -134,8 +134,8 @@ if __name__ == '__main__':
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         else:# 已训练的模型和buffer，如果存在则加载继续训练
-            load_model_path = os.path.join(model_path, final_model_name+'_false1.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_false1.npz')
+            load_model_path = os.path.join(model_path, final_model_name+'_false.zip')
+            buffer_path = os.path.join(model_path, buffer_name+'_false.npz')
             final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
             buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         

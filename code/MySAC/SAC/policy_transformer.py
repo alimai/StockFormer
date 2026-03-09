@@ -33,8 +33,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 特征融合后投影回 hidden_out
         self.projection_input = nn.Sequential(
             nn.Linear(hidden_out + additional_dim, d_atten),
-            nn.LayerNorm(d_atten),
-            nn.GELU()
+            nn.LayerNorm(d_atten)
         )
         
         # 2. Output Projection: 
@@ -42,7 +41,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         tmp_out_dim = hidden_out - additional_dim # 128 - 20 = 108
         self.projection_output = nn.Sequential(
             nn.Linear(hidden_out, tmp_hid_dim),
-            nn.Linear(tmp_hid_dim, tmp_out_dim)
+            nn.Linear(tmp_hid_dim, tmp_out_dim),
+            nn.LayerNorm(tmp_out_dim)
         )
 
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-4)

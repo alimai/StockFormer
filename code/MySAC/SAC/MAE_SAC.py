@@ -853,13 +853,14 @@ class SAC(SAC_SB3):
 
         # 【精准特征切片：仅包含技术指标和日期】
         # 1. 提取技术指标 (位于协方差矩阵之后)
-        # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)][hidden_out][Date (12)]
+        # x 结构: [Cov (stock_num)] [Tech (feat_dim - stock_num)][hidden_out][Date (12)][Holding Ratio (1)]
         tech_features = x[:, :, stock_num : feat_dim] 
-        # 2. 提取日期特征 (在时序特征之后)
-        date_features = x[:, :, feat_dim + env_hidden_dim * 2:]        
+        # 2. 提取日期特征及其他附加特征 (在时序特征之后)
+        # 这里包含了 date_features (12) 和 holding_assets_ratio (1)
+        tail_features = x[:, :, feat_dim + env_hidden_dim * 2:]        
         # date_features = x[:, :, feat_dim+hidden_out*2:]        
         # 3. 合并为纯净的 additional_feature (排除协方差数据)
-        additional_feature = th.cat((tech_features, date_features), dim=-1)
+        additional_feature = th.cat((tech_features, tail_features), dim=-1)
 
         #各元素维度：[bs, stock_num, hidden_out], [bs, stock_num, hidden_out], [bs, stock_num, hidden_out],
         # [bs, stock_num, x.shape[-1] - feat_dim - hidden_out*2]

@@ -90,7 +90,7 @@ class StockTradingEnv(gym.Env):
         # observation_space：self._update_state()生成数据维度；Modified: date features now take 12 dimensions (One-hot)
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
         # self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space + tech_dim  + 12))
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+tech_dim+self.hidden_out*2+12))
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_space, self.state_space+tech_dim+self.hidden_out*2+12+1))
         
         print("action_space shape: ",self.action_space.shape)
         print("observation_space shape: ",self.observation_space.shape)
@@ -141,6 +141,7 @@ class StockTradingEnv(gym.Env):
         self.rewards_memory = []
         self.amount_memory = []
         self.actions_memory = []
+        self.holding_ratio_memory = []
         self.date_memory = [self._get_date()]
 
         # self.reset()
@@ -299,9 +300,9 @@ class StockTradingEnv(gym.Env):
             begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
 
             #actions = actions.astype(int)
-            actions = actions * begin_total_asset * self.ratio_max # 将动作缩放到总资产的10%，避免过度交易
-            actions = actions / (zero_day_prices + 1e-8) # 转换为股票数量，避免除零
-            actions = actions - shares
+            actions = actions * begin_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
+            actions = actions / (zero_day_prices + 1e-8) # 转换为数量，避免除零
+            actions = actions - shares#此处才是真正的actions
 
             argsort_actions = np.argsort(actions)
             
@@ -317,7 +318,9 @@ class StockTradingEnv(gym.Env):
                 actions[index] = self._buy_stock(index, actions[index])
 
             # 更新后计算
-            self.end_total_asset = self.env_info[0] + np.sum(first_day_prices * shares)
+            holding_assets = first_day_prices * shares
+            holding_assets_ratio = holding_assets / (begin_total_asset * self.ratio_max + 1e-8)
+            self.end_total_asset = self.env_info[0] + np.sum(holding_assets)
 
             avg_prices = first_day_prices * 0.3 + fifth_day_prices * 0.7
             asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
@@ -340,6 +343,7 @@ class StockTradingEnv(gym.Env):
             self.date_memory.append(self._get_date())
             self.rewards_memory.append(self.reward)
             self.amount_memory.append(shares.copy())
+            self.holding_ratio_memory.append(holding_assets_ratio)
 
             self.day += 1
             self.data = self.data_all[self.day]
@@ -385,6 +389,7 @@ class StockTradingEnv(gym.Env):
         self.rewards_memory = []
         self.actions_memory = []
         self.amount_memory = []#[self.env_info[-self.stock_dim:]]
+        self.holding_ratio_memory = []
         self.date_memory = [self._get_date()]
 
         print("=================================")
@@ -423,9 +428,12 @@ class StockTradingEnv(gym.Env):
 
         # 提取日期特征 (最后 12 列)
         date_features = self.data[:, -12:]
+        
+        # 初始化 holding_ratio (num_stocks, 1)
+        holding_ratio = np.zeros((self.stock_dim, 1), dtype=np.float32)
 
         # state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features, holding_ratio), axis=-1)
         return state
 
 
@@ -461,9 +469,13 @@ class StockTradingEnv(gym.Env):
 
         # 提取日期特征 (最后 12 列)
         date_features = self.data[:, -12:]
+        
+        # 获取最新的 holding_ratio (num_stocks, 1)
+        # 注意: holding_ratio_memory 在 step 中 append，因此这里取 -1
+        holding_ratio = self.holding_ratio_memory[-1].reshape(self.stock_dim, 1)
 
         # state = np.concatenate((covs, technical_indicators, date_features), axis=-1)
-        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features), axis=-1)
+        state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features, holding_ratio), axis=-1)
         # print("Update: ",state.shape)
         return state
 
