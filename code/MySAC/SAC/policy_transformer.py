@@ -82,11 +82,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         hybrid_feature = self.norm2(feature_attn)
 
         # 2) Output Processing
-        #fused_output = torch.cat((relational_hybrid_feature, temporal_hybrid_feature), dim=-1)
-        #fused_output = torch.cat((relational_feature, temporal_feature_long, temporal_feature_short, add_feature), dim=-1)
         #fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
-        
-        # Late Fusion (Skip Connection with Clean Context)
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
         # if update_type==2:
         #     combined_feature = self.dropout(torch.cat((fused_output_adapted, add_feature), dim=-1))  # [B, N, 128+additional_dim]
