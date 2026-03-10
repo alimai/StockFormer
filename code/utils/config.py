@@ -123,7 +123,7 @@ MAESAC_TUNABLE_PARAMS = {
     "dropout": 0.2,#与 policy_transformer 共用
     "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": 0.0,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
-    "ac_input_dim": 128,# actor/critic输入维度,对应policy_transformer 的输出层维度（默认值 128）
+    "ac_input_dim": 64,# actor/critic输入维度(到隐藏层转换为1,减一维),对应policy_transformer 的输出层维度（默认值 128）
 
     # gSDE 探索增强 - 强强联合
     "use_sde": True,          # 启用状态依赖探索，让探索噪声与状态相关，保持策略一致性
@@ -160,7 +160,7 @@ MAESAC_PARAMS = {
 policy_kwargs = {
     "optimizer_kwargs": {"weight_decay": 1e-2},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
     "optimizer_class": torch.optim.AdamW, # 配合weight_decay使用
-    "net_arch": [128,128], # 默认 [256,256]
+    "net_arch": [128,128], # 隐藏层维度,默认 [256,256],此处ac_input_dim已转换为1维(减一维)
     "use_sde": True # 保持与 MAESAC_TUNABLE_PARAMS 一致
 }
 
