@@ -158,7 +158,7 @@ MAESAC_PARAMS = {
 
 #策略网络参数 (MlpPolicy Policy Network，包括 act/critic/critic_target)
 policy_kwargs = {
-    "optimizer_kwargs": {"weight_decay": 1e-4},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
+    "optimizer_kwargs": {"weight_decay": 1e-2},# 作用：惩罚大的权重值，促使网络权重保持较小，提高泛化能力
     "optimizer_class": torch.optim.AdamW, # 配合weight_decay使用
     "net_arch": [128,128], # 默认 [256,256]
     "use_sde": True # 保持与 MAESAC_TUNABLE_PARAMS 一致
