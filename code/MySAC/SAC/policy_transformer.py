@@ -75,10 +75,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             temporal_hybrid_feature, relational_feature, relational_feature,
             attn_mask=mask
         )
-        if update_type==2:
-            feature_attn = self.dropout(temporal_hybrid_feature) + self.dropout(tmp_feature_2)
-        else:
-            feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
+        # if update_type==2:
+        #     feature_attn = self.dropout(temporal_hybrid_feature) + self.dropout(tmp_feature_2)
+        # else:
+        feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
         hybrid_feature = self.norm2(feature_attn)
 
         # 2) Output Processing
