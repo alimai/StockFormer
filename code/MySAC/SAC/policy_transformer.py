@@ -48,7 +48,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.GELU()#nn.Sigmoid()#
         )
         
-        tmp_input_dim = atten_dim * 2 # atten_dim * 3
+        tmp_input_dim = atten_dim * 2
         tmp_out_dim = atten_dim * 2 - add_dim # 32 * 2 - 20 = 44
         self.projection_output = nn.Sequential(
             nn.Linear(tmp_input_dim, tmp_out_dim),
@@ -96,13 +96,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 2) Output Processing
         hybrid_feature = torch.cat([temporal_adapt_long, temporal_adapt_short], dim=-1) 
-        #hybrid_feature = torch.cat([temporal_adapt_long, temporal_adapt_short, relation_fused_input], dim=-1)
         fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
+        #fused_output_adapted = temporal_adapt_long + temporal_adapt_short
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
         if update_type==2:
             combined_feature = self.dropout(torch.cat((fused_output_adapted, add_feature), dim=-1))  # [B, N, 128+add_dim]
         else:
             combined_feature = torch.cat((fused_output_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+add_dim]
+
         return combined_feature
 
     def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
