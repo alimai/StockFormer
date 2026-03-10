@@ -53,7 +53,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection_output = nn.Sequential(
             nn.Linear(tmp_input_dim, tmp_out_dim),
             nn.LayerNorm(tmp_out_dim),
-            nn.Sigmoid()#nn.GELU()
+            nn.GELU()#nn.Sigmoid()#
         )
 
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-2)
