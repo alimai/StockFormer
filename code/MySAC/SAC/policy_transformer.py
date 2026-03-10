@@ -37,7 +37,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             nn.Sigmoid()#nn.GELU()
         )
         
-        tmp_out_dim = hidden_out - additional_dim # 128 - 20 = 108
+        tmp_out_dim = hidden_out - add_dim # 128 - 20 = 108
         self.projection_output = nn.Sequential(
             nn.Linear(hidden_out, tmp_out_dim),
             nn.LayerNorm(tmp_out_dim),
@@ -48,7 +48,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
-        # additional_feature: [B, N, additional_dim] (Tech + Date)
+        # additional_feature: [B, N, add_dim] (Tech + Date)
         
         if config.struct_base_flag:
             update_type = 1
@@ -82,17 +82,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         hybrid_feature = self.norm2(feature_attn)
 
         # 2) Output Processing
-        #fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        # if update_type==2:
-        #     combined_feature = self.dropout(torch.cat((fused_output_adapted, add_feature), dim=-1))  # [B, N, 128+additional_dim]
-        # else:
-        #     combined_feature = torch.cat((fused_output_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+additional_dim]
-        return hybrid_feature#combined_feature
+        fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
+        if update_type==2:
+            combined_feature = self.dropout(torch.cat((fused_output_adapted, add_feature), dim=-1))  # [B, N, 128+add_dim]
+        else:
+            combined_feature = torch.cat((fused_output_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+add_dim]
+        return combined_feature#combined_feature
 
     def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
-        # additional_feature: [B, N, additional_dim] (Tech + Date)
+        # additional_feature: [B, N, add_dim] (Tech + Date)
         
         # 1) 处理输入特征 (Refinement)
         temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
