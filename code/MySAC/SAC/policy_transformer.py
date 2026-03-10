@@ -75,20 +75,20 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             temporal_hybrid_feature, relational_feature, relational_feature,
             attn_mask=mask
         )
-        # if update_type==2:
-        #     feature_attn = self.dropout(temporal_hybrid_feature) + self.dropout(tmp_feature_2)
-        # else:
-        feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
+        if update_type==2:
+            feature_attn = self.dropout(temporal_hybrid_feature) + self.dropout(tmp_feature_2)
+        else:
+            feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
         hybrid_feature = self.norm2(feature_attn)
 
         # 2) Output Processing
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
-        if update_type==2:
-            combined_feature = self.dropout(torch.cat((fused_output_adapted, add_feature), dim=-1))  # [B, N, 128+add_dim]
-        else:
-            combined_feature = torch.cat((fused_output_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+add_dim]
-        return combined_feature#combined_feature
+        # fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
+        # if update_type==2:
+        #     combined_feature = self.dropout(torch.cat((fused_output_adapted, add_feature), dim=-1))  # [B, N, 128+add_dim]
+        # else:
+        #     combined_feature = torch.cat((fused_output_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+add_dim]
+        return hybrid_feature#combined_feature
 
     def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
