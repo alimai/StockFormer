@@ -22,7 +22,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.device = device
         add_dim = additional_dim-1#additional_dim if config.struct_base_flag else additional_dim-1
         
-        atten_dim = hidden_out // 4
+        atten_dim = hidden_out // 2
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), atten_dim, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
