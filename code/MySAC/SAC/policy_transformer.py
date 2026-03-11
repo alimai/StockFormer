@@ -27,8 +27,11 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                                       output_attention=output_attention), atten_dim, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), atten_dim, n_heads)
+        self.attention3 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
+                                      output_attention=output_attention), atten_dim, n_heads)
         self.norm1 = nn.LayerNorm(atten_dim)
         self.norm2 = nn.LayerNorm(atten_dim)
+        self.norm3 = nn.LayerNorm(atten_dim)
         self.dropout = nn.Dropout(dropout)
 
         # 特征融合后投影回 hidden_out
@@ -93,16 +96,22 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         temporal_attn_short = temporal_input_short + self.dropout(tmp_feature_2)
         temporal_adapt_short = self.norm2(temporal_attn_short)
 
+        tmp_feature_3, attn = self.attention3(
+            temporal_adapt_long, temporal_adapt_short, temporal_adapt_short,
+            attn_mask=mask
+        )
+        hybrid_feature = temporal_adapt_long + self.dropout(tmp_feature_3)
+        hybrid_feature_adapted = self.norm3(hybrid_feature)
 
         # 2) Output Processing
-        hybrid_feature = torch.cat([temporal_adapt_long, temporal_adapt_short], dim=-1) 
-        fused_output_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
-        #fused_output_adapted = temporal_adapt_long + temporal_adapt_short
+        # hybrid_feature = torch.cat([temporal_adapt_long, temporal_adapt_short], dim=-1) 
+        # hybrid_feature_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
+        #hybrid_feature_adapted = temporal_adapt_long + temporal_adapt_short
         # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
         if update_type==2:
-            combined_feature = self.dropout(torch.cat((fused_output_adapted, add_feature), dim=-1))  # [B, N, 128+add_dim]
+            combined_feature = self.dropout(torch.cat((hybrid_feature_adapted, add_feature), dim=-1))  # [B, N, 128+add_dim]
         else:
-            combined_feature = torch.cat((fused_output_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+add_dim]
+            combined_feature = torch.cat((hybrid_feature_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+add_dim]
 
         return combined_feature
 
