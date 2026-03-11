@@ -21,7 +21,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 device = 'cpu'
         self.device = device
         self.hidden_out = hidden_out
-        self.atten_dim = hidden_out // 4
+        self.atten_dim = hidden_out# // 4
         self.add_dim = additional_dim-1 #去掉holding部分
         
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
