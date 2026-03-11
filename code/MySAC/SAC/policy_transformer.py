@@ -21,7 +21,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 device = 'cpu'
         self.device = device
         self.hidden_out = hidden_out
-        self.atten_dim = hidden_out // 2
+        self.atten_dim = hidden_out // 4
         self.add_dim = additional_dim-1 #去掉holding部分
         
         self.attention1 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
@@ -35,18 +35,18 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # 特征融合后投影回 hidden_out
         self.projection_input = nn.Sequential(
             nn.Linear(hidden_out + self.add_dim, self.atten_dim),
-            nn.LayerNorm(self.atten_dim),
-            nn.GELU()#nn.Sigmoid()#
+            # nn.GELU(),#nn.Sigmoid()#
+            # nn.LayerNorm(self.atten_dim)
         )
         self.projection_input2 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
-            nn.LayerNorm(self.atten_dim),
-            nn.GELU()#nn.Sigmoid()
+            # nn.GELU(),#nn.Sigmoid()
+            # nn.LayerNorm(self.atten_dim)
         )
         self.projection_input3 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
-            nn.LayerNorm(self.atten_dim),
-            nn.GELU()#nn.Sigmoid()#
+            # nn.GELU(),#nn.Sigmoid()#
+            # nn.LayerNorm(self.atten_dim)
         )
 
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-2)
