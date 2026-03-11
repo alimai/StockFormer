@@ -27,11 +27,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                                       output_attention=output_attention), atten_dim, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), atten_dim, n_heads)
-        self.attention3 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
-                                      output_attention=output_attention), atten_dim, n_heads)
         self.norm1 = nn.LayerNorm(atten_dim)
         self.norm2 = nn.LayerNorm(atten_dim)
-        self.norm3 = nn.LayerNorm(atten_dim)
         self.dropout = nn.Dropout(dropout)
 
         # 特征融合后投影回 hidden_out
@@ -72,74 +69,35 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             
         # 处理输入特征 (Refinement)
         add_feature = additional_feature[:, :, :-1] #去掉holding部分
-        relation_fused_input = torch.cat([relational_feature, add_feature], dim=-1) #temporal_feature_short#relational_feature
+        temporal_fused_long = torch.cat([temporal_feature_long, add_feature], dim=-1) #temporal_feature_short#relational_feature
         if update_type==1:
-            temporal_input_long = self.dropout(self.projection_input2(temporal_feature_long))
-            temporal_input_short = self.dropout(self.projection_input3(temporal_feature_short))
-            relation_fused_input = self.projection_input(relation_fused_input)
+            temporal_input_long = self.dropout(self.projection_input(temporal_fused_long))
         else:
-            temporal_input_long = self.projection_input2(temporal_feature_long)
-            temporal_input_short = self.projection_input3(temporal_feature_short)
-            relation_fused_input = self.dropout(self.projection_input(relation_fused_input))
+            temporal_input_long = self.projection_input(temporal_fused_long)
+            
+        temporal_input_short = self.projection_input2(temporal_feature_short)
+        relation_input = self.projection_input3(relational_feature)
 
+        # Attention parts
         tmp_feature_1, attn = self.attention1(
-            temporal_input_long, relation_fused_input, relation_fused_input,
+            temporal_input_long, temporal_input_short, temporal_input_short,
             attn_mask=mask
         )
-        temporal_attn_long = temporal_input_long + self.dropout(tmp_feature_1)
-        temporal_adapt_long = self.norm1(temporal_attn_long)
+        temporal_attn = temporal_input_long + self.dropout(tmp_feature_1)
+        temporal_atten_adapt = self.norm1(temporal_attn)
 
         tmp_feature_2, attn = self.attention2(
-            temporal_input_short, relation_fused_input, relation_fused_input,
+            temporal_atten_adapt, relation_input, relation_input,
             attn_mask=mask
         )
-        temporal_attn_short = temporal_input_short + self.dropout(tmp_feature_2)
-        temporal_adapt_short = self.norm2(temporal_attn_short)
-
-        tmp_feature_3, attn = self.attention3(
-            temporal_adapt_long, temporal_adapt_short, temporal_adapt_short,
-            attn_mask=mask
-        )
-        hybrid_feature = temporal_adapt_long + self.dropout(tmp_feature_3)
-        hybrid_feature_adapted = self.norm3(hybrid_feature)
-
-        # 2) Output Processing
-        # hybrid_feature = torch.cat([temporal_adapt_long, temporal_adapt_short], dim=-1) 
-        # hybrid_feature_adapted = self.projection_output(hybrid_feature) # [B, N, 128]
-        #hybrid_feature_adapted = temporal_adapt_long + temporal_adapt_short
-        # 再次拼接: Processed Context (128)与附加上下文（Tech + Date）
-        if update_type==2:
-            combined_feature = self.dropout(torch.cat((hybrid_feature_adapted, add_feature), dim=-1))  # [B, N, 128+add_dim]
+        if update_type==1:
+            hybrid_feature = temporal_atten_adapt + self.dropout(tmp_feature_2)
         else:
-            combined_feature = torch.cat((hybrid_feature_adapted, self.dropout(add_feature)), dim=-1)  # [B, N, 128+add_dim]
+             hybrid_feature = self.dropout(temporal_atten_adapt) + self.dropout(tmp_feature_2)
+        hybrid_feature_adapted = self.norm2(hybrid_feature)
 
-        return combined_feature
-
-    def forward_front(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
-        # relational_feature: [B, N, 128] (From MAE)
-        # additional_feature: [B, N, add_dim] (Tech + Date)
+        return hybrid_feature_adapted
         
-        # 1) 处理输入特征 (Refinement)
-        temporal_fused_input = torch.cat([temporal_feature_long, additional_feature], dim=-1) #temporal_feature_short#relational_feature
-        temporal_input_adapted = self.projection_input(temporal_fused_input) # [B, N, 128]
-
-        temporal_feature_short_adapted = self.projection_input2(temporal_feature_short) # [B, N, 128]
-        tmp_feature_1, attn = self.attention1(
-            temporal_input_adapted, temporal_feature_short_adapted, temporal_feature_short_adapted,
-            attn_mask=mask
-        )
-        temporal_feature_attn = temporal_input_adapted + self.dropout(tmp_feature_1)
-        temporal_hybrid_feature = self.norm1(temporal_feature_attn)
-
-        relational_feature_adapted = self.projection_input3(relational_feature) # [B, N, 128]
-        tmp_feature_2, attn = self.attention2(
-            temporal_hybrid_feature, relational_feature_adapted, relational_feature_adapted,
-            attn_mask=mask
-        )
-        feature_attn = temporal_hybrid_feature + self.dropout(tmp_feature_2)
-        hybrid_feature = self.norm2(feature_attn)
-
-        return hybrid_feature
 
     def forward_orig(self, relational_feature, temporal_feature_short, temporal_feature_long, holding, mask=None):
         # relational_feature shape [B, N, D]
