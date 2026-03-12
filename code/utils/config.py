@@ -102,7 +102,7 @@ def parse_args():
 
 _args = parse_args() #在模块被导入时立即执行
 struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
-scall_ratio = 1 if struct_base_flag else 1.0
+scall_ratio = 4# if struct_base_flag else 1
 
 ##transformer Model Parameters
 # ===== 可调节的超参数（加载预训练模型时可修改） =====
