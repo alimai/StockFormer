@@ -17,6 +17,7 @@ from utils.data.stock_data_handle import Stock_Data
 if __name__ == '__main__':
     print("start:")
     print("struct_base_flag: ",config.struct_base_flag)
+    print("scale_ratio: ",config.scale_ratio)
     fix_seed = random.randint(1, 5000) # 2022 #
     config.set_seed(fix_seed)
     version_name = config.version_name
@@ -24,7 +25,8 @@ if __name__ == '__main__':
 
     timestamp = datetime.datetime.now().strftime("%m%d%H%M")
     struct_base_str = 'true' if config.struct_base_flag else 'false'
-    tb_log_name_with_timestamp = model_name + '_' + timestamp + '_' + struct_base_str + '/'
+    scale_str = f'{config.scale_ratio}'
+    tb_log_name_with_timestamp = model_name + '_' + timestamp + '_' + struct_base_str + '_' + scale_str + '/'
     print(f"log name: {tb_log_name_with_timestamp}")
 
     working_path = os.path.dirname(os.path.abspath(__file__))
@@ -128,16 +130,10 @@ if __name__ == '__main__':
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
         
-        if config.struct_base_flag:
-            load_model_path = os.path.join(model_path, final_model_name+'_true.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_true.npz')
-            final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
-            buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
-        else:# 已训练的模型和buffer，如果存在则加载继续训练
-            load_model_path = os.path.join(model_path, final_model_name+'_false.zip')
-            buffer_path = os.path.join(model_path, buffer_name+'_false.npz')
-            final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
-            buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
+        load_model_path = os.path.join(model_path, final_model_name+"_"+scale_str+".zip")#+"_"+struct_base_str
+        buffer_path = os.path.join(model_path, buffer_name+"_"+scale_str+".npz")#+"_"+struct_base_str
+        final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
+        buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
         # 训练强化学习代理，加载模型
         agent = DRLAgent(env = env_train_vm)
@@ -193,7 +189,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=69000)
+                                    total_timesteps=39000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
