@@ -102,6 +102,7 @@ def parse_args():
 
 _args = parse_args() #在模块被导入时立即执行
 struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
+scall_ratio = 1 if struct_base_flag else 1.0
 
 ##transformer Model Parameters
 # ===== 可调节的超参数（加载预训练模型时可修改） =====
@@ -120,10 +121,10 @@ MAESAC_TUNABLE_PARAMS = {
     "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
 
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.2,#与 policy_transformer 共用
+    "dropout": 0.8/scall_ratio,#与 policy_transformer 共用
     "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": 0.0,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
-    "ac_input_dim": 32,# actor/critic输入维度(到隐藏层转换为1,减一维),对应policy_transformer 的输出层维度（默认值 128）
+    "ac_input_dim": 128//scall_ratio,# actor/critic输入维度(到隐藏层转换为1,减一维),对应policy_transformer 的输出层维度（默认值 128）
 
     # gSDE 探索增强 - 强强联合
     "use_sde": True,          # 启用状态依赖探索，让探索噪声与状态相关，保持策略一致性
