@@ -177,6 +177,7 @@ if __name__ == '__main__':
             # 处理不可序列化项为字符串
             serializable_config = {k: str(v) for k, v in config.MAESAC_TUNABLE_PARAMS.items()}
             serializable_config['struct_base_flag'] = str(config.struct_base_flag)
+            serializable_config['scale_ratio'] = str(config.scale_ratio)
             serializable_config['fix_seed'] = str(fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
