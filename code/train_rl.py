@@ -130,8 +130,8 @@ if __name__ == '__main__':
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
         
-        load_model_path = os.path.join(model_path, final_model_name+"_"+scale_str+".zip")#+"_"+struct_base_str
-        buffer_path = os.path.join(model_path, buffer_name+"_"+scale_str+".npz")#+"_"+struct_base_str
+        load_model_path = os.path.join(model_path, final_model_name+"_"+struct_base_str+"_"+scale_str+".zip")#
+        buffer_path = os.path.join(model_path, buffer_name+"_"+struct_base_str+"_"+scale_str+".npz")#
         final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
         buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         

@@ -59,35 +59,38 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
 
         # 处理输入特征 (Refinement)
         add_feature = additional_feature[:, :, :-1] #去掉holding部分
-        temporal_fused_long = torch.cat([temporal_feature_long, add_feature], dim=-1) #temporal_feature_short#relational_feature
         if update_type==1:
-            temporal_input_long = self.dropout(self.projection_input(temporal_fused_long))
+            base_feature = temporal_feature_long
+            minor_feature = relational_feature
         else:
-            temporal_input_long = self.projection_input(temporal_fused_long)
+            base_feature = relational_feature
+            minor_feature = temporal_feature_long
 
+        base_feature_fused = torch.cat([base_feature, add_feature], dim=-1) #temporal_feature_short#relational_feature
+        base_feature_input = self.dropout(self.projection_input(base_feature_fused))
         if self.atten_dim != self.hidden_out:
             temporal_input_short = self.projection_input2(temporal_feature_short)
-            relation_input = self.projection_input3(relational_feature)
+            minor_feature_input = self.projection_input3(minor_feature)
         else:
             temporal_input_short = temporal_feature_short
-            relation_input = relational_feature
+            minor_feature_input = minor_feature
 
         # Attention parts
         tmp_feature_1, attn = self.attention1(
-            temporal_input_long, temporal_input_short, temporal_input_short,
+            base_feature_input, temporal_input_short, temporal_input_short,
             attn_mask=mask
         )
-        #temporal_attn = temporal_input_long + self.dropout(tmp_feature_1)
+        #temporal_attn = base_feature_input + self.dropout(tmp_feature_1)
         #temporal_atten_adapt = self.norm1(temporal_attn)
 
         tmp_feature_2, attn = self.attention2(
-            temporal_input_long, relation_input, relation_input,
+            base_feature_input, minor_feature_input, minor_feature_input,
             attn_mask=mask
         )
         if update_type==1:
-            hybrid_feature = temporal_input_long + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
+            hybrid_feature = base_feature_input + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
         else:
-             hybrid_feature = self.dropout(temporal_input_long) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
+             hybrid_feature = self.dropout(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
         hybrid_feature_adapted = self.norm2(hybrid_feature)
 
         return hybrid_feature_adapted
