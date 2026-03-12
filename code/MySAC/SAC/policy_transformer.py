@@ -28,11 +28,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                                       output_attention=output_attention), self.atten_dim, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), self.atten_dim, n_heads)
-        self.attention3 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
-                                      output_attention=output_attention), self.atten_dim, n_heads)
         self.norm1 = nn.LayerNorm(self.atten_dim)
         self.norm2 = nn.LayerNorm(self.atten_dim)
-        self.norm3 = nn.LayerNorm(self.atten_dim)
         self.dropout = nn.Dropout(dropout)
 
         # 特征融合后投影回 hidden_out
@@ -76,46 +73,22 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             relation_input = relational_feature
 
         # Attention parts
-        # tmp_feature_1, attn = self.attention1(
-        #     temporal_input_long, temporal_input_short, temporal_input_short,
-        #     attn_mask=mask
-        # )
-        # temporal_attn = temporal_input_long + self.dropout(tmp_feature_1)
-        # temporal_atten_adapt = self.norm1(temporal_attn)
-
-        # tmp_feature_2, attn = self.attention2(
-        #     temporal_atten_adapt, relation_input, relation_input,
-        #     attn_mask=mask
-        # )
-        # if update_type==1:
-        #     hybrid_feature = temporal_atten_adapt + self.dropout(tmp_feature_2)
-        # else:
-        #      hybrid_feature = self.dropout(temporal_atten_adapt) + self.dropout(tmp_feature_2)
-        # hybrid_feature_adapted = self.norm2(hybrid_feature)
-
         tmp_feature_1, attn = self.attention1(
-            temporal_input_long, relation_input, relation_input,
+            temporal_input_long, temporal_input_short, temporal_input_short,
             attn_mask=mask
         )
-        temporal_attn_long = temporal_input_long + self.dropout(tmp_feature_1)
-        temporal_adapt_long = self.norm1(temporal_attn_long)
+        temporal_attn = temporal_input_long + self.dropout(tmp_feature_1)
+        temporal_atten_adapt = self.norm1(temporal_attn)
 
         tmp_feature_2, attn = self.attention2(
-            temporal_input_short, relation_input, relation_input,
-            attn_mask=mask
-        )
-        temporal_attn_short = temporal_input_short + self.dropout(tmp_feature_2)
-        temporal_adapt_short = self.norm2(temporal_attn_short)
-
-        tmp_feature_3, attn = self.attention3(
-            temporal_adapt_long, temporal_adapt_short, temporal_adapt_short,
+            temporal_atten_adapt, relation_input, relation_input,
             attn_mask=mask
         )
         if update_type==1:
-            hybrid_feature = temporal_adapt_long + self.dropout(tmp_feature_3)
+            hybrid_feature = temporal_atten_adapt + self.dropout(tmp_feature_2)
         else:
-             hybrid_feature = self.dropout(temporal_adapt_long) + self.dropout(tmp_feature_3)
-        hybrid_feature_adapted = self.norm3(hybrid_feature)
+             hybrid_feature = self.dropout(temporal_atten_adapt) + self.dropout(tmp_feature_2)
+        hybrid_feature_adapted = self.norm2(hybrid_feature)
 
         return hybrid_feature_adapted
         
