@@ -87,10 +87,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             base_feature_input, minor_feature_input, minor_feature_input,
             attn_mask=mask
         )
-        hybrid_feature = base_feature_input + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
         # if update_type==1:
+        #     hybrid_feature = base_feature_input + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
         # else:
-        #      hybrid_feature = self.dropout(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
+        hybrid_feature = self.dropout(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
         hybrid_feature_adapted = self.norm2(hybrid_feature)
 
         return hybrid_feature_adapted
