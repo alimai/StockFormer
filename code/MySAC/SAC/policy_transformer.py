@@ -57,7 +57,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         
         # 处理输入特征 (Refinement)
         add_feature = additional_feature[:, :, :-1] #去掉holding部分
-        if config.struct_base_flag==1:
+        if config.struct_type % 2 == 1:
             base_feature = temporal_feature_long
             minor_feature = relational_feature
         else:
@@ -78,14 +78,19 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             base_feature_input, temporal_input_short, temporal_input_short,
             attn_mask=mask
         )
-        #temporal_attn = base_feature_input + self.dropout(tmp_feature_1)
-        #temporal_atten_adapt = self.norm1(temporal_attn)
-
-        tmp_feature_2, attn = self.attention2(
-            base_feature_input, minor_feature_input, minor_feature_input,
-            attn_mask=mask
-        )
-        hybrid_feature = self.dropout(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
+        if config.struct_type <= 2:
+            tmp_feature_2, attn = self.attention2(
+                base_feature_input, minor_feature_input, minor_feature_input,
+                attn_mask=mask
+            )
+            hybrid_feature = self.dropout(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
+        else:            
+            temp_atten_adapt = self.norm1(base_feature_input + self.dropout(tmp_feature_1))
+            tmp_feature_2, attn = self.attention2(
+                temp_atten_adapt, minor_feature_input, minor_feature_input,
+                attn_mask=mask
+            )
+            hybrid_feature = self.dropout(temp_atten_adapt) + self.dropout(tmp_feature_2)
         hybrid_feature_adapted = self.norm2(hybrid_feature)
 
         return hybrid_feature_adapted

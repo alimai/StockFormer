@@ -26,7 +26,8 @@ if __name__ == '__main__':
     timestamp = datetime.datetime.now().strftime("%m%d%H%M")
     struct_str = str(config.struct_type)
     scale_str = f'{config.scale_ratio}'
-    tb_log_name_with_timestamp = model_name + '_' + timestamp + '_' + struct_str + '_' + scale_str + '/'
+    feature_suf = '_struct'+struct_str+'_scale'+scale_str
+    tb_log_name_with_timestamp = model_name + '_' + timestamp + feature_suf + '/'
     print(f"log name: {tb_log_name_with_timestamp}")
 
     working_path = os.path.dirname(os.path.abspath(__file__))
@@ -130,8 +131,8 @@ if __name__ == '__main__':
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
         
-        load_model_path = os.path.join(model_path, final_model_name+"_"+struct_str+"_"+scale_str+".zip")#
-        buffer_path = os.path.join(model_path, buffer_name+"_"+struct_str+"_"+scale_str+".npz")#
+        load_model_path = os.path.join(model_path, final_model_name+feature_suf+".zip")#
+        buffer_path = os.path.join(model_path, buffer_name+feature_suf+".npz")#
         final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
         buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
