@@ -95,16 +95,19 @@ ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
 # 解析命令行参数
 def parse_args():
     parser = argparse.ArgumentParser(description='StockFormer Training Configuration')
-    parser.add_argument('--struct_base_flag', type=str, default='True',
-                        help='policy模式 (True/False)')
+    parser.add_argument('--struct_type', type=int, default=1,
+                        help='结构类型')
     parser.add_argument('--scale_ratio', type=int, default=1,
                         help='缩放比例')
+    parser.add_argument('--struct_base_flag', type=str, default='True',
+                        help='policy模式 (True/False)')
     args, unknown = parser.parse_known_args()
     return args
 
 _args = parse_args() #在模块被导入时立即执行
-struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
+struct_type = _args.struct_type
 scale_ratio = _args.scale_ratio
+struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
 
 ##transformer Model Parameters
 # ===== 可调节的超参数（加载预训练模型时可修改） =====

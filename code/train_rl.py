@@ -16,7 +16,7 @@ from utils.data.stock_data_handle import Stock_Data
 
 if __name__ == '__main__':
     print("start:")
-    print("struct_base_flag: ",config.struct_base_flag)
+    print("struct_type: ",config.struct_type)
     print("scale_ratio: ",config.scale_ratio)
     fix_seed = random.randint(1, 5000) # 2022 #
     config.set_seed(fix_seed)
@@ -24,9 +24,9 @@ if __name__ == '__main__':
     model_name = config.model_name
 
     timestamp = datetime.datetime.now().strftime("%m%d%H%M")
-    struct_base_str = 'true' if config.struct_base_flag else 'false'
+    struct_str = str(config.struct_type)
     scale_str = f'{config.scale_ratio}'
-    tb_log_name_with_timestamp = model_name + '_' + timestamp + '_' + struct_base_str + '_' + scale_str + '/'
+    tb_log_name_with_timestamp = model_name + '_' + timestamp + '_' + struct_str + '_' + scale_str + '/'
     print(f"log name: {tb_log_name_with_timestamp}")
 
     working_path = os.path.dirname(os.path.abspath(__file__))
@@ -130,8 +130,8 @@ if __name__ == '__main__':
         env_eval_vm = VecMonitor(env_eval, log_path_eval)
 
         
-        load_model_path = os.path.join(model_path, final_model_name+"_"+struct_base_str+"_"+scale_str+".zip")#
-        buffer_path = os.path.join(model_path, buffer_name+"_"+struct_base_str+"_"+scale_str+".npz")#
+        load_model_path = os.path.join(model_path, final_model_name+"_"+struct_str+"_"+scale_str+".zip")#
+        buffer_path = os.path.join(model_path, buffer_name+"_"+struct_str+"_"+scale_str+".npz")#
         final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
         buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
         
@@ -176,7 +176,7 @@ if __name__ == '__main__':
         with open(os.path.join(config_save_dir, 'maesac_config.json'), 'w', encoding='utf-8') as f:
             # 处理不可序列化项为字符串
             serializable_config = {k: str(v) for k, v in config.MAESAC_TUNABLE_PARAMS.items()}
-            serializable_config['struct_base_flag'] = str(config.struct_base_flag)
+            serializable_config['struct_type'] = str(config.struct_type)
             serializable_config['scale_ratio'] = str(config.scale_ratio)
             serializable_config['fix_seed'] = str(fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)

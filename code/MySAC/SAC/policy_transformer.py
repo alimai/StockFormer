@@ -55,11 +55,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, add_dim] (Tech + Date)
         
-        update_type = 1 if config.struct_base_flag else 2
-
         # 处理输入特征 (Refinement)
         add_feature = additional_feature[:, :, :-1] #去掉holding部分
-        if update_type==1:
+        if config.struct_base_flag==1:
             base_feature = temporal_feature_long
             minor_feature = relational_feature
         else:
@@ -87,9 +85,6 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             base_feature_input, minor_feature_input, minor_feature_input,
             attn_mask=mask
         )
-        # if update_type==1:
-        #     hybrid_feature = base_feature_input + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
-        # else:
         hybrid_feature = self.dropout(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
         hybrid_feature_adapted = self.norm2(hybrid_feature)
 
