@@ -370,7 +370,7 @@ class SAC(SAC_SB3):
 
                 ent_coef_loss = None
                 if self.ent_coef_optimizer is not None:
-                    ent_coef = th.exp(self.log_ent_coef.detach())
+                    ent_coef = th.exp(self.log_ent_coef.detach()).clamp(min=0.001, max=0.5)
                     ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
                     ent_coef_losses.append(ent_coef_loss.item())
                 else:
@@ -397,7 +397,9 @@ class SAC(SAC_SB3):
                     next_q_values = th.cat(self.critic_target(next_critic_embed, next_actions), dim=1)
                     next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                     next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
+                    # 【稳定性优化】限制目标 Q 值的范围，防止爆炸
                     target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
+                    target_q_values = th.clamp(target_q_values, min=-1000, max=1000)
 
             # Optimize critic
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
