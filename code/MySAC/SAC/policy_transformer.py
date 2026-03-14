@@ -33,10 +33,10 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.norm2 = nn.LayerNorm(self.atten_dim)
         self.dropout = nn.Dropout(dropout)
 
-        if config.fix_seed % 2 == 1:
+        if config.fix_seed % 3 == 1:
             self.dropout1 = nn.Dropout(dropout*1.5)
             self.dropout2 = nn.Dropout(dropout*0.1)
-        elif config.fix_seed % 2 == 2:
+        elif config.fix_seed % 3 == 2:
             self.dropout1 = nn.Dropout(dropout*0.1)
             self.dropout2 = nn.Dropout(dropout*1.5)
         else:
