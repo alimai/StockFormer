@@ -84,7 +84,7 @@ if __name__ == '__main__':
         "ratio_max": 0.1,#单股占比
         "initial_amount": 100000,
         "transaction_cost_pct": 0,
-        "reward_scaling": 100, # 100,
+        "reward_scaling": 100,
         "stock_dim": stock_dimension,
         "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST,
         "temporal_feature_list": config.TEMPORAL_FEATURE,
