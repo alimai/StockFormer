@@ -399,6 +399,9 @@ class SAC(SAC_SB3):
                     next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
                     # 【稳定性优化】限制目标 Q 值的范围，防止爆炸
                     target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
+                    for i in range(len(target_q_values)):
+                        if th.abs(target_q_values[i]) > 1000:
+                            target_q_values[i] = th.sign(target_q_values[i]) * (1000 + (th.abs(target_q_values[i]) - 1000)*0.1)
                     target_q_values = th.clamp(target_q_values, min=-5000, max=5000)
 
             # Optimize critic
