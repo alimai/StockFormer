@@ -18,8 +18,7 @@ if __name__ == '__main__':
     print("start:")
     print("struct_type: ",config.struct_type)
     print("scale_ratio: ",config.scale_ratio)
-    fix_seed = random.randint(1, 5000) # 2022 #
-    config.set_seed(fix_seed)
+    config.set_seed()
     version_name = config.version_name
     model_name = config.model_name
 
@@ -84,7 +83,7 @@ if __name__ == '__main__':
         "ratio_max": 0.1,#单股占比
         "initial_amount": 100000,
         "transaction_cost_pct": 0,
-        "reward_scaling": 100,
+        "reward_scaling": 10,
         "stock_dim": stock_dimension,
         "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST,
         "temporal_feature_list": config.TEMPORAL_FEATURE,
@@ -156,7 +155,7 @@ if __name__ == '__main__':
             config.MAESAC_PARAMS["transformer_path"] = mae_model_path
             model_sac = agent.get_model("maesac",model_kwargs = config.MAESAC_PARAMS,
                                         tensorboard_log=tensorboard_log_dir,
-                                        seed=fix_seed, 
+                                        seed=config.fix_seed, 
                                         policy_kwargs=config.policy_kwargs
                                         )
 
@@ -179,7 +178,7 @@ if __name__ == '__main__':
             serializable_config = {k: str(v) for k, v in config.MAESAC_TUNABLE_PARAMS.items()}
             serializable_config['struct_type'] = str(config.struct_type)
             serializable_config['scale_ratio'] = str(config.scale_ratio)
-            serializable_config['fix_seed'] = str(fix_seed)
+            serializable_config['fix_seed'] = str(config.fix_seed)
             json.dump(serializable_config, f, indent=4, ensure_ascii=False)
 
         print('Start training...')

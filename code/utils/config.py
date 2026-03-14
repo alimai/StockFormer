@@ -15,7 +15,8 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'
 
-def set_seed(seed=2022):
+fix_seed = random.randint(1, 5000) # 2022 #
+def set_seed(seed=fix_seed):
     """统一设置所有随机种子"""
     random.seed(seed)
     np.random.seed(seed)

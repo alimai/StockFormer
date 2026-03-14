@@ -1,4 +1,5 @@
 ﻿import torch
+import random
 from torch import nn
 from utils import config
 
@@ -31,6 +32,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.norm1 = nn.LayerNorm(self.atten_dim)
         self.norm2 = nn.LayerNorm(self.atten_dim)
         self.dropout = nn.Dropout(dropout)
+
+        if config.fix_seed % 2 == 1:
+            self.dropout1 = nn.Dropout(dropout*1.5)
+            self.dropout2 = nn.Dropout(dropout*0.1)
+        elif config.fix_seed % 2 == 2:
+            self.dropout1 = nn.Dropout(dropout*0.1)
+            self.dropout2 = nn.Dropout(dropout*1.5)
+        else:
+            self.dropout1 = nn.Dropout(dropout)
+            self.dropout2 = nn.Dropout(dropout)
 
         # 特征融合后投影回 hidden_out
         self.projection_input = nn.Sequential(
@@ -65,7 +76,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             minor_feature = temporal_feature_long
 
         base_feature_fused = torch.cat([base_feature, add_feature], dim=-1) #temporal_feature_short#relational_feature
-        base_feature_input = self.dropout(self.projection_input(base_feature_fused))
+        base_feature_input = self.dropout1(self.projection_input(base_feature_fused))
         if self.atten_dim != self.hidden_out:
             temporal_input_short = self.projection_input2(temporal_feature_short)
             minor_feature_input = self.projection_input3(minor_feature)
@@ -83,14 +94,14 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                 base_feature_input, minor_feature_input, minor_feature_input,
                 attn_mask=mask
             )
-            hybrid_feature = self.dropout(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
+            hybrid_feature = self.dropout2(base_feature_input) + self.dropout(tmp_feature_1) + self.dropout(tmp_feature_2)
         else:            
             temp_atten_adapt = self.norm1(base_feature_input + self.dropout(tmp_feature_1))
             tmp_feature_2, attn = self.attention2(
                 temp_atten_adapt, minor_feature_input, minor_feature_input,
                 attn_mask=mask
             )
-            hybrid_feature = self.dropout(temp_atten_adapt) + self.dropout(tmp_feature_2)
+            hybrid_feature = self.dropout2(temp_atten_adapt) + self.dropout(tmp_feature_2)
         hybrid_feature_adapted = self.norm2(hybrid_feature)
 
         return hybrid_feature_adapted
