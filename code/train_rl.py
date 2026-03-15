@@ -109,9 +109,11 @@ if __name__ == '__main__':
     model_path = os.path.join(config.TRAINED_MODEL_DIR, version_name, model_name)
     os.makedirs(model_path, exist_ok=True)
 
-    final_model_name = 'final_train_model'
-    buffer_name = 'replay_buffer'
-
+    load_model_path = os.path.join(model_path, 'final_train_model'+feature_suf+".zip")#
+    buffer_path = os.path.join(model_path, 'replay_buffer'+feature_suf+".npz")#
+    final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
+    buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
+    
     train_mode = True#False#
     if train_mode:
         print("Initial train Env...")
@@ -127,13 +129,7 @@ if __name__ == '__main__':
 
         # 使用 VecMonitor 包装环境以记录训练和评估的统计信息
         env_train_vm = VecMonitor(env_train, log_path_train)
-        env_eval_vm = VecMonitor(env_eval, log_path_eval)
-
-        
-        load_model_path = os.path.join(model_path, final_model_name+feature_suf+".zip")#
-        buffer_path = os.path.join(model_path, buffer_name+feature_suf+".npz")#
-        final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
-        buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
+        env_eval_vm = VecMonitor(env_eval, log_path_eval)        
         
         # 训练强化学习代理，加载模型
         agent = DRLAgent(env = env_train_vm)
@@ -240,7 +236,7 @@ if __name__ == '__main__':
     test_trade_gym = Env(df = test, data_all = test_data, **env_kwargs)
     env_test, _ = test_trade_gym.get_sb_env()
     # 测试阶段：使用原始环境
-    test_model_path = final_model_path#os.path.join(model_path, final_model_name+'_false.zip')#'best_train_model.zip')
+    test_model_path = load_model_path#os.path.join(model_path, final_model_name+'_false.zip')#'best_train_model.zip')
     results = DRLAgent.DRL_prediction_load_from_file(model_name='maesac',test_env=env_test, cwd=test_model_path)
 
     df_root = os.path.join(config.RESULTS_DIR, 'test', version_name, model_name)
