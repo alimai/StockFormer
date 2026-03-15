@@ -398,15 +398,15 @@ class SAC(SAC_SB3):
                     next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                     next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
                     target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
-                    # 【P0 改进】分段对数压缩：只对 |x| > 1000 的极端值进行压缩，保留大部分区域的线性特性
-                    threshold = 1000.0
-                    target_q_values = th.where(
-                        th.abs(target_q_values) > threshold,
-                        th.sign(target_q_values) * (1000 + (th.abs(target_q_values) - 1000)*0.1),
-                        target_q_values
-                    )
-                    target_q_values = th.clamp(target_q_values, min=-5000, max=5000)
-
+                    # 【P0 改进】将压缩逻辑移至 Loss 端，此处仅保留原始计算。
+                    # # 【P0 改进】分段线性压缩：只对 |x| > 1000 的极端值进行压缩，保留大部分区域的线性特性
+                    # threshold = 1000.0
+                    # target_q_values = th.where(
+                    #     th.abs(target_q_values) > threshold,
+                    #     th.sign(target_q_values) * (1000 + (th.abs(target_q_values) - 1000)*0.1),
+                    #     target_q_values
+                    # )
+                    # target_q_values = th.clamp(target_q_values, min=-5000, max=5000)
 
             # Optimize critic
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
@@ -414,7 +414,11 @@ class SAC(SAC_SB3):
                 # current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
                 current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
                 current_q_values = self.critic(current_critic_embed, replay_data.actions)
-                critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
+                # 【Loss 端优化 - 使用 Huber Loss】
+                # delta=1000 表示误差在 1000 以内是 MSE，超过 1000 变为 MAE（线性增长）
+                # 【增强】强制转为 float32 计算，防止 AMP 模式下 Huber Loss 的中间平方项溢出 (float16 max 65504)
+                # critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
+                critic_loss = 0.5 * sum([F.huber_loss(current_q.float(), target_q_values.float(), delta=1000.0) for current_q in current_q_values])
             
             critic_losses.append(critic_loss.item())
 
@@ -457,7 +461,8 @@ class SAC(SAC_SB3):
                 # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
                 # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
                 alpha = 0
-                actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
+                # 【增强】强制转为 float32 计算，防止 AMP 模式下高量级 Q 值导致溢出
+                actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
 
             actor_losses.append(actor_loss.item())
 
