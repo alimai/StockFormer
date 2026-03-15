@@ -350,11 +350,12 @@ class SAC(SAC_SB3):
 
             # 批次融合在 CPU 上也能大幅减少算子调用开销
             combined_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
-            
+
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
-            # 1. 性能敏感部分：MAE 状态编码（保留 AMP 加速）
-            with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs, mask_mode='mixed')
+            # 1. 性能敏感部分：MAE 状态编码,保留 AMP 加速
+            with th.no_grad():# 暂保持MAE 固定不变：使用 no_grad() 阻止梯度累积，节省内存
+                with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                    combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs, mask_mode='mixed')
 
             # 2. RL 核心逻辑部分：从此处开始，所有计算均脱离 AMP，运行在 FP32 高精度轨道上
             state, next_state = th.chunk(combined_out, 2, dim=0)
