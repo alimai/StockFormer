@@ -643,11 +643,23 @@ class SAC(SAC_SB3):
 
         # 准备数据字典（直接切片/索引）
         # 注意：导出的数据在加载时会被放在新 Buffer 的 0 到 n_to_save 位置
+
+        # 【增强】保存前的“体检”与修复
+        obs_to_save = self.replay_buffer.observations[idx]
+        next_obs_to_save = self.replay_buffer.next_observations[idx]
+        actions_to_save = self.replay_buffer.actions[idx]
+
+        if np.isnan(obs_to_save).any() or np.isnan(next_obs_to_save).any() or np.isnan(actions_to_save).any():
+            print("严重警告：内存 Replay Buffer 中检测到 NaN！保存前已强制修复为 0。请检查训练稳定性。")
+            obs_to_save = np.nan_to_num(obs_to_save)
+            next_obs_to_save = np.nan_to_num(next_obs_to_save)
+            actions_to_save = np.nan_to_num(actions_to_save)
+
         save_dict = {
-            "observations": self.replay_buffer.observations[idx],
-            "next_observations": self.replay_buffer.next_observations[idx],  # 【修复】保存 next_observations
-            "actions": self.replay_buffer.actions[idx],
-            "rewards": self.replay_buffer.rewards[idx],
+            "observations": obs_to_save.astype(np.float32),
+            "next_observations": next_obs_to_save.astype(np.float32),  # 【修复】保存 next_observations
+            "actions": actions_to_save.astype(np.float32),
+            "rewards": self.replay_buffer.rewards[idx].astype(np.float32),
             "dones": self.replay_buffer.dones[idx],
             "pos": np.array([n_to_save]), # 加载后，下一个数据将从 n_to_save 开始存
             "full": np.array([False])      # 导出的子集通常视为未满状态
@@ -699,25 +711,39 @@ class SAC(SAC_SB3):
             # CPU 会在这一步执行高效的 Block Copy，不占用额外中转内存
             print(f"正在将文件中最新的 {n_to_load} 条经验（索引 {start_idx} 到 {loaded_pos}）串行拷贝至预分配内存...")
             
+            # 【增强】加载并进行数据审计 (Audit)
+            temp_obs = data["observations"][start_idx:loaded_pos]
+            if np.isnan(temp_obs).any():
+                print("警告：从文件中读取的 Observations 含有 NaN！已自动修复为 0。")
+                temp_obs = np.nan_to_num(temp_obs)
+
             # 处理 Observation (兼容 SB3 的 (n, 1, ...) 结构)
-            source_obs = data["observations"]
-            if len(source_obs.shape) == len(self.replay_buffer.observations.shape):
-                self.replay_buffer.observations[:n_to_load] = source_obs[start_idx:loaded_pos]
+            if len(temp_obs.shape) == len(self.replay_buffer.observations.shape):
+                self.replay_buffer.observations[:n_to_load] = temp_obs.astype(np.float32)
             else:
-                self.replay_buffer.observations[:n_to_load, 0] = source_obs[start_idx:loaded_pos]
+                self.replay_buffer.observations[:n_to_load, 0] = temp_obs.astype(np.float32)
 
             # 【修复】加载 next_observations
             if "next_observations" in data:
-                source_next_obs = data["next_observations"]
-                if len(source_next_obs.shape) == len(self.replay_buffer.next_observations.shape):
-                    self.replay_buffer.next_observations[:n_to_load] = source_next_obs[start_idx:loaded_pos]
+                temp_next_obs = data["next_observations"][start_idx:loaded_pos]
+                if np.isnan(temp_next_obs).any():
+                    print("警告：从文件中读取的 Next Observations 含有 NaN！已自动修复为 0。")
+                    temp_next_obs = np.nan_to_num(temp_next_obs)
+                
+                if len(temp_next_obs.shape) == len(self.replay_buffer.next_observations.shape):
+                    self.replay_buffer.next_observations[:n_to_load] = temp_next_obs.astype(np.float32)
                 else:
-                    self.replay_buffer.next_observations[:n_to_load, 0] = source_next_obs[start_idx:loaded_pos]
+                    self.replay_buffer.next_observations[:n_to_load, 0] = temp_next_obs.astype(np.float32)
             else:
                 # 兼容旧版 buffer 文件（没有 next_observations）
                 print("警告：旧版 Buffer 文件缺少 next_observations，训练可能异常，建议重新收集数据")
 
-            self.replay_buffer.actions[:n_to_load] = data["actions"][start_idx:loaded_pos]
+            temp_actions = data["actions"][start_idx:loaded_pos]
+            if np.isnan(temp_actions).any():
+                print("警告：加载的 Actions 含有 NaN！已修复。")
+                temp_actions = np.nan_to_num(temp_actions)
+            
+            self.replay_buffer.actions[:n_to_load] = temp_actions.astype(np.float32)
             self.replay_buffer.rewards[:n_to_load] = data["rewards"][start_idx:loaded_pos]
             self.replay_buffer.dones[:n_to_load] = data["dones"][start_idx:loaded_pos]
             
