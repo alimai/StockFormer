@@ -66,7 +66,16 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, add_dim] (Tech + Date)
+                
+        # 【增强】强制整个 forward 在 float32 下运行，防止 AMP 模式下数值不稳定导致 NaN
+        orig_dtype = relational_feature.dtype
         
+        relational_feature = relational_feature.float()
+        temporal_feature_short = temporal_feature_short.float()
+        temporal_feature_long = temporal_feature_long.float()
+        additional_feature = additional_feature.float()
+
+
         # 处理输入特征 (Refinement)
         add_feature = additional_feature[:, :, :-1] #去掉holding部分
         if config.struct_type % 2 == 1:
@@ -105,8 +114,12 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             hybrid_feature = self.dropout2(temp_atten_adapt) + self.dropout(tmp_feature_2)
         hybrid_feature_adapted = self.norm2(hybrid_feature)
 
-        return hybrid_feature_adapted
-        
+        # 【增强】检查数值范围，确保在 float16 安全表示范围内 (max 65504)
+        # 预防因 float32 高精度计算结果过大，在转回 float16 时发生溢出
+        if orig_dtype == torch.float16:
+            hybrid_feature_adapted = torch.clamp(hybrid_feature_adapted, min=-65500.0, max=65500.0)
+        # 【增强】将结果转回原始数据类型（float16），确保与后续网络兼容
+        return hybrid_feature_adapted.to(orig_dtype)        
 
     def forward_orig(self, relational_feature, temporal_feature_short, temporal_feature_long, holding, mask=None):
         # relational_feature shape [B, N, D]
