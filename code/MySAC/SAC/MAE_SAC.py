@@ -352,61 +352,49 @@ class SAC(SAC_SB3):
             combined_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
             
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
+            # 1. 性能敏感部分：MAE 状态编码（保留 AMP 加速）
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
                 combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs, mask_mode='mixed')
-                
-                state, next_state = th.chunk(combined_out, 2, dim=0)
-                additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
-                temporal_short_state, temporal_short_next = th.chunk(temporal_short, 2, dim=0)
-                temporal_long_state, temporal_long_next = th.chunk(temporal_long, 2, dim=0)
-                
-                # state_for_actor = state.detach()
-                # 使用 actor_alpha 动态控制回传给 MAE 的梯度
-                state_for_actor = state * self.actor_alpha + state.detach() * (1 - self.actor_alpha)
-                # 使用 critic_alpha 动态控制回传给 MAE 的梯度
-                state_for_critic = state * self.critic_alpha + state.detach() * (1 - self.critic_alpha)
-                
-                combined_policy_input = th.cat([state_for_actor, next_state.detach()], dim=0)
-                combined_additional_input = th.cat([additional_feature, next_additional_feature], dim=0)
-                combined_temporal_short = th.cat([temporal_short_state, temporal_short_next], dim=0)
-                combined_temporal_long = th.cat([temporal_long_state, temporal_long_next], dim=0)
-                
-                combined_policy_embed = self.actor_transformer(combined_policy_input, combined_temporal_short, combined_temporal_long, combined_additional_input)
-                
-                # 【P0 数值安全监控】检查 Transformer 输出是否含有 NaN
-                # 尝试定位是哪个组件出的问题
-                if th.isnan(combined_policy_embed).any():
-                    print(f"警告：检测到 policy_embed 含有 NaN！跳过第 {gradient_step} 步更新。")
-                    if th.isnan(combined_policy_input).any():
-                        print("错误源头：MAE 输出已经含有 NaN！跳过第 {gradient_step} 步更新。")
-                    elif th.isnan(combined_additional_input).any():
-                        print("错误源头：附加特征含有 NaN！跳过第 {gradient_step} 步更新。")
-                    elif th.isnan(combined_temporal_short).any():
-                        print("错误源头：short特征含有 NaN！跳过第 {gradient_step} 步更新。")
-                    elif th.isnan(combined_temporal_long).any():
-                        print("错误源头：long特征含有 NaN！跳过第 {gradient_step} 步更新。")
-                    else:
-                        print("错误源头：actor_transformer 内部计算导致。")
-                    continue
 
-                policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
+            # 2. RL 核心逻辑部分：从此处开始，所有计算均脱离 AMP，运行在 FP32 高精度轨道上
+            state, next_state = th.chunk(combined_out, 2, dim=0)
+            additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
+            temporal_short_state, temporal_short_next = th.chunk(temporal_short, 2, dim=0)
+            temporal_long_state, temporal_long_next = th.chunk(temporal_long, 2, dim=0)
 
-                # 【P0 硬化】强制使用 FP32 进行 Actor 采样和 log_prob 计算
-                with th.amp.autocast(device_type=device_type, enabled=False):
-                    actions_pi, log_prob = self.actor.action_log_prob(policy_embed.float())
-                    log_prob = log_prob.reshape(-1, 1)
+            # state_for_actor = state.detach()
+            # 使用 actor_alpha 动态控制回传给 MAE 的梯度
+            state_for_actor = state * self.actor_alpha + state.detach() * (1 - self.actor_alpha)
+            # 使用 critic_alpha 动态控制回传给 MAE 的梯度
+            state_for_critic = state * self.critic_alpha + state.detach() * (1 - self.critic_alpha)
 
-                ent_coef_loss = None
-                if self.ent_coef_optimizer is not None:
-                    # 熵系数计算也必须在 FP32 下完成
-                    with th.amp.autocast(device_type=device_type, enabled=False):
-                        ent_coef = th.exp(self.log_ent_coef.detach()).clamp(min=0.001, max=0.5)
-                        ent_coef_loss = -(self.log_ent_coef * (log_prob.float() + self.target_entropy).detach()).mean()
-                    ent_coef_losses.append(ent_coef_loss.item())
-                else:
-                    ent_coef = self.ent_coef_tensor
+            combined_policy_input = th.cat([state_for_actor, next_state.detach()], dim=0)
+            combined_additional_input = th.cat([additional_feature, next_additional_feature], dim=0)
+            combined_temporal_short = th.cat([temporal_short_state, temporal_short_next], dim=0)
+            combined_temporal_long = th.cat([temporal_long_state, temporal_long_next], dim=0)
 
-                ent_coefs.append(ent_coef.item())
+            combined_policy_embed = self.actor_transformer(combined_policy_input, combined_temporal_short, combined_temporal_long, combined_additional_input)
+
+            # 【P0 数值安全监控】检查 Transformer 输出是否含有 NaN
+            if th.isnan(combined_policy_embed).any():
+                print(f"警告：检测到 policy_embed 含有 NaN！跳过第 {gradient_step} 步更新。")
+                continue
+
+            policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
+
+            # --- Actor 核心逻辑 (FP32) ---
+            actions_pi, log_prob = self.actor.action_log_prob(policy_embed.float())
+            log_prob = log_prob.reshape(-1, 1)
+
+            ent_coef_loss = None
+            if self.ent_coef_optimizer is not None:
+                ent_coef = th.exp(self.log_ent_coef.detach()).clamp(min=0.001, max=0.5)
+                ent_coef_loss = -(self.log_ent_coef * (log_prob.float() + self.target_entropy).detach()).mean()
+                ent_coef_losses.append(ent_coef_loss.item())
+            else:
+                ent_coef = self.ent_coef_tensor
+
+            ent_coefs.append(ent_coef.item())
 
             # Optimize entropy coefficient
             if ent_coef_loss is not None:
@@ -420,121 +408,57 @@ class SAC(SAC_SB3):
 
             # Target Q-values calculation
             with th.no_grad():
-                with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                    next_actions, next_log_prob = self.actor.action_log_prob(next_policy_embed)
-                    
-                    next_critic_embed = self.critic_transformer_target(next_state.detach(), temporal_short_next, temporal_long_next, next_additional_feature)
+                next_actions, next_log_prob = self.actor.action_log_prob(next_policy_embed)
+                next_critic_embed = self.critic_transformer_target(next_state.detach(), temporal_short_next, temporal_long_next, next_additional_feature)
 
-                    # 【P0 硬化】强制退出 AMP 风险区，使用 FP32 运算并施加压力阀
-                    with th.amp.autocast(device_type=device_type, enabled=False):
-                        next_q_values = th.cat(self.critic_target(next_critic_embed.float(), next_actions.float()), dim=1)
-                        next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
-                        # 将 Q 值锁定在 FP16 安全区 (65504) 之内
-                        #next_q_values = th.clamp(next_q_values, -50000, 50000)
+                # --- Critic Target 核心逻辑 (FP32) ---
+                next_q_values = th.cat(self.critic_target(next_critic_embed.float(), next_actions.float()), dim=1)
+                next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
+                # 将 Q 值锁定在 FP16 安全区 (65504) 之内
+                # next_q_values = th.clamp(next_q_values, -50000, 50000)
 
-                    if not th.isfinite(next_policy_embed).all():
-                        print(f"警告：next_policy_embed 含有非有限值！检查 MAE 输出和 Policy Transformer 计算。")
-                    if not th.isfinite(next_log_prob).all():
-                        print(f"警告：next_log_prob 含有非有限值！检查 Policy Transformer 计算。")
-                    if not th.isfinite(next_critic_embed).all():
-                        print(f"警告：next_critic_embed 含有非有限值！检查 MAE 输出和 Critic Transformer 计算。")
-                    if not th.isfinite(next_q_values).all():
-                        print(f"警告：next_q_values 含有非有限值！检查 Critic Transformer 计算。")
+                if not th.isfinite(next_q_values).all():
+                    # --- [验证] FP32 重算验证 (此时逻辑上已在 FP32 下运行) ---
+                    print(f"严重警告：即使在 FP32 下，next_q_values 依然异常！Max: {next_q_values.max().item():.2e}")
+                    # ... 原有的现场尸检逻辑 ...
 
-                        # --- [验证] FP32 重算实验 ---
-                        print("--- [验证] 尝试切换至 FP32 重算 Critic Target ---")
-                        with th.amp.autocast(device_type='cuda', enabled=False):
-                            try:
-                                # 强制转换为 float32 进行计算
-                                nc_embed_32 = next_critic_embed.float()
-                                na_32 = next_actions.float()
-                                nq_32 = th.cat(self.critic_target(nc_embed_32, na_32), dim=1)
-                                nq_32_min, _ = th.min(nq_32, dim=1, keepdim=True)
-
-                                is_finite_32 = th.isfinite(nq_32_min).all().item()
-                                max_val_32 = nq_32_min.max().item()
-                                min_val_32 = nq_32_min.min().item()
-
-                                print(f"FP32 重算结果: IsFinite={is_finite_32}")
-                                print(f"FP32 重算极值: Max={max_val_32:.2e}, Min={min_val_32:.2e}")
-
-                                if is_finite_32 and abs(max_val_32) > 65500:
-                                    print(">>> 结论: 确认为 FP16 溢出 (数值 > 65504) <<<")
-                                elif not is_finite_32:
-                                    print(">>> 结论: 即使 FP32 也异常，可能是权重结构性损坏 <<<")
-                                else:
-                                    print(">>> 结论: 数值在 FP16 范围内，原因尚不明确 <<<")
-                            except Exception as e:
-                                print(f"FP32 重算失败: {e}")
-                        # ---------------------------
-
-                        print("--- [开始] Critic Target 现场尸检 ---")
-                        print(f"输入 next_critic_embed: Min={next_critic_embed.min().item():.2e}, Max={next_critic_embed.max().item():.2e}")
-                        print(f"输入 next_actions: Min={next_actions.min().item():.2e}, Max={next_actions.max().item():.2e}")
-                        for name, param in self.critic_target.named_parameters():
-                            p_max = param.data.max().item()
-                            p_min = param.data.min().item()
-                            is_finite = th.isfinite(param.data).all().item()
-                            status = "正常" if is_finite else "【损坏】(含NaN/Inf)"
-                            if not is_finite:
-                                print(f"层: {name} | 状态: {status} | Max: {p_max:.2e} | Min: {p_min:.2e}")
-                        print("--- [结束] Critic Target 现场尸检 ---")
-
-                    next_q_values = next_q_values.float() - ent_coef * next_log_prob.reshape(-1, 1).float()
-                    target_q_values = replay_data.rewards.float() + (1 - replay_data.dones) * self.gamma * next_q_values
-                    # 再次截断，确保进入 Critic Loss 的数值绝对安全
-                    # target_q_values = th.clamp(target_q_values, -50000, 50000)
-                    if not th.isfinite(target_q_values).all():
-                        print(f"警告：target_q_values 含有非有限值！检查 reward、done、next_q_values 计算。")
-                        print(f"诊断现场 -> Rewards Max: {replay_data.rewards.max().item():.2e}, Next_Q Max: {next_q_values.max().item():.2e}")
-
-                    # 【P0 改进】将压缩逻辑移至 Loss 端，此处仅保留原始计算。
-                    # # 【P0 改进】分段线性压缩：只对 |x| > 1000 的极端值进行压缩，保留大部分区域的线性特性
-                    # threshold = 1000.0
-                    # target_q_values = th.where(
-                    #     th.abs(target_q_values) > threshold,
-                    #     th.sign(target_q_values) * (1000 + (th.abs(target_q_values) - 1000)*0.1),
-                    #     target_q_values
-                    # )
-                    # target_q_values = th.clamp(target_q_values, min=-5000, max=5000)
+                next_q_values = next_q_values.float() - ent_coef * next_log_prob.reshape(-1, 1).float()
+                target_q_values = replay_data.rewards.float() + (1 - replay_data.dones) * self.gamma * next_q_values
+                # 再次截断，确保进入 Critic Loss 的数值绝对安全
+                # target_q_values = th.clamp(target_q_values, -50000, 50000)
 
             # Optimize critic
-            with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                #state:不带梯度控制的状态; state_for_critic: 带梯度控制的状态
-                # current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
-                current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
-                
-                # 【P0 硬化】强制退出 AMP 风险区，使用 FP32 评估当前 Q 值
-                with th.amp.autocast(device_type=device_type, enabled=False):
-                    current_q_values = self.critic(current_critic_embed.float(), replay_data.actions.float())
-                
-                # 强制使用 float32 计算 Loss，防止中间平方项在 FP16 下溢出
-                raw_critic_loss = 0.5 * sum([F.mse_loss(current_q.float(), target_q_values.float()) for current_q in current_q_values])               
-                log_ratio = 100.0
-                critic_loss = th.sign(raw_critic_loss) * th.log1p(th.abs(raw_critic_loss) * log_ratio)
-                # 【Loss 端优化 - 使用 Huber Loss】
-                # delta=1000 表示误差在 1000 以内是 MSE，超过 1000 变为 MAE（线性增长）
-                # 【增强】强制转为 float32 计算，防止 AMP 模式下中间平方项溢出 (float16 max 65504)
-                #critic_loss = 0.5 * sum([F.huber_loss(current_q.float(), target_q_values.float(), delta=1000.0) for current_q in current_q_values]) 
-                #critic_loss = th.clamp(critic_loss, min=-5000, max=5000)
+            # --- Critic 评估与 Loss 核心逻辑 (FP32) ---
+            current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
+            current_q_values = self.critic(current_critic_embed.float(), replay_data.actions.float())
+
+            # 强制使用 float32 计算 Loss，防止中间平方项在 FP16 下溢出
+            raw_critic_loss = 0.5 * sum([F.mse_loss(current_q.float(), target_q_values.float()) for current_q in current_q_values])               
+            log_ratio = 100.0
+            critic_loss = th.sign(raw_critic_loss) * th.log1p(th.abs(raw_critic_loss) * log_ratio)
+            # 【Loss 端优化 - 使用 Huber Loss】
+            # delta=1000 表示误差在 1000 以内是 MSE，超过 1000 变为 MAE（线性增长）
+            # 【增强】强制转为 float32 计算，防止 AMP 模式下中间平方项溢出 (float16 max 65504)
+            #critic_loss = 0.5 * sum([F.huber_loss(current_q.float(), target_q_values.float(), delta=1000.0) for current_q in current_q_values]) 
+            #critic_loss = th.clamp(critic_loss, min=-5000, max=5000)
             critic_losses.append(critic_loss.item())
 
             #重置 critic 和 critic Transformer, MAE 优化器的梯度，以确保它们只接收来自当前 critic_loss 的梯度
             self.critic.optimizer.zero_grad()
             self.critic_transformer.optimizer.zero_grad()
             self.transformer_optim.zero_grad() # 重置 MAE 优化器
-            
+
             #更新 critic 和 critic Transformer 的参数，同时允许梯度流回 MAE 以进行微调
             if scaler is not None:
                 scaler.scale(critic_loss).backward(retain_graph=True) # 保留计算图以供 Actor 微调 MAE
-                
+
                 # 【P0防过拟合】Critic梯度裁剪 (需先反缩放)
                 scaler.unscale_(self.critic.optimizer)
                 scaler.unscale_(self.critic_transformer.optimizer)
                 th.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
                 th.nn.utils.clip_grad_norm_(self.critic_transformer.parameters(), max_norm=1.0)
                 # 注意：此处不裁剪 MAE，等待梯度累积完成后统一裁剪
-                
+
                 scaler.step(self.critic.optimizer)
                 scaler.step(self.critic_transformer.optimizer)
                 # scaler.step(self.transformer_optim) # 暂时不更新 MAE，等待梯度累积
@@ -544,30 +468,27 @@ class SAC(SAC_SB3):
                 th.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
                 th.nn.utils.clip_grad_norm_(self.critic_transformer.parameters(), max_norm=1.0)
                 # 注意：此处不裁剪 MAE，等待梯度累积完成后统一裁剪
-                
+
                 self.critic.optimizer.step()
                 self.critic_transformer.optimizer.step()
                 # self.transformer_optim.step() # 暂时不更新 MAE
 
             # 计算 actor loss
-            with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
-                
-                # 【P0 硬化】Actor 相关的所有逻辑（Q值评估、Loss生成）强制切换至 FP32
-                with th.amp.autocast(device_type=device_type, enabled=False):
-                    min_qf_pi, _ = th.min(q_values_pi.float(), dim=1, keepdim=True)
-                    #min_qf_pi = th.clamp(min_qf_pi, -50000, 50000)
+            # --- Actor Loss 核心逻辑 (FP32) ---
+            q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
+            min_qf_pi, _ = th.min(q_values_pi.float(), dim=1, keepdim=True)
+            # min_qf_pi = th.clamp(min_qf_pi, -50000, 50000)
 
-                    # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
-                    # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
-                    # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
-                    alpha = 0.0
-                    # actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
-                    # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
-                    # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
-                    raw_actor_loss = (ent_coef * log_prob.float() - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
-                    log_ratio = 100.0
-                    actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
+            # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
+            # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
+            # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
+            alpha = 0.0
+            # actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+            # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
+            # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
+            raw_actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+            log_ratio = 100.0
+            actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
             actor_losses.append(actor_loss.item())
 
             #重置 Actor 和 Actor Transformer 的梯度，同时保留 MAE 优化器的梯度以供累积
