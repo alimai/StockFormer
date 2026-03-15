@@ -391,13 +391,17 @@ class SAC(SAC_SB3):
 
                 policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
 
-                actions_pi, log_prob = self.actor.action_log_prob(policy_embed)
-                log_prob = log_prob.reshape(-1, 1)
+                # 【P0 硬化】强制使用 FP32 进行 Actor 采样和 log_prob 计算
+                with th.amp.autocast(device_type=device_type, enabled=False):
+                    actions_pi, log_prob = self.actor.action_log_prob(policy_embed.float())
+                    log_prob = log_prob.reshape(-1, 1)
 
                 ent_coef_loss = None
                 if self.ent_coef_optimizer is not None:
-                    ent_coef = th.exp(self.log_ent_coef.detach()).clamp(min=0.001, max=0.5)
-                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
+                    # 熵系数计算也必须在 FP32 下完成
+                    with th.amp.autocast(device_type=device_type, enabled=False):
+                        ent_coef = th.exp(self.log_ent_coef.detach()).clamp(min=0.001, max=0.5)
+                        ent_coef_loss = -(self.log_ent_coef * (log_prob.float() + self.target_entropy).detach()).mean()
                     ent_coef_losses.append(ent_coef_loss.item())
                 else:
                     ent_coef = self.ent_coef_tensor
@@ -549,21 +553,21 @@ class SAC(SAC_SB3):
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
                 q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
                 
-                # 【P0 硬化】强制使用 FP32 评估 Q 值并施加压力阀
+                # 【P0 硬化】Actor 相关的所有逻辑（Q值评估、Loss生成）强制切换至 FP32
                 with th.amp.autocast(device_type=device_type, enabled=False):
                     min_qf_pi, _ = th.min(q_values_pi.float(), dim=1, keepdim=True)
                     #min_qf_pi = th.clamp(min_qf_pi, -50000, 50000)
 
-                # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
-                # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
-                # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
-                alpha = 0.0
-                # actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
-                # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
-                # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
-                raw_actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
-                log_ratio = 100.0
-                actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
+                    # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
+                    # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
+                    # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
+                    alpha = 0.0
+                    # actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+                    # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
+                    # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
+                    raw_actor_loss = (ent_coef * log_prob.float() - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+                    log_ratio = 100.0
+                    actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
             actor_losses.append(actor_loss.item())
 
             #重置 Actor 和 Actor Transformer 的梯度，同时保留 MAE 优化器的梯度以供累积
