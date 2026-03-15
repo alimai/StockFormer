@@ -29,6 +29,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                                       output_attention=output_attention), self.atten_dim, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), self.atten_dim, n_heads)
+        self.norm0 = nn.LayerNorm(self.atten_dim)
         self.norm1 = nn.LayerNorm(self.atten_dim)
         self.norm2 = nn.LayerNorm(self.atten_dim)
         self.dropout = nn.Dropout(dropout)
@@ -47,17 +48,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection_input = nn.Sequential(
             nn.Linear(hidden_out + self.add_dim, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            nn.LayerNorm(self.atten_dim)
+            self.norm0
         )
         self.projection_input2 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()
-            nn.LayerNorm(self.atten_dim)
+            self.norm0
         )
         self.projection_input3 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            nn.LayerNorm(self.atten_dim)
+            self.norm0
         )
 
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-2)

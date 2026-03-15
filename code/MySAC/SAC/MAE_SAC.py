@@ -431,12 +431,14 @@ class SAC(SAC_SB3):
                 # current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
                 current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
                 current_q_values = self.critic(current_critic_embed, replay_data.actions)
+                raw_critic_loss = 0.5 * sum([F.mse_loss(current_q.float(), target_q_values.float()) for current_q in current_q_values])               
+                log_ratio = 100.0
+                critic_loss = th.sign(raw_critic_loss) * th.log1p(th.abs(raw_critic_loss) * log_ratio)
                 # 【Loss 端优化 - 使用 Huber Loss】
                 # delta=1000 表示误差在 1000 以内是 MSE，超过 1000 变为 MAE（线性增长）
-                # 【增强】强制转为 float32 计算，防止 AMP 模式下 Huber Loss 的中间平方项溢出 (float16 max 65504)
-                # critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])
-                critic_loss = 0.5 * sum([F.huber_loss(current_q.float(), target_q_values.float(), delta=1000.0) for current_q in current_q_values])
-            
+                # 【增强】强制转为 float32 计算，防止 AMP 模式下中间平方项溢出 (float16 max 65504)
+                #critic_loss = 0.5 * sum([F.huber_loss(current_q.float(), target_q_values.float(), delta=1000.0) for current_q in current_q_values]) 
+                #critic_loss = th.clamp(critic_loss, min=-5000, max=5000)
             critic_losses.append(critic_loss.item())
 
             #重置 critic 和 critic Transformer, MAE 优化器的梯度，以确保它们只接收来自当前 critic_loss 的梯度
@@ -477,10 +479,13 @@ class SAC(SAC_SB3):
                 # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
                 # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
                 # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
-                alpha = 0
-                # 【增强】强制转为 float32 计算，防止 AMP 模式下高量级 Q 值导致溢出
-                actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
-
+                alpha = 0.0
+                # actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+                # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
+                # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
+                raw_actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+                log_ratio = 100.0
+                actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
             actor_losses.append(actor_loss.item())
 
             #重置 Actor 和 Actor Transformer 的梯度，同时保留 MAE 优化器的梯度以供累积
