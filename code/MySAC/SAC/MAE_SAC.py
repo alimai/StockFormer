@@ -312,6 +312,15 @@ class SAC(SAC_SB3):
         # Update learning rate according to lr schedule
         self._update_learning_rate(optimizers)
 
+        # 【P0 自动去毒修复】检查并修复由于之前崩溃导致的受损权重
+        check_list = [("Actor", self.actor), ("Critic", self.critic), ("Critic_Target", self.critic_target), ("Actor_TF", self.actor_transformer), ("Critic_TF", self.critic_transformer)]
+        for name, model in check_list:
+            for p_name, param in model.named_parameters():
+                if not th.isfinite(param).all():
+                    print(f"检测到 [{name}] 层 {p_name} 权重损坏 (NaN/Inf)，正在尝试修复...")
+                    with th.no_grad():
+                        param.nan_to_num_(nan=0.0, posinf=0.1, neginf=-0.1)
+
         ent_coef_losses, ent_coefs = [], []
         actor_losses, critic_losses = [], []
         transformer_losses = []
@@ -411,10 +420,70 @@ class SAC(SAC_SB3):
                     next_actions, next_log_prob = self.actor.action_log_prob(next_policy_embed)
                     
                     next_critic_embed = self.critic_transformer_target(next_state.detach(), temporal_short_next, temporal_long_next, next_additional_feature)
-                    next_q_values = th.cat(self.critic_target(next_critic_embed, next_actions), dim=1)
-                    next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
-                    next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
-                    target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
+
+                    # 【P0 硬化】强制退出 AMP 风险区，使用 FP32 运算并施加压力阀
+                    with th.amp.autocast(device_type=device_type, enabled=False):
+                        next_q_values = th.cat(self.critic_target(next_critic_embed.float(), next_actions.float()), dim=1)
+                        next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
+                        # 将 Q 值锁定在 FP16 安全区 (65504) 之内
+                        #next_q_values = th.clamp(next_q_values, -50000, 50000)
+
+                    if not th.isfinite(next_policy_embed).all():
+                        print(f"警告：next_policy_embed 含有非有限值！检查 MAE 输出和 Policy Transformer 计算。")
+                    if not th.isfinite(next_log_prob).all():
+                        print(f"警告：next_log_prob 含有非有限值！检查 Policy Transformer 计算。")
+                    if not th.isfinite(next_critic_embed).all():
+                        print(f"警告：next_critic_embed 含有非有限值！检查 MAE 输出和 Critic Transformer 计算。")
+                    if not th.isfinite(next_q_values).all():
+                        print(f"警告：next_q_values 含有非有限值！检查 Critic Transformer 计算。")
+
+                        # --- [验证] FP32 重算实验 ---
+                        print("--- [验证] 尝试切换至 FP32 重算 Critic Target ---")
+                        with th.amp.autocast(device_type='cuda', enabled=False):
+                            try:
+                                # 强制转换为 float32 进行计算
+                                nc_embed_32 = next_critic_embed.float()
+                                na_32 = next_actions.float()
+                                nq_32 = th.cat(self.critic_target(nc_embed_32, na_32), dim=1)
+                                nq_32_min, _ = th.min(nq_32, dim=1, keepdim=True)
+
+                                is_finite_32 = th.isfinite(nq_32_min).all().item()
+                                max_val_32 = nq_32_min.max().item()
+                                min_val_32 = nq_32_min.min().item()
+
+                                print(f"FP32 重算结果: IsFinite={is_finite_32}")
+                                print(f"FP32 重算极值: Max={max_val_32:.2e}, Min={min_val_32:.2e}")
+
+                                if is_finite_32 and abs(max_val_32) > 65500:
+                                    print(">>> 结论: 确认为 FP16 溢出 (数值 > 65504) <<<")
+                                elif not is_finite_32:
+                                    print(">>> 结论: 即使 FP32 也异常，可能是权重结构性损坏 <<<")
+                                else:
+                                    print(">>> 结论: 数值在 FP16 范围内，原因尚不明确 <<<")
+                            except Exception as e:
+                                print(f"FP32 重算失败: {e}")
+                        # ---------------------------
+
+                        print("--- [开始] Critic Target 现场尸检 ---")
+                        print(f"输入 next_critic_embed: Min={next_critic_embed.min().item():.2e}, Max={next_critic_embed.max().item():.2e}")
+                        print(f"输入 next_actions: Min={next_actions.min().item():.2e}, Max={next_actions.max().item():.2e}")
+                        for name, param in self.critic_target.named_parameters():
+                            p_max = param.data.max().item()
+                            p_min = param.data.min().item()
+                            is_finite = th.isfinite(param.data).all().item()
+                            status = "正常" if is_finite else "【损坏】(含NaN/Inf)"
+                            if not is_finite:
+                                print(f"层: {name} | 状态: {status} | Max: {p_max:.2e} | Min: {p_min:.2e}")
+                        print("--- [结束] Critic Target 现场尸检 ---")
+
+                    next_q_values = next_q_values.float() - ent_coef * next_log_prob.reshape(-1, 1).float()
+                    target_q_values = replay_data.rewards.float() + (1 - replay_data.dones) * self.gamma * next_q_values
+                    # 再次截断，确保进入 Critic Loss 的数值绝对安全
+                    # target_q_values = th.clamp(target_q_values, -50000, 50000)
+                    if not th.isfinite(target_q_values).all():
+                        print(f"警告：target_q_values 含有非有限值！检查 reward、done、next_q_values 计算。")
+                        print(f"诊断现场 -> Rewards Max: {replay_data.rewards.max().item():.2e}, Next_Q Max: {next_q_values.max().item():.2e}")
+
                     # 【P0 改进】将压缩逻辑移至 Loss 端，此处仅保留原始计算。
                     # # 【P0 改进】分段线性压缩：只对 |x| > 1000 的极端值进行压缩，保留大部分区域的线性特性
                     # threshold = 1000.0
@@ -430,7 +499,12 @@ class SAC(SAC_SB3):
                 #state:不带梯度控制的状态; state_for_critic: 带梯度控制的状态
                 # current_critic_embed = self.critic_transformer(state, None, None, additional_feature)
                 current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
-                current_q_values = self.critic(current_critic_embed, replay_data.actions)
+                
+                # 【P0 硬化】强制退出 AMP 风险区，使用 FP32 评估当前 Q 值
+                with th.amp.autocast(device_type=device_type, enabled=False):
+                    current_q_values = self.critic(current_critic_embed.float(), replay_data.actions.float())
+                
+                # 强制使用 float32 计算 Loss，防止中间平方项在 FP16 下溢出
                 raw_critic_loss = 0.5 * sum([F.mse_loss(current_q.float(), target_q_values.float()) for current_q in current_q_values])               
                 log_ratio = 100.0
                 critic_loss = th.sign(raw_critic_loss) * th.log1p(th.abs(raw_critic_loss) * log_ratio)
@@ -474,7 +548,11 @@ class SAC(SAC_SB3):
             # 计算 actor loss
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
                 q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
-                min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
+                
+                # 【P0 硬化】强制使用 FP32 评估 Q 值并施加压力阀
+                with th.amp.autocast(device_type=device_type, enabled=False):
+                    min_qf_pi, _ = th.min(q_values_pi.float(), dim=1, keepdim=True)
+                    #min_qf_pi = th.clamp(min_qf_pi, -50000, 50000)
 
                 # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
                 # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
