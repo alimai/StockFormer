@@ -366,14 +366,18 @@ class SAC(SAC_SB3):
                 
                 # 【P0 数值安全监控】检查 Transformer 输出是否含有 NaN
                 # 尝试定位是哪个组件出的问题
-                if th.isnan(combined_policy_input).any():
-                    print("错误源头：MAE 输出已经含有 NaN！跳过第 {gradient_step} 步更新。")
-                    continue
-                if th.isnan(combined_additional_input).any():
-                    print("错误源头：附加特征含有 NaN！跳过第 {gradient_step} 步更新。")
-                    continue
                 if th.isnan(combined_policy_embed).any():
                     print(f"警告：检测到 policy_embed 含有 NaN！跳过第 {gradient_step} 步更新。")
+                    if th.isnan(combined_policy_input).any():
+                        print("错误源头：MAE 输出已经含有 NaN！跳过第 {gradient_step} 步更新。")
+                    elif th.isnan(combined_additional_input).any():
+                        print("错误源头：附加特征含有 NaN！跳过第 {gradient_step} 步更新。")
+                    elif th.isnan(combined_temporal_short).any():
+                        print("错误源头：short特征含有 NaN！跳过第 {gradient_step} 步更新。")
+                    elif th.isnan(combined_temporal_long).any():
+                        print("错误源头：long特征含有 NaN！跳过第 {gradient_step} 步更新。")
+                    else:
+                        print("错误源头：actor_transformer 内部计算导致。")
                     continue
 
                 policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
