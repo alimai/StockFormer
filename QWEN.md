@@ -9,7 +9,64 @@
 - **最小改动**：解决方案优先选择对现状改动最小的方案
 
 ## 三、代码编辑规范
-- `edit` 工具对空格和缩进敏感，必须精确匹配原文本（包括前后至少 3 行上下文）
+
+### 3.1 优先使用 `edit` 工具
+- 适用于：小幅度修改（< 20 行）、有明确唯一匹配点的代码
+- **必须精确匹配原文本**：包括空格、缩进、空行（使用 `read_file` 查看精确内容）
+- **包含足够上下文**：前后至少 3 行，确保匹配唯一性
+
+### 3.2 当 `edit` 失败时的处理流程
+
+**步骤 1：创建临时 Python 脚本读取精确内容**
+```python
+# temp_read.py
+with open(r'目标文件.py', 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+    for i in range(起始行 -1, 结束行):
+        print(f"{i+1}: {repr(lines[i])}")
+```
+
+**步骤 2：运行脚本获取精确行内容**
+```bash
+python temp_read.py
+```
+- `repr()` 可显示隐藏字符（空格、制表符、换行符）
+
+**步骤 3：创建 Python 脚本直接修改文件**
+```python
+# temp_modify.py
+with open(r'目标文件.py', 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+
+# 保留修改点之前的行
+new_lines = lines[:起始行索引]
+
+# 插入新代码（注意末尾换行符）
+new_code = '''新代码行 1
+新代码行 2
+'''
+new_lines.append(new_code)
+
+# 添加剩余的行
+new_lines.extend(lines[结束行索引 + 1:])
+
+with open(r'目标文件.py', 'w', encoding='utf-8') as f:
+    f.writelines(new_lines)
+
+print("修改完成！")
+```
+
+**步骤 4：运行脚本并验证**
+```bash
+python temp_modify.py
+# 然后用 read_file 验证修改结果
+```
+
+### 3.3 行号索引规则
+- Python 列表索引从 0 开始
+- 第 N 行对应 `lines[N-1]`
+- `lines[:N]` 保留前 N 行（索引 0 到 N-1）
+- `lines[N+1:]` 保留第 N+2 行及之后
 
 ## 四、文档维护
 - `docs` 目录存放工程入口工作流程文档，需要时可加载参考
