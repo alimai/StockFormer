@@ -436,7 +436,7 @@ class SAC(SAC_SB3):
             # 强制使用 float32 计算 Loss，防止中间平方项在 FP16 下溢出
             raw_critic_loss = 0.5 * sum([F.mse_loss(current_q.float(), target_q_values.float()) for current_q in current_q_values])               
             log_ratio = 1.0
-            critic_loss = raw_critic_loss#th.sign(raw_critic_loss) * th.log1p(th.abs(raw_critic_loss) * log_ratio)
+            critic_loss = th.sign(raw_critic_loss) * th.log1p(th.abs(raw_critic_loss) * log_ratio)
             # 【Loss 端优化 - 使用 Huber Loss】
             # delta=1000 表示误差在 1000 以内是 MSE，超过 1000 变为 MAE（线性增长）
             # 【增强】强制转为 float32 计算，防止 AMP 模式下中间平方项溢出 (float16 max 65504)
@@ -489,7 +489,7 @@ class SAC(SAC_SB3):
             # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
             raw_actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
             log_ratio = 1.0
-            actor_loss = raw_actor_loss#th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
+            actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
             actor_losses.append(actor_loss.item())
 
             #重置 Actor 和 Actor Transformer 的梯度，同时保留 MAE 优化器的梯度以供累积
