@@ -6,16 +6,26 @@ import torch
 import argparse
 from datetime import datetime
 
-INF = 1100
-SCALE_A = 1.2
+# 解析命令行参数
+def parse_args():
+    parser = argparse.ArgumentParser(description='StockFormer Training Configuration')
+    parser.add_argument('--struct_type', type=int, default=1,
+                        help='结构类型1/2/3/4')
+    parser.add_argument('--scale_ratio', type=int, default=1,
+                        help='缩放比例')
+    parser.add_argument('--seed', type=int, default=random.randint(1, 5000), # 2022 #
+                        help='固定随机种子')
+    # parser.add_argument('--struct_base_flag', type=str, default='True',
+    #                     help='policy模式 (True/False)')
+    args, unknown = parser.parse_known_args()
+    return args
 
-# 检测 GPU 可用性并决定使用 GPU 还是 CPU
-if torch.cuda.is_available():
-    device = 'cuda:0'
-else:
-    device = 'cpu'
+_args = parse_args() #在模块被导入时立即执行
+struct_type = _args.struct_type
+scale_ratio = _args.scale_ratio
+fix_seed = _args.seed
+#struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
 
-fix_seed = random.randint(1, 5000) # 2022 #
 def set_seed(seed=fix_seed):
     """统一设置所有随机种子"""
     random.seed(seed)
@@ -25,6 +35,15 @@ def set_seed(seed=fix_seed):
     # 确保确定性行为
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+# 检测 GPU 可用性并决定使用 GPU 还是 CPU
+if torch.cuda.is_available():
+    device = 'cuda:0'
+else:
+    device = 'cpu'
+
+INF = 1100
+SCALE_A = 1.2
 
 version_name = 'CSI_2'#'N100'#
 model_name='StockFormer'
@@ -92,23 +111,6 @@ TICKET_SIZE = len(USE_CSI_300_TICKET)
 INDICATORS_SIZE = len(TECHNICAL_INDICATORS_LIST)
 TEMPORAL_FEATURE_SIZE = len(TEMPORAL_FEATURE)
 ENCODER_INPUT_SIZE = TICKET_SIZE + INDICATORS_SIZE
-
-# 解析命令行参数
-def parse_args():
-    parser = argparse.ArgumentParser(description='StockFormer Training Configuration')
-    parser.add_argument('--struct_type', type=int, default=1,
-                        help='结构类型1/2/3/4')
-    parser.add_argument('--scale_ratio', type=int, default=1,
-                        help='缩放比例')
-    parser.add_argument('--struct_base_flag', type=str, default='True',
-                        help='policy模式 (True/False)')
-    args, unknown = parser.parse_known_args()
-    return args
-
-_args = parse_args() #在模块被导入时立即执行
-struct_type = _args.struct_type
-scale_ratio = _args.scale_ratio
-#struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
 
 ##transformer Model Parameters
 # ===== 可调节的超参数（加载预训练模型时可修改） =====
