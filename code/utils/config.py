@@ -123,10 +123,11 @@ MAESAC_TUNABLE_PARAMS = {
     "ent_coef": "auto_0.1", # "auto_0.003",#0.001#熵系数，key
 
     # 训练频率与折扣优化
-    "train_freq": 5, # 150,#每 * 步训练一次，更新目标网络一次
-    "gradient_steps": 1, # 30,#每次训练进行 * 个梯度更新，越大 critic_loss 越平滑
-    "tau": 0.01, # 【新增】加速目标网络追踪速度 (原默认 0.005)
-    "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
+    # "train_freq": 5和"gradient_steps": 1的搭配导致loss震荡过大梯度爆炸
+    "train_freq": 150,#每 * 步训练一次，更新目标网络一次
+    "gradient_steps": 30,#每次训练进行 * 个梯度更新，越大 critic_loss 越平滑
+    # "tau": 0.01, # 【新增】加速目标网络追踪速度 (原默认 0.005)
+    # "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
 
     # MAE 梯度控制 - 关键优化
     "dropout": 0.7/scale_ratio,#与 policy_transformer 共用
