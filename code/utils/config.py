@@ -129,7 +129,7 @@ MAESAC_TUNABLE_PARAMS = {
     "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
 
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.5/scale_ratio,#与 policy_transformer 共用
+    "dropout": 0.7/scale_ratio,#与 policy_transformer 共用
     "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": 0.0,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
     "ac_input_dim": 128//scale_ratio,# actor/critic输入维度(到隐藏层转换为1,减一维),对应policy_transformer 的输出层维度（默认值 128）
