@@ -124,8 +124,8 @@ MAESAC_TUNABLE_PARAMS = {
 
     # 训练频率与折扣优化
     # "train_freq": 5和"gradient_steps": 1的搭配导致loss震荡过大梯度爆炸
-    "train_freq": 150,#每 * 步训练一次，更新目标网络一次
-    "gradient_steps": 30,#每次训练进行 * 个梯度更新，越大 critic_loss 越平滑
+    "train_freq": 50,#每 * 步训练一次，更新目标网络一次
+    "gradient_steps": 10,#每次训练进行 * 个梯度更新，越大 critic_loss 越平滑
     # "tau": 0.01, # 【新增】加速目标网络追踪速度 (原默认 0.005)
     # "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
 
