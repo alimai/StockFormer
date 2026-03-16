@@ -83,7 +83,7 @@ if __name__ == '__main__':
         "ratio_max": 0.1,#单股占比
         "initial_amount": 100000,
         "transaction_cost_pct": 0,
-        "reward_scaling": 10,
+        "reward_scaling": 1,
         "stock_dim": stock_dimension,
         "tech_indicator_list": config.TECHNICAL_INDICATORS_LIST,
         "temporal_feature_list": config.TEMPORAL_FEATURE,
@@ -186,7 +186,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=39000)
+                                    total_timesteps=30000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
