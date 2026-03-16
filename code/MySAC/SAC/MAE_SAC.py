@@ -353,9 +353,9 @@ class SAC(SAC_SB3):
 
             # 动态适配设备类型，如果是 CPU 则自动禁用或使用 CPU 模式的 autocast
             # 1. 性能敏感部分：MAE 状态编码,保留 AMP 加速
-            with th.no_grad():# 暂保持MAE 固定不变：使用 no_grad() 阻止梯度累积，节省内存
-                with th.amp.autocast(device_type=device_type, enabled=use_amp):
-                    combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs, mask_mode='mixed')
+            #with th.no_grad():# 暂保持MAE 固定不变：使用 no_grad() 阻止梯度累积，节省内存
+            with th.amp.autocast(device_type=device_type, enabled=use_amp):
+                combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs, mask_mode='mixed')
 
             # 2. RL 核心逻辑部分：从此处开始，所有计算均脱离 AMP，运行在 FP32 高精度轨道上
             state, next_state = th.chunk(combined_out, 2, dim=0)
@@ -523,16 +523,17 @@ class SAC(SAC_SB3):
             # 最后统一更新 MAE 优化器 #暂时被注释掉
             if scaler is not None:
                 # 【P0防过拟合】MAE梯度最终裁剪 (需先反缩放)
-                # scaler.unscale_(self.transformer_optim)
-                # th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
-                
-                # scaler.step(self.transformer_optim)
+                scaler.unscale_(self.transformer_optim)
+                th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)                
+                scaler.step(self.transformer_optim)
+
                 # 在梯度步结束时必须调用 update()，否则下次 step() 会报错
                 scaler.update()
-            # else:
-            #     # 【P0防过拟合】MAE梯度最终裁剪
-            #     th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
-            #     self.transformer_optim.step()
+                
+            else:
+                # 【P0防过拟合】MAE梯度最终裁剪
+                th.nn.utils.clip_grad_norm_(self.state_transformer.parameters(), max_norm=2.0)
+                self.transformer_optim.step()
 
         # 更新目标网络 (Polyak Update)，这是 SAC 收敛的关键
         #if gradient_step % self.target_update_interval == 0:
