@@ -34,15 +34,15 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.norm2 = nn.LayerNorm(self.atten_dim)
         self.dropout = nn.Dropout(dropout)
 
-        # if config.fix_seed % 2 == 0:
-        #     self.dropout1 = nn.Dropout(dropout*1.5)
-        #     self.dropout2 = nn.Dropout(dropout*0.1)
-        # elif config.fix_seed % 2 == 1:
-        #     self.dropout1 = nn.Dropout(dropout*0.1)
-        #     self.dropout2 = nn.Dropout(dropout*1.5)
-        # else:
-        self.dropout1 = nn.Dropout(dropout)
-        self.dropout2 = nn.Dropout(dropout)
+        if config.fix_seed % 2 == 0:
+            self.dropout1 = nn.Dropout(dropout*1.5)
+            self.dropout2 = nn.Dropout(dropout*0.1)
+        elif config.fix_seed % 2 == 1:
+            self.dropout1 = nn.Dropout(dropout*0.1)
+            self.dropout2 = nn.Dropout(dropout*1.5)
+        else:
+            self.dropout1 = nn.Dropout(dropout)
+            self.dropout2 = nn.Dropout(dropout)
 
         # 特征融合后投影回 hidden_out
         self.projection_input = nn.Sequential(
