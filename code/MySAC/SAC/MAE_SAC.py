@@ -422,7 +422,7 @@ class SAC(SAC_SB3):
 
                     if not th.isfinite(next_q_values).all():
                         # --- [验证] FP32 重算验证 (此时逻辑上已在 FP32 下运行) ---
-                        print(f"严重警告：即使在 FP32 下，next_q_values 依然异常！Max: {next_q_values.max().item():.2e}")
+                        print(f"严重警告：next_q_values 异常！Max: {next_q_values.max().item():.2e}")
                         # ... 原有的现场尸检逻辑 ...
 
                     next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
