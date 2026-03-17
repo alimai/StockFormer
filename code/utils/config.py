@@ -126,7 +126,7 @@ MAESAC_TUNABLE_PARAMS = {
     # "train_freq": 5和"gradient_steps": 1的搭配导致loss震荡过大梯度爆炸
     "train_freq": 5,#每 * 步训练一次，更新目标网络一次,越小越加速迭代,与 critic_loss 波动性关系不大
     "gradient_steps": 1,#每次训练进行 * 个梯度更新，越大 critic_loss 波动越小
-    # "tau": 0.01, # 【新增】加速目标网络追踪速度 (原默认 0.005)
+    "tau": 0.01, # 【新增】加速目标网络追踪速度 (原默认 0.005)
     "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
 
     # MAE 梯度控制 - 关键优化
