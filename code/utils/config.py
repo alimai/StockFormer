@@ -124,13 +124,13 @@ MAESAC_TUNABLE_PARAMS = {
 
     # 训练频率与折扣优化
     # "train_freq": 5和"gradient_steps": 1的搭配导致loss震荡过大梯度爆炸
-    "train_freq": 50,#每 * 步训练一次，更新目标网络一次,越小越加速迭代,与 critic_loss 波动性关系不大
-    "gradient_steps": 10,#每次训练进行 * 个梯度更新，越大 critic_loss 波动越小
+    "train_freq": 150,#每 * 步训练一次，更新目标网络一次,越小越加速迭代,与 critic_loss 波动性关系不大
+    "gradient_steps": 30,#每次训练进行 * 个梯度更新，越大 critic_loss 波动越小
     # "tau": 0.01, # 【新增】加速目标网络追踪速度 (原默认 0.005)
     # "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
 
     # MAE 梯度控制 - 关键优化
-    "dropout": 0.7/scale_ratio,#与 policy_transformer 共用
+    "dropout": 0.5/scale_ratio,#与 policy_transformer 共用
     "actor_alpha": 0.0,# MAE 反向梯度更新的权重（Actor 端，默认值 0.1）
     "critic_alpha": 0.0,# MAE 反向梯度更新的权重（Critic 端，默认值 1.0）
     "ac_input_dim": 128//scale_ratio,# actor/critic输入维度(到隐藏层转换为1,减一维),对应policy_transformer 的输出层维度（默认值 128）

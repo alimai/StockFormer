@@ -28,17 +28,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
                                       output_attention=output_attention), self.atten_dim, n_heads)
         self.attention2 = AttentionLayer(FullAttention(False, attention_dropout=dropout,
                                       output_attention=output_attention), self.atten_dim, n_heads)
-        self.norm0 = nn.LayerNorm(self.atten_dim)
+        #self.norm0 = nn.LayerNorm(self.atten_dim)
         self.norm1 = nn.LayerNorm(self.atten_dim)
         self.norm2 = nn.LayerNorm(self.atten_dim)
         self.dropout = nn.Dropout(dropout)
 
         if config.fix_seed % 3 == 0:
-            self.dropout1 = nn.Dropout(dropout*1.3)
+            self.dropout1 = nn.Dropout(dropout*1.5)
             self.dropout2 = nn.Dropout(dropout*0.1)
         elif config.fix_seed % 3 == 1:
             self.dropout1 = nn.Dropout(dropout*0.1)
-            self.dropout2 = nn.Dropout(dropout*1.3)
+            self.dropout2 = nn.Dropout(dropout*1.5)
         else:
             self.dropout1 = nn.Dropout(dropout)
             self.dropout2 = nn.Dropout(dropout)
@@ -47,17 +47,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection_input = nn.Sequential(
             nn.Linear(hidden_out + self.add_dim, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            # self.norm0
+            # nn.LayerNorm(self.atten_dim)
         )
         self.projection_input2 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()
-            # self.norm0
+            # nn.LayerNorm(self.atten_dim)
         )
         self.projection_input3 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            # self.norm0
+            # nn.LayerNorm(self.atten_dim)
         )
 
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-2)
@@ -65,7 +65,7 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
         # relational_feature: [B, N, 128] (From MAE)
         # additional_feature: [B, N, add_dim] (Tech + Date)
-              
+
         # 处理输入特征 (Refinement)
         add_feature = additional_feature[:, :, :-1] #去掉holding部分
         if config.struct_type % 2 == 1:
