@@ -120,11 +120,11 @@ MAESAC_TUNABLE_PARAMS = {
     "buffer_max_load": 10000,# 【新增】指定从旧 Buffer 加载的数据条数，None 为全部加载
     "learning_starts": 1000,
     "learning_rate": 1e-4, # 1e-4,#所有模块学习率 #LinearSchedule(start=1e-4, end=1e-5, end_fraction=1.0),
-    "ent_coef": "auto_0.1", # "auto_0.003",#0.001#熵系数，key
+    "ent_coef": "auto_0.01", # "auto_0.003",#0.001#熵系数，key
 
     # 训练频率与折扣优化
-    "train_freq": 50,#每 * 步训练一次，更新目标网络一次
-    "gradient_steps": 10,#每次训练进行 * 个梯度更新
+    "train_freq": 5,#每 * 步训练一次，更新目标网络一次
+    "gradient_steps": 1,#每次训练进行 * 个梯度更新
     "tau": 0.007, # 【新增】加速目标网络追踪速度 (原默认 0.005),过大导致梯度爆炸
     "gamma": 0.99,#折扣因子，越小越重视短期奖励，最大为 1
 
