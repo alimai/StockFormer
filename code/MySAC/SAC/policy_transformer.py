@@ -1,5 +1,4 @@
 ﻿import torch
-import random
 from torch import nn
 from utils import config
 
@@ -48,17 +47,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection_input = nn.Sequential(
             nn.Linear(hidden_out + self.add_dim, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            self.norm0
+            # self.norm0
         )
         self.projection_input2 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()
-            self.norm0
+            # self.norm0
         )
         self.projection_input3 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            self.norm0
+            # self.norm0
         )
 
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-2)
