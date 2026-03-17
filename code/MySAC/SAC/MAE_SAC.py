@@ -358,7 +358,7 @@ class SAC(SAC_SB3):
                     combined_out, temporal_short, temporal_long, combined_additional = self._state_transfer(combined_obs, mask_mode='mixed')
 
             # 2. RL 核心逻辑部分：从此处开始，所有计算均脱离 AMP，运行在 FP32 高精度轨道上
-            with th.amp.autocast(device_type=device_type, enabled=use_amp):
+            with th.amp.autocast(device_type=device_type, enabled=use_amp):#amp对计算结果有影响
                 state, next_state = th.chunk(combined_out, 2, dim=0)
                 additional_feature, next_additional_feature = th.chunk(combined_additional, 2, dim=0)
                 temporal_short_state, temporal_short_next = th.chunk(temporal_short, 2, dim=0)
