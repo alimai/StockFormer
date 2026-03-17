@@ -385,13 +385,13 @@ class SAC(SAC_SB3):
                 policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
 
                 # --- Actor 核心逻辑 (FP32) ---
-                actions_pi, log_prob = self.actor.action_log_prob(policy_embed.float())
+                actions_pi, log_prob = self.actor.action_log_prob(policy_embed)
                 log_prob = log_prob.reshape(-1, 1)
 
                 ent_coef_loss = None
                 if self.ent_coef_optimizer is not None:
                     ent_coef = th.exp(self.log_ent_coef.detach()).clamp(min=0.001, max=0.5)
-                    ent_coef_loss = -(self.log_ent_coef * (log_prob.float() + self.target_entropy).detach()).mean()
+                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
                     ent_coef_losses.append(ent_coef_loss.item())
                 else:
                     ent_coef = self.ent_coef_tensor
@@ -415,7 +415,7 @@ class SAC(SAC_SB3):
                     next_critic_embed = self.critic_transformer_target(next_state.detach(), temporal_short_next, temporal_long_next, next_additional_feature)
 
                     # --- Critic Target 核心逻辑 (FP32) ---
-                    next_q_values = th.cat(self.critic_target(next_critic_embed.float(), next_actions.float()), dim=1)
+                    next_q_values = th.cat(self.critic_target(next_critic_embed, next_actions), dim=1)
                     next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                     # 将 Q 值锁定在 FP16 安全区 (65504) 之内
                     # next_q_values = th.clamp(next_q_values, -50000, 50000)
@@ -425,8 +425,8 @@ class SAC(SAC_SB3):
                         print(f"严重警告：即使在 FP32 下，next_q_values 依然异常！Max: {next_q_values.max().item():.2e}")
                         # ... 原有的现场尸检逻辑 ...
 
-                    next_q_values = next_q_values.float() - ent_coef * next_log_prob.reshape(-1, 1).float()
-                    target_q_values = replay_data.rewards.float() + (1 - replay_data.dones) * self.gamma * next_q_values
+                    next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
+                    target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
                     # 再次截断，确保进入 Critic Loss 的数值绝对安全
                     # target_q_values = th.clamp(target_q_values, -50000, 50000)
 
@@ -434,16 +434,16 @@ class SAC(SAC_SB3):
             # --- Critic 评估与 Loss 核心逻辑 (FP32) ---
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
                 current_critic_embed = self.critic_transformer(state_for_critic, temporal_short_state, temporal_long_state, additional_feature)
-                current_q_values = self.critic(current_critic_embed.float(), replay_data.actions.float())
+                current_q_values = self.critic(current_critic_embed, replay_data.actions)
 
                 # 强制使用 float32 计算 Loss，防止中间平方项在 FP16 下溢出
-                raw_critic_loss = 0.5 * sum([F.mse_loss(current_q.float(), target_q_values.float()) for current_q in current_q_values])               
+                raw_critic_loss = 0.5 * sum([F.mse_loss(current_q, target_q_values) for current_q in current_q_values])               
                 log_ratio = 1.0
                 critic_loss = th.sign(raw_critic_loss) * th.log1p(th.abs(raw_critic_loss) * log_ratio)
                 # 【Loss 端优化 - 使用 Huber Loss】
                 # delta=1000 表示误差在 1000 以内是 MSE，超过 1000 变为 MAE（线性增长）
                 # 【增强】强制转为 float32 计算，防止 AMP 模式下中间平方项溢出 (float16 max 65504)
-                #critic_loss = 0.5 * sum([F.huber_loss(current_q.float(), target_q_values.float(), delta=1000.0) for current_q in current_q_values]) 
+                #critic_loss = 0.5 * sum([F.huber_loss(current_q, target_q_values, delta=1000.0) for current_q in current_q_values]) 
                 #critic_loss = th.clamp(critic_loss, min=-5000, max=5000)
             critic_losses.append(critic_loss.item())
 
@@ -481,17 +481,17 @@ class SAC(SAC_SB3):
             # --- Actor Loss 核心逻辑 (FP32) ---
             with th.amp.autocast(device_type=device_type, enabled=use_amp):
                 q_values_pi = th.cat(self.critic.forward(self.critic_transformer(state_for_actor, temporal_short_state, temporal_long_state, additional_feature), actions_pi), dim=1)
-                min_qf_pi, _ = th.min(q_values_pi.float(), dim=1, keepdim=True)
+                min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
                 # min_qf_pi = th.clamp(min_qf_pi, -50000, 50000)
 
                 # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
                 # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
                 # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位,应该接近 1）的惩罚项.
                 alpha = 0.0
-                # actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+                # actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
                 # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
                 # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
-                raw_actor_loss = (ent_coef * log_prob.float() - min_qf_pi.float()).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1).float())-1)
+                raw_actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
                 log_ratio = 1.0
                 actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
             actor_losses.append(actor_loss.item())
