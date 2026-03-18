@@ -392,7 +392,8 @@ class DRLAgent:
         print("Test Finished!")
 
         # 从 terminal 时的 info 获取数据（避免被 DummyVecEnv 自动 reset 清空）
+        assets_memory = final_info.get('assets_memory')#pd.DataFrame(episode_total_assets)---没有日期索引
         actions_memory = final_info.get('actions_memory')
         holdings_memory = final_info.get('holdings_memory')
 
-        return pd.DataFrame(episode_total_assets), actions_memory, holdings_memory
+        return assets_memory, actions_memory, holdings_memory

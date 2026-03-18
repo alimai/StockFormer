@@ -223,9 +223,9 @@ class StockTradingEnv(gym.Env):
         
         df_actions = self.convert_action_memory()
         df_actions.to_csv(self.csv_path+"/actions_{}_{}.csv".format(self.mode, self.episode))
-        df_stock_amount = self.convert_holding_amount()
-        df_stock_amount.to_csv(self.csv_path+"/holding_{}_{}.csv".format(self.mode, self.episode))
-        return df_total_value, df_rewards, df_actions, df_stock_amount
+        df_holding = self.convert_holding_ratio_amount()
+        df_holding.to_csv(self.csv_path+"/holding_{}_{}.csv".format(self.mode, self.episode))
+        return df_total_value, df_rewards, df_actions, df_holding
 
 
     def _get_future_price(self, days_ahead=5):
@@ -276,9 +276,9 @@ class StockTradingEnv(gym.Env):
                 print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
 
-            if self.make_plots and self.model_name != "" and self.mode != "train":
+            if self.make_plots and self.model_name != "" and self.mode == "eval":
                 self._make_plot()# just asset_memory by now
-                df_total_value, df_rewards, df_actions, df_stock_amount = self._make_csv()
+                df_total_value, df_rewards, df_actions, df_holding = self._make_csv()
 
             # 在 info 中返回 memory 数据
             return self.state, self.reward, self.terminal, False, {
@@ -286,8 +286,10 @@ class StockTradingEnv(gym.Env):
                 'reward_step': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
                 'sharpe': sharpe,
                 #用于测试时输出数据
+                'assets_memory': df_total_value if self.mode == 'test' else None,
+                'rewards_memory': df_rewards if self.mode == 'test' else None,
                 'actions_memory': df_actions if self.mode == 'test' else None,
-                'holdings_memory': df_stock_amount if self.mode == 'test' else None,
+                'holdings_memory': df_holding if self.mode == 'test' else None,
             }
 
         else:
@@ -509,6 +511,16 @@ class StockTradingEnv(gym.Env):
         df_amount = pd.DataFrame(amount_list)
         df_amount.columns = self.tic
         return df_amount
+
+    def convert_holding_ratio_amount(self):
+        date_list = self.date_memory[:-1]
+        df_date = pd.DataFrame(date_list)
+        df_date.columns = ["date"]
+
+        amount_list = self.holding_ratio_memory
+        df_amount_ratio = pd.DataFrame(amount_list)
+        df_amount_ratio.columns = self.tic
+        return df_amount_ratio
 
 
     def convert_action_memory(self):
