@@ -85,7 +85,7 @@ class StockTradingEnv(gym.Env):
         self.hidden_out = hidden_out
 
         self.state_space = stock_dim
-        self.action_space = spaces.Box(low=-1, high=1, shape=(stock_dim,))
+        self.action_space = spaces.Box(low=0, high=1, shape=(stock_dim,))
         tech_dim = len(self.tech_indicator_list)#8
         # observation_space：self._update_state()生成数据维度；Modified: date features now take 12 dimensions (One-hot)
         # cov matrix list + technical list + temporal feature * 60 + prediction labels + month_day (7) + weekday (5)
@@ -276,7 +276,7 @@ class StockTradingEnv(gym.Env):
                 print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
 
-            if self.make_plots and self.model_name != "" and self.mode == "eval":
+            if self.make_plots and self.model_name != "" and self.mode != "train":
                 self._make_plot()# just asset_memory by now
                 df_total_value, df_rewards, df_actions, df_holding = self._make_csv()
 
@@ -301,7 +301,9 @@ class StockTradingEnv(gym.Env):
             shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
             begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
 
-            #actions = actions.astype(int)
+            actions = actions * 1.1 - 0.05#actions.astype(int) 
+            actions = np.clip(actions, 0, 1)           
+            actions = np.round(actions, 2)#保留两位小数，避免过度交易
             target_pos = actions * begin_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
             target_pos = target_pos / (zero_day_prices + 1e-8) # 转换为数量，避免除零
             trade_num = target_pos - shares#此处才是actions
