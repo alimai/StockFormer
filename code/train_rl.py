@@ -114,7 +114,7 @@ if __name__ == '__main__':
     final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
     buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
     
-    train_mode = False#True#
+    train_mode = True#False#
     if train_mode:
         print("Initial train Env...")
         env_kwargs["mode"] = "train"
@@ -186,7 +186,7 @@ if __name__ == '__main__':
                                     eval_log_dir=log_path_eval,#callback 路径
                                     model_dir=model_path,
                                     eval_env=env_eval_vm,
-                                    total_timesteps=40000)
+                                    total_timesteps=30000)
         end = time.time()
         print("Training time: %.3f"%(end-start))
 
