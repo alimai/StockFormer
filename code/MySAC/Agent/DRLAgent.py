@@ -331,21 +331,21 @@ class DRLAgent:
     def DRL_prediction(model, environment, deterministic=True):
         test_env, test_obs = environment.get_sb_env()
         """make a prediction"""
-        account_memory = []
+        assets_memory = []
         actions_memory = []
         test_env.reset()
         for i in range(len(environment.df.index.unique())):
             action, _states = model.predict(test_obs, deterministic=deterministic)
             test_obs, rewards, dones, info = test_env.step(action)
             if i == (len(environment.df.index.unique()) - 2):
-                account_memory = test_env.env_method(method_name="save_asset_memory")
-                actions_memory = test_env.env_method(method_name="save_action_memory")
+                assets_memory = test_env.env_method(method_name="convert_asset_memory")
+                actions_memory = test_env.env_method(method_name="convert_action_memory")
             if dones[0]:
-                account_memory = test_env.env_method(method_name="save_asset_memory")
-                actions_memory = test_env.env_method(method_name="save_action_memory")
+                assets_memory = test_env.env_method(method_name="convert_asset_memory")
+                actions_memory = test_env.env_method(method_name="convert_action_memory")
                 print("hit end!")
                 break
-        return account_memory[0], actions_memory[0]#, universal_results[0]
+        return assets_memory[0], actions_memory[0]#, universal_results[0]
 
     @staticmethod
     def DRL_prediction_load_from_file(model_name, test_env, cwd, deterministic=True):
@@ -392,8 +392,7 @@ class DRLAgent:
         print("Test Finished!")
 
         # 从 terminal 时的 info 获取数据（避免被 DummyVecEnv 自动 reset 清空）
-        account_memory = final_info.get('account_memory')
         actions_memory = final_info.get('actions_memory')
-        amount_memory = final_info.get('amount_memory')
+        holdings_memory = final_info.get('holdings_memory')
 
-        return episode_total_assets, account_memory, actions_memory, amount_memory
+        return pd.DataFrame(episode_total_assets), actions_memory, holdings_memory

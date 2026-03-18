@@ -139,7 +139,7 @@ class StockTradingEnv(gym.Env):
         # memorize all the total balance change
         self.asset_memory = [self.initial_amount]
         self.rewards_memory = []
-        self.amount_memory = []
+        self.holdings_memory = []
         self.trade_memory = []
         self.holding_ratio_memory = []
         self.date_memory = [self._get_date()]
@@ -216,15 +216,15 @@ class StockTradingEnv(gym.Env):
         plt.close()
 
     def _make_csv(self):
-        df_total_value = self.save_asset_memory()
-        df_total_value.to_csv(self.csv_path+"/account_value_{}_{}.csv".format(self.mode, self.episode), index=False)
+        df_total_value = self.convert_asset_memory()
+        df_total_value.to_csv(self.csv_path+"/assets_{}_{}.csv".format(self.mode, self.episode), index=False)
         df_rewards = pd.DataFrame(self.rewards_memory, columns=["account_rewards"])
-        df_rewards.to_csv(self.csv_path+"/account_rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
+        df_rewards.to_csv(self.csv_path+"/rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
         
-        df_actions = self.save_action_memory()
+        df_actions = self.convert_action_memory()
         df_actions.to_csv(self.csv_path+"/actions_{}_{}.csv".format(self.mode, self.episode))
-        df_stock_amount = self.save_holding_amount()
-        df_stock_amount.to_csv(self.csv_path+"/amount_{}_{}.csv".format(self.mode, self.episode))
+        df_stock_amount = self.convert_holding_amount()
+        df_stock_amount.to_csv(self.csv_path+"/holding_{}_{}.csv".format(self.mode, self.episode))
         return df_total_value, df_rewards, df_actions, df_stock_amount
 
 
@@ -285,9 +285,9 @@ class StockTradingEnv(gym.Env):
                 'reward_ratio': tot_reward_ratio,
                 'reward_step': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
                 'sharpe': sharpe,
-                'account_memory': df_total_value if self.mode == 'test' else None,
+                #用于测试时输出数据
                 'actions_memory': df_actions if self.mode == 'test' else None,
-                'amount_memory': df_stock_amount if self.mode == 'test' else None,
+                'holdings_memory': df_stock_amount if self.mode == 'test' else None,
             }
 
         else:
@@ -340,7 +340,7 @@ class StockTradingEnv(gym.Env):
             self.asset_memory.append(self.end_total_asset)
             self.date_memory.append(self._get_date())
             self.rewards_memory.append(self.reward)
-            self.amount_memory.append(shares.copy())
+            self.holdings_memory.append(shares.copy())
             self.holding_ratio_memory.append(actions)
 
             self.day += 1
@@ -386,7 +386,7 @@ class StockTradingEnv(gym.Env):
         # self.iteration=self.iteration
         self.rewards_memory = []
         self.trade_memory = []
-        self.amount_memory = []#[self.env_info[-self.stock_dim:]]
+        self.holdings_memory = []#[self.env_info[-self.stock_dim:]]
         self.holding_ratio_memory = []
         self.date_memory = [self._get_date()]
 
@@ -481,7 +481,7 @@ class StockTradingEnv(gym.Env):
         # 使用缓存的日期数组，秒回
         return self.dates_all[self.day]
 
-    def save_asset_memory(self):
+    def convert_asset_memory(self):
         date_list = self.date_memory
         asset_list = self.asset_memory
         df_account_value = pd.DataFrame(
@@ -500,18 +500,18 @@ class StockTradingEnv(gym.Env):
         temp_dict = {"short_hidden_feature":[], "long_hidden_feature": []}
         return temp_dict
 
-    def save_holding_amount(self):
+    def convert_holding_amount(self):
         date_list = self.date_memory[:-1]
         df_date = pd.DataFrame(date_list)
         df_date.columns = ["date"]
 
-        amount_list = self.amount_memory
+        amount_list = self.holdings_memory
         df_amount = pd.DataFrame(amount_list)
         df_amount.columns = self.tic
         return df_amount
 
 
-    def save_action_memory(self):
+    def convert_action_memory(self):
         if len(self.df.tic.unique()) > 1:
             # date and close price length must match actions length
             date_list = self.date_memory[:-1]
