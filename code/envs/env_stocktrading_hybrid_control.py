@@ -138,10 +138,10 @@ class StockTradingEnv(gym.Env):
         self.episode = 0
         # memorize all the total balance change
         self.asset_memory = [self.initial_amount]
-        self.rewards_memory = []
-        self.holdings_memory = []
-        self.trade_memory = []
-        self.holding_ratio_memory = []
+        self.rewards_memory = [0.0]
+        self.trade_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
+        self.holdings_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
+        self.holding_ratio_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
         self.date_memory = [self._get_date()]
 
         # self.reset()
@@ -239,12 +239,61 @@ class StockTradingEnv(gym.Env):
         if not self.terminal:
             self.terminal = self.day >= self.max_day
 
-        if self.terminal:
-            # 使用 Numpy 快速计算总资产
-            prices = self.env_info[1 : 1 + self.stock_dim]
-            shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
-            self.end_total_asset = self.env_info[0] + np.sum(prices * shares)
-            
+        # 正常交易逻辑步进
+        zero_day_prices = self.env_info[1 : 1 + self.stock_dim]
+        first_day_prices = self._get_future_price(days_ahead=1)
+        fifth_day_prices = self._get_future_price(days_ahead=5)
+
+        shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
+        begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
+
+        actions = actions * 1.1 - 0.05#actions.astype(int) 
+        actions = np.clip(actions, 0, 1)           
+        actions = np.round(actions, 2)#保留两位小数，避免过度交易
+        target_pos = actions * begin_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
+        target_pos = target_pos / (zero_day_prices + 1e-8) # 转换为数量，避免除零
+        trade_num = target_pos - shares#此处才是actions
+
+        argsort_actions = np.argsort(trade_num)
+        
+        sell_num = (trade_num < 0).sum()
+        buy_num = (trade_num > 0).sum()            
+        sell_index = argsort_actions[:sell_num]
+        buy_index = argsort_actions[::-1][:buy_num]
+
+        for index in sell_index:
+            trade_num[index] = self._sell_stock(index, trade_num[index])
+
+        for index in buy_index:
+            trade_num[index] = self._buy_stock(index, trade_num[index])
+
+        # 更新后计算
+        self.end_total_asset = self.env_info[0] + np.sum(first_day_prices * shares)
+
+        avg_prices = first_day_prices * 0.3 + fifth_day_prices * 0.7
+        asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
+        reward_absolut = asset_for_reward_new / begin_total_asset - 1.0
+        market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
+        reward_relative = (reward_absolut - market_value_growth_ratio)
+
+        reward_absolut *= self.reward_scaling
+        reward_relative *= self.reward_scaling
+        # 使用对数形式：保留符号，使用 log1p 计算对数
+        # if reward_absolut > -1.0:#对应reward_scaling缩放前-0.01
+        # reward_absolut = np.sign(reward_absolut) * np.log1p(np.abs(reward_absolut))
+        # reward_relative = np.sign(reward_relative) * np.log1p(np.abs(reward_relative))
+        self.reward = reward_absolut + reward_relative * 1.5
+        self.reward = np.sign(self.reward) * np.log1p(np.abs(self.reward))
+        
+        self.trade_memory.append(trade_num)
+        self.asset_memory.append(self.end_total_asset)
+        self.date_memory.append(self._get_date())
+        self.rewards_memory.append(self.reward)
+        self.holdings_memory.append(shares.copy())
+        self.holding_ratio_memory.append(actions)
+        
+        info_dict = {}
+        if self.terminal:           
             tot_reward = (self.end_total_asset - self.initial_amount)
             tot_reward_ratio = tot_reward / self.initial_amount
 
@@ -281,7 +330,7 @@ class StockTradingEnv(gym.Env):
                 df_total_value, df_rewards, df_actions, df_holding = self._make_csv()
 
             # 在 info 中返回 memory 数据
-            return self.state, self.reward, self.terminal, False, {
+            info_dict = {
                 'reward_ratio': tot_reward_ratio,
                 'reward_step': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
                 'sharpe': sharpe,
@@ -291,68 +340,13 @@ class StockTradingEnv(gym.Env):
                 'actions_memory': df_actions if self.mode == 'test' else None,
                 'holdings_memory': df_holding if self.mode == 'test' else None,
             }
-
-        else:
-            # 正常交易逻辑步进
-            zero_day_prices = self.env_info[1 : 1 + self.stock_dim]
-            first_day_prices = self._get_future_price(days_ahead=1)
-            fifth_day_prices = self._get_future_price(days_ahead=5)
-
-            shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
-            begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
-
-            actions = actions * 1.1 - 0.05#actions.astype(int) 
-            actions = np.clip(actions, 0, 1)           
-            actions = np.round(actions, 2)#保留两位小数，避免过度交易
-            target_pos = actions * begin_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
-            target_pos = target_pos / (zero_day_prices + 1e-8) # 转换为数量，避免除零
-            trade_num = target_pos - shares#此处才是actions
-
-            argsort_actions = np.argsort(trade_num)
-            
-            sell_num = (trade_num < 0).sum()
-            buy_num = (trade_num > 0).sum()            
-            sell_index = argsort_actions[:sell_num]
-            buy_index = argsort_actions[::-1][:buy_num]
-
-            for index in sell_index:
-                trade_num[index] = self._sell_stock(index, trade_num[index])
-
-            for index in buy_index:
-                trade_num[index] = self._buy_stock(index, trade_num[index])
-
-            # 更新后计算
-            self.end_total_asset = self.env_info[0] + np.sum(first_day_prices * shares)
-
-            avg_prices = first_day_prices * 0.3 + fifth_day_prices * 0.7
-            asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
-            reward_absolut = asset_for_reward_new / begin_total_asset - 1.0
-            market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
-            reward_relative = (reward_absolut - market_value_growth_ratio)
-
-            reward_absolut *= self.reward_scaling
-            reward_relative *= self.reward_scaling
-            # 使用对数形式：保留符号，使用 log1p 计算对数
-            # if reward_absolut > -1.0:#对应reward_scaling缩放前-0.01
-            # reward_absolut = np.sign(reward_absolut) * np.log1p(np.abs(reward_absolut))
-            # reward_relative = np.sign(reward_relative) * np.log1p(np.abs(reward_relative))
-            self.reward = reward_absolut + reward_relative * 1.5
-            self.reward = np.sign(self.reward) * np.log1p(np.abs(self.reward))
-
-
-            self.trade_memory.append(trade_num)
-            self.asset_memory.append(self.end_total_asset)
-            self.date_memory.append(self._get_date())
-            self.rewards_memory.append(self.reward)
-            self.holdings_memory.append(shares.copy())
-            self.holding_ratio_memory.append(actions)
-
+        else:            
             self.day += 1
             self.data = self.data_all[self.day]
             self.env_info = self._update_info()
             self.state = self._update_state()
 
-        return self.state, self.reward, self.terminal, False, {}
+        return self.state, self.reward, self.terminal, False, info_dict
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -387,11 +381,10 @@ class StockTradingEnv(gym.Env):
         self.cost = 0
         self.trades = 0
         self.asset_memory = [self.initial_amount]
-        # self.iteration=self.iteration
-        self.rewards_memory = []
-        self.trade_memory = []
-        self.holdings_memory = []#[self.env_info[-self.stock_dim:]]
-        self.holding_ratio_memory = []
+        self.rewards_memory = [0.0]
+        self.trade_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
+        self.holdings_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
+        self.holding_ratio_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
         self.date_memory = [self._get_date()]
 
         print("=================================")
@@ -485,63 +478,58 @@ class StockTradingEnv(gym.Env):
         # 使用缓存的日期数组，秒回
         return self.dates_all[self.day]
 
-    def convert_asset_memory(self):
-        date_list = self.date_memory
-        asset_list = self.asset_memory
-        df_account_value = pd.DataFrame(
-            {"date": date_list, "account_value": asset_list}
-        )
-        return df_account_value
-
     def get_end_total_asset(self):
         return self.end_total_asset
 
     def get_initial_amount(self):
         return self.initial_amount
 
-    def save_additional_info(self):
-        # temp_dict = {"short_hidden_feature":self.short_hidden_feature, "long_hidden_feature": self.long_hidden_feature}
-        temp_dict = {"short_hidden_feature":[], "long_hidden_feature": []}
-        return temp_dict
+    def convert_asset_memory(self):
+        date_list = self.date_memory
+        asset_list = self.asset_memory
+        df_account_value = pd.DataFrame(
+            {"date": date_list, "asset_value": asset_list}
+        )
+        return df_account_value
 
     def convert_holding_amount(self):
-        date_list = self.date_memory[:-1]
+        date_list = self.date_memory
         df_date = pd.DataFrame(date_list)
         df_date.columns = ["date"]
 
         amount_list = self.holdings_memory
         df_amount = pd.DataFrame(amount_list)
         df_amount.columns = self.tic
+        df_amount.index = df_date.date
         return df_amount
 
     def convert_holding_ratio_amount(self):
-        date_list = self.date_memory[:-1]
+        date_list = self.date_memory
         df_date = pd.DataFrame(date_list)
         df_date.columns = ["date"]
 
         amount_list = self.holding_ratio_memory
         df_amount_ratio = pd.DataFrame(amount_list)
         df_amount_ratio.columns = self.tic
+        df_amount_ratio.index = df_date.date
         return df_amount_ratio
 
-
     def convert_action_memory(self):
-        if len(self.df.tic.unique()) > 1:
-            # date and close price length must match actions length
-            date_list = self.date_memory[:-1]
-            df_date = pd.DataFrame(date_list)
-            df_date.columns = ["date"]
+        # date and close price length must match actions length
+        date_list = self.date_memory
+        df_date = pd.DataFrame(date_list)
+        df_date.columns = ["date"]
 
-            action_list = self.trade_memory
-            df_actions = pd.DataFrame(action_list)
-            df_actions.columns = self.tic
-            df_actions.index = df_date.date
-            # df_actions = pd.DataFrame({'date':date_list,'actions':action_list})
-        else:
-            date_list = self.date_memory[:-1]
-            action_list = self.trade_memory
-            df_actions = pd.DataFrame({"date": date_list, "actions": action_list})
+        action_list = self.trade_memory
+        df_actions = pd.DataFrame(action_list)
+        df_actions.columns = self.tic
+        df_actions.index = df_date.date
         return df_actions
+
+    def convert_additional_info(self):
+        # temp_dict = {"short_hidden_feature":self.short_hidden_feature, "long_hidden_feature": self.long_hidden_feature}
+        temp_dict = {"short_hidden_feature":[], "long_hidden_feature": []}
+        return temp_dict
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
