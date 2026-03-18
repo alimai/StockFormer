@@ -487,7 +487,7 @@ class SAC(SAC_SB3):
             # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
             # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
             # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位）的惩罚项.
-            alpha = 100.9
+            alpha = 0.0#100
             # actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
             # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
             # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
