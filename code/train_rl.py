@@ -114,7 +114,7 @@ if __name__ == '__main__':
     final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
     buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
     
-    train_mode = False#True#
+    train_mode = True#False#
     if train_mode:
         print("Initial train Env...")
         env_kwargs["mode"] = "train"

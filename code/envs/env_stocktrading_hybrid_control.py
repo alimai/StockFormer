@@ -414,7 +414,6 @@ class StockTradingEnv(gym.Env):
         tech_end = tech_start + len(self.tech_indicator_list)
         technical_indicators = self.data[:, tech_start:tech_end]
 
-
         # 使用预计算的 hidden features
         hidden_np1 = self.precomputed_short[self.day]
         hidden_np2 = self.precomputed_long[self.day]
@@ -432,7 +431,6 @@ class StockTradingEnv(gym.Env):
         state = np.concatenate((covs, technical_indicators, hidden_np1, hidden_np2, date_features, holding_ratio), axis=-1)
         return state
 
-
     def _update_info(self):
         # 原位更新价格部分，保持 Numpy 数组性质
         self.env_info[1 : 1 + self.stock_dim] = self.prices_all[self.day]
@@ -443,16 +441,11 @@ class StockTradingEnv(gym.Env):
         
         tech_start = self.stock_dim
         tech_end = tech_start + len(self.tech_indicator_list)
-        technical_indicators = self.data[:, tech_start:tech_end]
-        
+        technical_indicators = self.data[:, tech_start:tech_end]        
 
         # 使用预计算的 hidden features
-
         hidden_np1 = self.precomputed_short[self.day]
-
         hidden_np2 = self.precomputed_long[self.day]
-
-
 
         # # 优化：限制hidden feature列表的最大长度，避免内存累积
         max_hidden_length = 30  # 最多保存最近50个时间步的特征
