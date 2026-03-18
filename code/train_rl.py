@@ -114,7 +114,7 @@ if __name__ == '__main__':
     final_model_path = load_model_path#os.path.join(model_path, final_model_name+'_out.zip')
     buffer_path_out = buffer_path#os.path.join(model_path, buffer_name+'_out.npz')
     
-    train_mode = True#False#
+    train_mode = False#True#
     if train_mode:
         print("Initial train Env...")
         env_kwargs["mode"] = "train"
@@ -241,9 +241,9 @@ if __name__ == '__main__':
 
     df_root = os.path.join(config.RESULTS_DIR, 'test', version_name, model_name)
     os.makedirs(df_root, exist_ok=True)
-    assets_test, actions_test, holding_test = results[0], results[1], results[2]
+    assets_test, trades_test, holding_test = results[0], results[1], results[2]
     assets_test.to_csv(os.path.join(df_root, 'assets_test.csv'))
-    actions_test.to_csv(os.path.join(df_root, 'actions_test.csv'))
+    trades_test.to_csv(os.path.join(df_root, 'trades_test.csv'))
     holding_test.to_csv(os.path.join(df_root, 'holdings_test.csv'))
     print("=================================")
     print("end.")

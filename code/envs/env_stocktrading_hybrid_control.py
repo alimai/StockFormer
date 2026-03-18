@@ -212,20 +212,20 @@ class StockTradingEnv(gym.Env):
 
     def _make_plot(self):
         plt.plot(self.asset_memory, "r")
-        plt.savefig(self.figure_path+"/account_value_{}_{}.png".format(self.mode, self.episode))
+        plt.savefig(self.figure_path+"/asset_{}_{}.png".format(self.mode, self.episode))
         plt.close()
 
     def _make_csv(self):
         df_total_value = self.convert_asset_memory()
         df_total_value.to_csv(self.csv_path+"/assets_{}_{}.csv".format(self.mode, self.episode), index=False)
-        df_rewards = pd.DataFrame(self.rewards_memory, columns=["account_rewards"])
+        df_rewards = pd.DataFrame(self.rewards_memory, columns=["rewards"])
         df_rewards.to_csv(self.csv_path+"/rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
         
-        df_actions = self.convert_action_memory()
-        df_actions.to_csv(self.csv_path+"/actions_{}_{}.csv".format(self.mode, self.episode))
-        df_holding = self.convert_holding_ratio_amount()
-        df_holding.to_csv(self.csv_path+"/holding_{}_{}.csv".format(self.mode, self.episode))
-        return df_total_value, df_rewards, df_actions, df_holding
+        df_trades = self.convert_trade_memory()
+        df_trades.to_csv(self.csv_path+"/trades_{}_{}.csv".format(self.mode, self.episode), index=False)
+        df_holding_ratio = self.convert_holding_ratio_amount()
+        df_holding_ratio.to_csv(self.csv_path+"/holding_ratio_{}_{}.csv".format(self.mode, self.episode), index=False)
+        return df_total_value, df_rewards, df_trades, df_holding_ratio
 
 
     def _get_future_price(self, days_ahead=5):
@@ -327,7 +327,7 @@ class StockTradingEnv(gym.Env):
 
             if self.make_plots and self.model_name != "" and self.mode != "train":
                 self._make_plot()# just asset_memory by now
-                df_total_value, df_rewards, df_actions, df_holding = self._make_csv()
+                df_total_value, df_rewards, df_trades, df_holding_ratio = self._make_csv()
 
             # 在 info 中返回 memory 数据
             info_dict = {
@@ -337,8 +337,8 @@ class StockTradingEnv(gym.Env):
                 #用于测试时输出数据
                 'assets_memory': df_total_value if self.mode == 'test' else None,
                 'rewards_memory': df_rewards if self.mode == 'test' else None,
-                'actions_memory': df_actions if self.mode == 'test' else None,
-                'holdings_memory': df_holding if self.mode == 'test' else None,
+                'trades_memory': df_trades if self.mode == 'test' else None,
+                'holdings_memory': df_holding_ratio if self.mode == 'test' else None,
             }
         else:            
             self.day += 1
@@ -514,17 +514,17 @@ class StockTradingEnv(gym.Env):
         df_amount_ratio.index = df_date.date
         return df_amount_ratio
 
-    def convert_action_memory(self):
+    def convert_trade_memory(self):
         # date and close price length must match actions length
         date_list = self.date_memory
         df_date = pd.DataFrame(date_list)
         df_date.columns = ["date"]
 
-        action_list = self.trade_memory
-        df_actions = pd.DataFrame(action_list)
-        df_actions.columns = self.tic
-        df_actions.index = df_date.date
-        return df_actions
+        trade_list = self.trade_memory
+        df_trades = pd.DataFrame(trade_list)
+        df_trades.columns = self.tic
+        df_trades.index = df_date.date
+        return df_trades
 
     def convert_additional_info(self):
         # temp_dict = {"short_hidden_feature":self.short_hidden_feature, "long_hidden_feature": self.long_hidden_feature}
