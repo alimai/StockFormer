@@ -186,7 +186,7 @@ class StockTradingEnv(gym.Env):
         def _do_buy():
             if self.env_info[index + 1] > 0:
                 # Buy only if the price is > 0 (no missing data in this particular date)
-                available_amount = self.env_info[0] // self.env_info[index + 1]
+                available_amount = self.env_info[0] // (self.env_info[index + 1] * (1 + self.transaction_cost_pct))
                 # print('available_amount:{}'.format(available_amount))
 
                 # update balance
@@ -272,7 +272,7 @@ class StockTradingEnv(gym.Env):
 
         avg_prices = next_day_prices * 0.3 + fifth_day_prices * 0.7
         asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * new_shares)
-        reward_absolut = asset_for_reward_new / self.end_total_asset - 1.0
+        reward_absolut = asset_for_reward_new / today_total_asset - 1.0
         market_value_growth_ratio = np.sum(avg_prices) / np.sum(today_prices) - 1.0
         reward_relative = (reward_absolut - market_value_growth_ratio)
 
@@ -290,7 +290,7 @@ class StockTradingEnv(gym.Env):
         self.trade_memory.append(trade_num)#交易数量
         self.holdings_memory.append(new_shares.copy())#交易后持仓数量
         self.holding_ratio_memory.append(actions)#目标仓位(考虑资金限制后实际持仓可能达不到目标仓位)
-        self.asset_memory.append(self.end_total_asset)#交易后总资产(不考虑手续费交易前后不变)
+        self.asset_memory.append(self.end_total_asset)#交易后总资产(已扣除手续费)
         self.rewards_memory.append(self.reward)
         
         info_dict = {}
@@ -310,7 +310,7 @@ class StockTradingEnv(gym.Env):
             if len(returns) > 1 and np.std(returns) != 0:
                 sharpe = np.sqrt(252) * np.mean(returns) / np.std(returns)
 
-            self.reward = 0.0
+            # self.reward = 0.0
             # self.reward = tot_return_ratio + (tot_return_ratio - market_value_growth_ratio)
             # self.reward /= (self.day - self.start_day + 1)
             # self.reward *= self.reward_scaling
