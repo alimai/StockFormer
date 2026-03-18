@@ -247,8 +247,11 @@ class StockTradingEnv(gym.Env):
         today_shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
         today_total_asset = self.env_info[0] + np.sum(today_prices * today_shares)#收盘价计算当日总资产
 
-        actions = actions * 1.1 - 0.05#actions.astype(int) 
-        actions = np.clip(actions, 0, 1)           
+        actions = actions * 1.1 - 0.05#actions.astype(int)
+        # adjust_ratio = np.sum(actions) * self.ratio_max
+        # if adjust_ratio > 1.0:
+        #     actions /= adjust_ratio
+        actions = np.clip(actions, 0, 1)
         actions = np.round(actions, 2)#保留两位小数，避免过度交易
         target_pos = actions * today_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
         target_pos = target_pos / (today_prices + 1e-8) # 转换为数量，避免除零

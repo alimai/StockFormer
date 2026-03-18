@@ -60,6 +60,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             # nn.LayerNorm(self.atten_dim)
         )
 
+        # 【新增】可学习的位置编码 - 用于增强时间序列的区分能力
+        # self.position_embedding = nn.Parameter(torch.randn(1, 1, hidden_out) * 0.02)
+
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-2)
         
     def forward(self, relational_feature, temporal_feature_short, temporal_feature_long, additional_feature, mask=None):
@@ -74,6 +77,9 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         else:
             base_feature = relational_feature
             minor_feature = temporal_feature_long
+
+        # 【新增】添加可学习位置编码，增强时间序列区分能力
+        # base_feature = base_feature + self.position_embedding
 
         base_feature_fused = torch.cat([base_feature, add_feature], dim=-1) #temporal_feature_short#relational_feature
         base_feature_input = self.dropout1(self.projection_input(base_feature_fused))
