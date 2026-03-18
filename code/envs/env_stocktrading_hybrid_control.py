@@ -293,9 +293,9 @@ class StockTradingEnv(gym.Env):
         self.holding_ratio_memory.append(actions)
         
         info_dict = {}
-        if self.terminal:           
-            tot_reward = (self.end_total_asset - self.initial_amount)
-            tot_reward_ratio = tot_reward / self.initial_amount
+        if self.terminal:
+            tot_return = (self.end_total_asset - self.initial_amount)
+            tot_return_ratio = tot_return / self.initial_amount
 
             # 计算市场增长基准 (Numpy 快速切片)
             start_prices = self.prices_all[self.start_day]
@@ -310,7 +310,7 @@ class StockTradingEnv(gym.Env):
                 sharpe = np.sqrt(252) * np.mean(returns) / np.std(returns)
 
             self.reward = 0.0
-            # self.reward = tot_reward_ratio + (tot_reward_ratio - market_value_growth_ratio)
+            # self.reward = tot_return_ratio + (tot_return_ratio - market_value_growth_ratio)
             # self.reward /= (self.day - self.start_day + 1)
             # self.reward *= self.reward_scaling
 
@@ -320,7 +320,7 @@ class StockTradingEnv(gym.Env):
                 print(f"begin_total_asset: {self.asset_memory[0]:0.2f}")
                 print(f"end_total_asset: {self.end_total_asset:0.2f}")
                 print(f"total_trades: {self.trades}")
-                print(f"total_reward: {tot_reward:0.2f}")
+                print(f"total_return: {tot_return:0.2f}")
                 print(f"total_cost: {self.cost:0.2f}")
                 print(f"Sharpe: {sharpe:0.3f}")
                 print("=================================")
@@ -331,8 +331,8 @@ class StockTradingEnv(gym.Env):
 
             # 在 info 中返回 memory 数据
             info_dict = {
-                'reward_ratio': tot_reward_ratio,
-                'reward_step': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
+                'total_reward': np.sum(self.rewards_memory) if self.rewards_memory else 0.0,
+                'return_ratio': tot_return_ratio,
                 'sharpe': sharpe,
                 #用于测试时输出数据
                 'assets_memory': df_total_value if self.mode == 'test' else None,

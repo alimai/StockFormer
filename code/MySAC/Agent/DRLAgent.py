@@ -51,10 +51,10 @@ class FinancialMetricsCallback(BaseCallback):
         if infos is not None and len(infos) > 0 and "episode" in infos[0]:
             info = infos[0]
             # 记录到 TensorBoard
-            if "reward_ratio" in info:
-                self.logger.record("finance/reward_ratio", info["reward_ratio"])
-            if "reward_step" in info:
-                self.logger.record("finance/reward_step", info["reward_step"])
+            if "return_ratio" in info:
+                self.logger.record("finance/return_ratio", info["return_ratio"])
+            if "total_reward" in info:
+                self.logger.record("finance/total_reward", info["total_reward"])
             if "sharpe" in info:
                 self.logger.record("finance/sharpe_ratio", info["sharpe"])
         return True
@@ -210,12 +210,12 @@ class FinancialEvalCallback(EvalCallback):
                 
                 # 计算并记录新增的金融指标
                 if eval_info_list:
-                    reward_ratios = [info.get('reward_ratio', 0) for info in eval_info_list if 'reward_ratio' in info]
+                    return_ratios = [info.get('return_ratio', 0) for info in eval_info_list if 'return_ratio' in info]
                     sharpe_ratios = [info.get('sharpe', 0) for info in eval_info_list if 'sharpe' in info]
                     
-                    if reward_ratios:
-                        avg_reward_ratio = np.mean(reward_ratios)
-                        self.logger.record("eval/reward_ratio", avg_reward_ratio)
+                    if return_ratios:
+                        avg_return_ratio = np.mean(return_ratios)
+                        self.logger.record("eval/return_ratio", avg_return_ratio)
                         
                     if sharpe_ratios:
                         avg_sharpe_ratio = np.mean(sharpe_ratios)

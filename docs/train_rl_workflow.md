@@ -82,7 +82,7 @@ env_train_vm = VecMonitor(env_train, log_path_train)
 
 ### 4.1 FinancialEvalCallback (继承自 EvalCallback)
 - **触发频率**: `check_freq` (步数)。
-- **职责**: 在评估环境中手动运行 `n_eval_episodes`，收集并记录 `reward_ratio` 和 `sharpe_ratio` 等金融指标到 TensorBoard。
+- **职责**: 在评估环境中手动运行 `n_eval_episodes`，收集并记录 `return_ratio` 和 `sharpe_ratio` 等金融指标到 TensorBoard。
 
 ### 4.2 CombinedCallback
 - **职责**: 
