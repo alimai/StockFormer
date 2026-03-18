@@ -137,12 +137,12 @@ class StockTradingEnv(gym.Env):
         self.trades = 0
         self.episode = 0
         # memorize all the total balance change
-        self.asset_memory = [self.initial_amount]
-        self.rewards_memory = [0.0]
-        self.trade_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
-        self.holdings_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
-        self.holding_ratio_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
-        self.date_memory = [self._get_date()]
+        self.asset_memory = []
+        self.rewards_memory = []
+        self.holdings_memory = []
+        self.trade_memory = []
+        self.holding_ratio_memory = []
+        self.date_memory = []
 
         # self.reset()
         self._seed()
@@ -240,24 +240,23 @@ class StockTradingEnv(gym.Env):
             self.terminal = self.day >= self.max_day
 
         # 正常交易逻辑步进
-        zero_day_prices = self.env_info[1 : 1 + self.stock_dim]
-        first_day_prices = self._get_future_price(days_ahead=1)
+        today_prices = self.env_info[1 : 1 + self.stock_dim]
+        next_day_prices = self._get_future_price(days_ahead=1)
         fifth_day_prices = self._get_future_price(days_ahead=5)
 
-        shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
-        begin_total_asset = self.env_info[0] + np.sum(zero_day_prices * shares)
+        today_shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
+        today_total_asset = self.env_info[0] + np.sum(today_prices * today_shares)#收盘价计算当日总资产
 
         actions = actions * 1.1 - 0.05#actions.astype(int) 
         actions = np.clip(actions, 0, 1)           
         actions = np.round(actions, 2)#保留两位小数，避免过度交易
-        target_pos = actions * begin_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
-        target_pos = target_pos / (zero_day_prices + 1e-8) # 转换为数量，避免除零
-        trade_num = target_pos - shares#此处才是actions
-
-        argsort_actions = np.argsort(trade_num)
-        
+        target_pos = actions * today_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
+        target_pos = target_pos / (today_prices + 1e-8) # 转换为数量，避免除零
+        trade_num = target_pos - today_shares#此处才是actions
+    
         sell_num = (trade_num < 0).sum()
-        buy_num = (trade_num > 0).sum()            
+        buy_num = (trade_num > 0).sum()      
+        argsort_actions = np.argsort(trade_num)          
         sell_index = argsort_actions[:sell_num]
         buy_index = argsort_actions[::-1][:buy_num]
 
@@ -268,12 +267,13 @@ class StockTradingEnv(gym.Env):
             trade_num[index] = self._buy_stock(index, trade_num[index])
 
         # 更新后计算
-        self.end_total_asset = self.env_info[0] + np.sum(first_day_prices * shares)
+        new_shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
+        self.end_total_asset = self.env_info[0] + np.sum(today_prices * new_shares)
 
-        avg_prices = first_day_prices * 0.3 + fifth_day_prices * 0.7
-        asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * shares)
-        reward_absolut = asset_for_reward_new / begin_total_asset - 1.0
-        market_value_growth_ratio = np.sum(avg_prices) / np.sum(zero_day_prices) - 1.0
+        avg_prices = next_day_prices * 0.3 + fifth_day_prices * 0.7
+        asset_for_reward_new = self.env_info[0] + np.sum(avg_prices * new_shares)
+        reward_absolut = asset_for_reward_new / self.end_total_asset - 1.0
+        market_value_growth_ratio = np.sum(avg_prices) / np.sum(today_prices) - 1.0
         reward_relative = (reward_absolut - market_value_growth_ratio)
 
         reward_absolut *= self.reward_scaling
@@ -285,12 +285,13 @@ class StockTradingEnv(gym.Env):
         self.reward = reward_absolut + reward_relative * 1.5
         self.reward = np.sign(self.reward) * np.log1p(np.abs(self.reward))
         
-        self.trade_memory.append(trade_num)
-        self.asset_memory.append(self.end_total_asset)
+        #将交易看作是收盘后/开盘前发生,计入当日数据
         self.date_memory.append(self._get_date())
+        self.trade_memory.append(trade_num)#交易数量
+        self.holdings_memory.append(new_shares.copy())#交易后持仓数量
+        self.holding_ratio_memory.append(actions)#目标仓位(考虑资金限制后实际持仓可能达不到目标仓位)
+        self.asset_memory.append(self.end_total_asset)#交易后总资产(不考虑手续费交易前后不变)
         self.rewards_memory.append(self.reward)
-        self.holdings_memory.append(shares.copy())
-        self.holding_ratio_memory.append(actions)
         
         info_dict = {}
         if self.terminal:
@@ -380,12 +381,12 @@ class StockTradingEnv(gym.Env):
         self.turbulence = 0
         self.cost = 0
         self.trades = 0
-        self.asset_memory = [self.initial_amount]
-        self.rewards_memory = [0.0]
-        self.trade_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
-        self.holdings_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
-        self.holding_ratio_memory = [np.zeros(self.stock_dim, dtype=np.float32)]
-        self.date_memory = [self._get_date()]
+        self.asset_memory = []
+        self.rewards_memory = []
+        self.holdings_memory = []
+        self.trade_memory = []
+        self.holding_ratio_memory = []
+        self.date_memory = []
 
         print("=================================")
         print(self.mode, f"reset...")
