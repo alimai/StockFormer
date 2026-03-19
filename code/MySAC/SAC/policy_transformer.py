@@ -47,17 +47,17 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
         self.projection_input = nn.Sequential(
             nn.Linear(hidden_out + self.add_dim, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            # nn.LayerNorm(self.atten_dim)
+            nn.LayerNorm(self.atten_dim)
         )
         self.projection_input2 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()
-            # nn.LayerNorm(self.atten_dim)
+            nn.LayerNorm(self.atten_dim)
         )
         self.projection_input3 = nn.Sequential(
             nn.Linear(hidden_out, self.atten_dim),
             # nn.GELU(),#nn.Sigmoid()#
-            # nn.LayerNorm(self.atten_dim)
+            nn.LayerNorm(self.atten_dim)
         )
 
         # 【新增】可学习的位置编码 - 用于增强时间序列的区分能力
