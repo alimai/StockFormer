@@ -379,7 +379,15 @@ class SAC(SAC_SB3):
 
                 # 【P0 数值安全监控】检查 Transformer 输出是否含有 NaN
                 if th.isnan(combined_policy_embed).any():
-                    print(f"警告：检测到 policy_embed 含有 NaN！跳过第 {gradient_step} 步更新。")
+                    print(f"警告：检测到 combined_policy_embed 含有 NaN！跳过第 {gradient_step} 步更新。")
+                    if th.isnan(combined_policy_input).any():
+                        print(f"警告：检测到 combined_policy_input 含有 NaN！跳过第 {gradient_step} 步更新。")
+                    if th.isnan(combined_temporal_short).any():
+                        print(f"警告：检测到 combined_temporal_short 含有 NaN！跳过第 {gradient_step} 步更新。")
+                    if th.isnan(combined_temporal_long).any():
+                        print(f"警告：检测到 combined_temporal_long 含有 NaN！跳过第 {gradient_step} 步更新。")
+                    if th.isnan(combined_additional_input).any():
+                        print(f"警告：检测到 combined_additional_input 含有 NaN！跳过第 {gradient_step} 步更新。")
                     continue
 
                 policy_embed, next_policy_embed = th.chunk(combined_policy_embed, 2, dim=0)
