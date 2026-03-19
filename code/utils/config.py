@@ -25,6 +25,7 @@ struct_type = _args.struct_type
 scale_ratio = _args.scale_ratio
 fix_seed = _args.seed
 #struct_base_flag = _args.struct_base_flag.lower() in ('true', '1', 'yes', 't')
+ratio_max = 0.1
 
 def set_seed(seed=fix_seed):
     """统一设置所有随机种子"""

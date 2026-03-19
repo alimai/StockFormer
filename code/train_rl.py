@@ -80,7 +80,7 @@ if __name__ == '__main__':
         "mode":'train',
         "model_name":model_name,#'StockFormer'
         "version_name": version_name,#'CSI_2',
-        "ratio_max": 0.1,#单股占比
+        "ratio_max": config.ratio_max,#单股占比
         "initial_amount": 100000,
         "transaction_cost_pct": 0,
         "reward_scaling": 100,

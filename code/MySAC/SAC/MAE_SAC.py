@@ -21,7 +21,8 @@ from stable_baselines3.sac.policies import SACPolicy
 from Transformer.models.transformer import Transformer_base as Transformer
 from utils.metrics import ranking_loss
 from MySAC.SAC.policy_transformer import policy_transformer_stock_atten2 as policy_transformer_attn2
-#import pdb
+
+from utils import config
 
 
 from stable_baselines3 import SAC as SAC_SB3
@@ -487,11 +488,12 @@ class SAC(SAC_SB3):
             # log_prob 是 Agent 采取当前动作的概率对数。因为概率小于 1，所以 log_prob 是负数.
             # min_qf_pi 是双 Critic 网络对当前动作预估的Q值.
             # th.sum(actions, dim=-1)是对所有股票分配比例的总和（即总仓位）的惩罚项.
-            alpha = 0.0#100
+            alpha = 10.0#0
             # actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
             # actor_loss = th.clamp(actor_loss, min=-5000, max=5000)
             # 【增强】强制转为 float32 计算，并增加“阶梯式”软截断保护，防止策略因极端 Q 值产生爆炸性梯度
-            raw_actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
+            #raw_actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.abs(th.mean(th.sum(replay_data.actions, dim=-1))-1)
+            raw_actor_loss = (ent_coef * log_prob - min_qf_pi).mean() + alpha * th.mean(th.sum(replay_data.actions, dim=-1)*config.ratio_max)**2
             log_ratio = 100.0
             actor_loss = th.sign(raw_actor_loss) * th.log1p(th.abs(raw_actor_loss) * log_ratio)
             actor_losses.append(actor_loss.item())
