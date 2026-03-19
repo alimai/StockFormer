@@ -266,10 +266,8 @@ class StockTradingEnv(gym.Env):
         for index in sell_index:
             trade_num[index] = self._sell_stock(index, trade_num[index])
 
-        #for index in buy_index:
-        for index in range(len(trade_num)):
-            if index in buy_index:
-                trade_num[index] = self._buy_stock(index, trade_num[index])
+        for index in buy_index:
+            trade_num[index] = self._buy_stock(index, trade_num[index])
 
         # 更新后计算
         new_shares = self.env_info[1 + self.stock_dim : 1 + 2 * self.stock_dim]
