@@ -40,8 +40,8 @@ class policy_transformer_stock_atten2(nn.Module): # attention(long, short), atte
             self.dropout1 = nn.Dropout(dropout*0.0)
             self.dropout2 = nn.Dropout(dropout*1.5)
         else:
-            self.dropout1 = nn.Dropout(dropout*0.0)
-            self.dropout2 = nn.Dropout(dropout*0.0)
+            self.dropout1 = nn.Dropout(dropout*1.0)
+            self.dropout2 = nn.Dropout(dropout*1.0)
 
         # 特征融合后投影回 hidden_out
         self.projection_input = nn.Sequential(
