@@ -395,5 +395,6 @@ class DRLAgent:
         assets_memory = final_info.get('assets_memory')#pd.DataFrame(episode_total_assets)---没有日期索引
         trades_memory = final_info.get('trades_memory')
         holdings_memory = final_info.get('holdings_memory')
+        returns_memory = final_info.get('returns_memory')
 
-        return assets_memory, trades_memory, holdings_memory
+        return assets_memory, trades_memory, holdings_memory, returns_memory

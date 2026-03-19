@@ -141,6 +141,7 @@ class StockTradingEnv(gym.Env):
         self.rewards_memory = []
         self.holdings_memory = []
         self.trade_memory = []
+        self.returns_memory = []
         self.holding_ratio_memory = []
         self.date_memory = []
 
@@ -218,14 +219,14 @@ class StockTradingEnv(gym.Env):
     def _make_csv(self):
         df_total_value = self.convert_asset_memory()
         df_total_value.to_csv(self.csv_path+"/assets_{}_{}.csv".format(self.mode, self.episode), index=False)
-        df_rewards = pd.DataFrame(self.rewards_memory, columns=["rewards"])
-        df_rewards.to_csv(self.csv_path+"/rewards_{}_{}.csv".format(self.mode, self.episode), index=False)
+        df_returns = self.convert_return_memory()
+        df_returns.to_csv(self.csv_path+"/returns_{}_{}.csv".format(self.mode, self.episode), index=False)
         
         df_trades = self.convert_trade_memory()
         df_trades.to_csv(self.csv_path+"/trades_{}_{}.csv".format(self.mode, self.episode), index=False)
         df_holding_ratio = self.convert_holding_ratio_amount()
         df_holding_ratio.to_csv(self.csv_path+"/holding_ratio_{}_{}.csv".format(self.mode, self.episode), index=False)
-        return df_total_value, df_rewards, df_trades, df_holding_ratio
+        return df_total_value, df_returns, df_trades, df_holding_ratio
 
 
     def _get_future_price(self, days_ahead=5):
@@ -255,7 +256,7 @@ class StockTradingEnv(gym.Env):
         actions = np.round(actions, 2)#保留两位小数，避免过度交易
         target_pos = actions * today_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
         target_pos = target_pos / (today_prices + 1e-8) # 转换为数量，避免除零
-        trade_num = target_pos - today_shares#此处才是actions
+        trade_num = int(target_pos - today_shares)#此处才是actions
     
         sell_num = (trade_num < 0).sum()
         buy_num = (trade_num > 0).sum()      
@@ -294,7 +295,8 @@ class StockTradingEnv(gym.Env):
         self.holdings_memory.append(new_shares.copy())#交易后持仓数量
         self.holding_ratio_memory.append(actions)#目标仓位(考虑资金限制后实际持仓可能达不到目标仓位)
         self.asset_memory.append(self.end_total_asset)#交易后总资产(已扣除手续费)
-        self.rewards_memory.append(self.reward)
+        self.rewards_memory.append(self.reward)        
+        self.returns_memory.append(next_day_prices * new_shares)#操作后收益(类reward)计入当日数据
         
         info_dict = {}
         if self.terminal:
@@ -331,7 +333,7 @@ class StockTradingEnv(gym.Env):
 
             if self.make_plots and self.model_name != "" and self.mode != "train":
                 self._make_plot()# just asset_memory by now
-                df_total_value, df_rewards, df_trades, df_holding_ratio = self._make_csv()
+                df_total_value, df_returns, df_trades, df_holding_ratio = self._make_csv()
 
             # 在 info 中返回 memory 数据
             info_dict = {
@@ -340,7 +342,7 @@ class StockTradingEnv(gym.Env):
                 'sharpe': sharpe,
                 #用于测试时输出数据
                 'assets_memory': df_total_value if self.mode == 'test' else None,
-                'rewards_memory': df_rewards if self.mode == 'test' else None,
+                'returns_memory': df_returns if self.mode == 'test' else None,
                 'trades_memory': df_trades if self.mode == 'test' else None,
                 'holdings_memory': df_holding_ratio if self.mode == 'test' else None,
             }
@@ -388,6 +390,7 @@ class StockTradingEnv(gym.Env):
         self.rewards_memory = []
         self.holdings_memory = []
         self.trade_memory = []
+        self.returns_memory = []
         self.holding_ratio_memory = []
         self.date_memory = []
 
@@ -522,6 +525,18 @@ class StockTradingEnv(gym.Env):
         df_trades.columns = self.tic
         df_trades.index = df_date.date
         return df_trades
+
+    def convert_return_memory(self):
+        # date and close price length must match actions length
+        date_list = self.date_memory
+        df_date = pd.DataFrame(date_list)
+        df_date.columns = ["date"]
+
+        returns_list = self.returns_memory
+        df_returns = pd.DataFrame(returns_list)
+        df_returns.columns = self.tic
+        df_returns.index = df_date.date
+        return df_returns
 
     def convert_additional_info(self):
         # temp_dict = {"short_hidden_feature":self.short_hidden_feature, "long_hidden_feature": self.long_hidden_feature}
