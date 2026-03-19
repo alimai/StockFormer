@@ -195,9 +195,9 @@ if __name__ == '__main__':
         #   - 更新后的 MAE 模型（state_transformer）---对应原 mae/checkpoint.pth
         #   - SAC 策略 actor 网络和价值 critic 网络 ---全连接层
         #   - 其他 Transformer 组件（actor_transformer, critic_transformer）
-        trained_sac.save(final_model_path)
-        print(f"最终训练模型已保存到：{final_model_path}")
-        trained_sac.save_replay_buffer(buffer_path_out, max_save=max_load)
+        # trained_sac.save(final_model_path)
+        # print(f"最终训练模型已保存到：{final_model_path}")
+        # trained_sac.save_replay_buffer(buffer_path_out, max_save=max_load)
         
         # ===== [内存清理] 释放训练占用的空间，防止测试时 OOM =====
         # 1. 关闭训练环境
