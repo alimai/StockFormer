@@ -256,7 +256,8 @@ class StockTradingEnv(gym.Env):
         actions = np.round(actions, 2)#保留两位小数，避免过度交易
         target_pos = actions * today_total_asset * self.ratio_max # 将目标仓位缩放到总资产的10%，避免过度交易
         target_pos = target_pos / (today_prices + 1e-8) # 转换为数量，避免除零
-        trade_num = int(target_pos - today_shares)#此处才是actions
+        trade_num = target_pos - today_shares#此处才是真正的actions
+        trade_num = trade_num.astype(int)
     
         sell_num = (trade_num < 0).sum()
         buy_num = (trade_num > 0).sum()      
